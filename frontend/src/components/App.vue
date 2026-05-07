@@ -9,10 +9,10 @@
 <script setup>
 import { ref, onMounted, h, createApp } from 'vue'
 import SearchDialog from './SearchDialog.vue'
-import ExtListView  from './ExtListView.vue'
+import ExtListView from './ExtListView.vue'
 import { getLucideIcon } from '../lucideIcons.js'
 
-const showSearch  = ref(false)
+const showSearch = ref(false)
 const sidebarItems = ref([])
 
 // ── SPA navigation helper ───────────────────────────────────────────────────
@@ -27,15 +27,23 @@ function onNavigate(route) {
 }
 
 // ── Generic fetch helper ────────────────────────────────────────────────────
-function csrf() { return window.csrf_token || window.boot?.csrf_token || '' }
+function csrf() {
+  return window.csrf_token || window.boot?.csrf_token || ''
+}
 
 function apiGet(method) {
   return fetch(`/api/method/${method}`, {
     method: 'POST',
     credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': csrf(), Accept: 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Frappe-CSRF-Token': csrf(),
+      Accept: 'application/json',
+    },
     body: JSON.stringify({}),
-  }).then(r => r.json()).then(d => d.message)
+  })
+    .then((r) => r.json())
+    .then((d) => d.message)
 }
 
 // ── Load sidebar items from Python hook ─────────────────────────────────────
@@ -45,7 +53,9 @@ async function loadSidebarItems() {
     sidebarItems.value = Array.isArray(items) ? items : []
     injectFCRMRoute()
     injectCustomSidebarBtns()
-  } catch { /* silent */ }
+  } catch {
+    /* silent */
+  }
 }
 
 // ── Shim component injected into FCRM's router ──────────────────────────────
@@ -61,21 +71,37 @@ async function loadSidebarItems() {
 // __v_isVNode), so our h() output renders fine inside FCRM's Vue renderer.
 const _extShim = {
   name: 'CrmXtListView',
-  render() { return h('div', { style: 'height:100%;overflow:hidden;' }) },
-  mounted()  { this._mountApp(this.$route?.params?.doctype || '') },
-  beforeUnmount() { this._app?.unmount(); this._app = null },
-  beforeRouteUpdate(to) { this._mountApp(to.params?.doctype || '') },
+  render() {
+    return h('div', { style: 'height:100%;overflow:hidden;' })
+  },
+  mounted() {
+    this._mountApp(this.$route?.params?.doctype || '')
+  },
+  beforeUnmount() {
+    this._app?.unmount()
+    this._app = null
+  },
+  beforeRouteUpdate(to) {
+    this._mountApp(to.params?.doctype || '')
+  },
   methods: {
     _mountApp(doctype) {
-      if (this._app) { this._app.unmount(); this._app = null }
+      if (this._app) {
+        this._app.unmount()
+        this._app = null
+      }
       if (!doctype) return
       // Look up any hook config for this doctype from loaded sidebar items
-      const itemCfg = sidebarItems.value.find(i => i.doctype === doctype) || {}
+      const itemCfg =
+        sidebarItems.value.find((i) => i.doctype === doctype) || {}
       this._app = createApp(ExtListView, {
         doctype,
-        defaultFilters: itemCfg.default_filters  || {},
-        fields:         itemCfg.fields            || [],
-        defaultSort:    itemCfg.default_sort      || {},
+        defaultFilters: itemCfg.default_filters || {},
+        hiddenFilters: itemCfg.hidden_filters || {},
+        fields: itemCfg.fields || [],
+        defaultSort: itemCfg.default_sort || {},
+        searchField: itemCfg.search_field || '',
+        rowUrl: itemCfg.row_url || '',
       })
       this._app.mount(this.$el)
     },
@@ -88,18 +114,23 @@ const _extShim = {
 let _routeAttempts = 0
 function injectFCRMRoute() {
   if (_routeAttempts++ > 30) return
-  const router = document.querySelector('#app')?.__vue_app__?.config?.globalProperties?.$router
-  if (!router) { setTimeout(injectFCRMRoute, 200); return }
+  const router =
+    document.querySelector('#app')?.__vue_app__?.config?.globalProperties
+      ?.$router
+  if (!router) {
+    setTimeout(injectFCRMRoute, 200)
+    return
+  }
 
   const routes = router.getRoutes()
-  if (routes.some(r => r.path === '/xt/list/:doctype')) return
+  if (routes.some((r) => r.path === '/xt/list/:doctype')) return
 
   try {
     router.addRoute({ path: '/xt/list/:doctype', component: _extShim })
     // If the page loaded directly on one of our routes, the router already
     // resolved to a 404/redirect before we registered the route.  Re-push
     // the current location so the newly-added route can match.
-    const loc = window.location.pathname          // e.g. /crm/xt/list/CRM%20Lead
+    const loc = window.location.pathname // e.g. /crm/xt/list/CRM%20Lead
     const base = '/crm'
     const routerPath = loc.startsWith(base) ? loc.slice(base.length) : loc
     if (/^\/xt\/list\//i.test(routerPath)) {
@@ -119,7 +150,9 @@ function lucideIconInner(name) {
   if (_svgInnerCache[name]) return _svgInnerCache[name]
   const raw = getLucideIcon(name)
   // Extract everything between the first > and last </svg>
-  const inner = raw.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '')
+  const inner = raw
+    .replace(/^[\s\S]*?<svg[^>]*>/, '')
+    .replace(/<\/svg>\s*$/, '')
   _svgInnerCache[name] = inner
   return inner
 }
@@ -129,8 +162,9 @@ function injectCustomSidebarBtns() {
   if (!sidebarItems.value.length) return
 
   // Find "Call Logs" as the anchor
-  const callLogsSpan = Array.from(document.querySelectorAll('span'))
-    .find(s => s.textContent.trim() === 'Call Logs' && s.closest('button'))
+  const callLogsSpan = Array.from(document.querySelectorAll('span')).find(
+    (s) => s.textContent.trim() === 'Call Logs' && s.closest('button'),
+  )
   const callLogsBtn = callLogsSpan?.closest('button')
   if (!callLogsBtn) return
 
@@ -186,18 +220,23 @@ function injectCustomSidebarBtns() {
 function injectSidebarBtn() {
   if (document.getElementById('crm-xt-search-btn')) return
 
-  const notifBtn = document.getElementById('notifications-btn')
-    || Array.from(document.querySelectorAll('button'))
-        .find(b => b.querySelector('span')?.textContent?.trim() === 'Notifications')
+  const notifBtn =
+    document.getElementById('notifications-btn') ||
+    Array.from(document.querySelectorAll('button')).find(
+      (b) => b.querySelector('span')?.textContent?.trim() === 'Notifications',
+    )
   const container = notifBtn?.closest('div.flex.flex-col')
   if (!container) return
 
-  const isMac  = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent)
+  const isMac = /Mac|iPhone|iPad/i.test(
+    navigator.platform || navigator.userAgent,
+  )
   const modKey = isMac ? '⌘' : 'Ctrl'
 
   const btn = document.createElement('button')
-  btn.id        = 'crm-xt-search-btn'
-  btn.className = 'flex h-7.5 cursor-pointer items-center rounded text-ink-gray-8 duration-300 ease-in-out focus:outline-none focus:transition-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-outline-gray-3 hover:bg-surface-gray-2 relative mx-2 my-[1.5px]'
+  btn.id = 'crm-xt-search-btn'
+  btn.className =
+    'flex h-7.5 cursor-pointer items-center rounded text-ink-gray-8 duration-300 ease-in-out focus:outline-none focus:transition-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-outline-gray-3 hover:bg-surface-gray-2 relative mx-2 my-[1.5px]'
   btn.setAttribute('aria-label', 'Search')
   btn.innerHTML = `
     <div class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
@@ -215,7 +254,9 @@ function injectSidebarBtn() {
       </span>
     </div>
   `
-  btn.addEventListener('click', () => { showSearch.value = true })
+  btn.addEventListener('click', () => {
+    showSearch.value = true
+  })
   container.insertBefore(btn, notifBtn.nextSibling)
 }
 
@@ -231,18 +272,24 @@ onMounted(() => {
 
   // Global API
   window.crmXt = {
-    openSearch:  () => { showSearch.value = true  },
-    closeSearch: () => { showSearch.value = false },
+    openSearch: () => {
+      showSearch.value = true
+    },
+    closeSearch: () => {
+      showSearch.value = false
+    },
   }
 
   injectSidebarBtn()
-  loadSidebarItems()  // fetches items → injects custom buttons + FCRM route
+  loadSidebarItems() // fetches items → injects custom buttons + FCRM route
 
   // Re-inject on navigation (FCRM rebuilds sidebar on route changes)
-  window.addEventListener('popstate', () => setTimeout(() => {
-    injectSidebarBtn()
-    injectCustomSidebarBtns()
-  }, 120))
+  window.addEventListener('popstate', () =>
+    setTimeout(() => {
+      injectSidebarBtn()
+      injectCustomSidebarBtns()
+    }, 120),
+  )
 
   // MutationObserver: re-inject if FCRM Vue router rebuilds the sidebar
   const obs = new MutationObserver(() => {

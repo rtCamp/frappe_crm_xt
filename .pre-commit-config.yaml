@@ -1,0 +1,69 @@
+exclude: "node_modules|.git"
+default_stages: [pre-commit]
+fail_fast: false
+
+repos:
+    - repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v5.0.0
+      hooks:
+          - id: trailing-whitespace
+            files: "frappe_crm_xt.*"
+            exclude: ".*json$|.*txt$|.*csv|.*md|.*svg"
+          - id: no-commit-to-branch
+            args: ["--branch", "main"]
+          - id: check-merge-conflict
+          - id: check-ast
+          - id: check-json
+          - id: check-toml
+          - id: check-yaml
+          - id: debug-statements
+
+    - repo: https://github.com/oxc-project/mirrors-oxlint
+      rev: v1.50.0
+      hooks:
+          - id: oxlint
+            files: ^frontend/.*\.(js|ts|vue)$
+
+    - repo: https://github.com/pre-commit/mirrors-prettier
+      rev: v3.1.0
+      hooks:
+          - id: prettier
+            files: ^frontend/.*\.(js|ts|vue|css|scss|html|json)$
+            additional_dependencies:
+                - prettier@3.2.5
+            exclude: |
+                (?x)^(
+                    frappe_crm_xt/public/.*|
+                    .*node_modules.*|
+                )$
+
+    - repo: local
+      hooks:
+          - id: eslint
+            name: eslint
+            entry: bash -c 'cd frontend && eslint --fix src'
+            language: node
+            files: ^frontend/.*\.(js|ts|vue)$
+            pass_filenames: false
+            additional_dependencies:
+                - "eslint@^9.17.0"
+                - "@eslint/js@^9.17.0"
+                - "typescript-eslint@^8.19.0"
+                - "eslint-plugin-vue@^9.32.0"
+                - "eslint-config-prettier@^9.1.0"
+                - "globals@^15.14.0"
+                - "vue-eslint-parser@^9.4.3"
+
+    - repo: https://github.com/astral-sh/ruff-pre-commit
+      rev: v0.8.1
+      hooks:
+          - id: ruff
+            name: "Run ruff linter and apply fixes"
+            args: ["--fix"]
+          - id: ruff-format
+            name: "Run ruff formatter"
+
+ci:
+    autoupdate_schedule: weekly
+    skip: []
+    submodules: false

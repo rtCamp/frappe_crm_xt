@@ -3,24 +3,43 @@
     <div
       v-if="show"
       class="fixed inset-0 overflow-y-auto outline-none"
-      style="z-index:9999; background:rgba(0,0,0,.28); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px); pointer-events:auto;"
+      style="
+        z-index: 9999;
+        background: rgba(0, 0, 0, 0.28);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        pointer-events: auto;
+      "
       @mousedown.self="close"
     >
-      <div class="flex min-h-screen flex-col items-center px-4 py-4 text-center pt-[20vh]" @mousedown.self="close">
+      <div
+        class="flex min-h-screen flex-col items-center px-4 py-4 text-center pt-[20vh]"
+        @mousedown.self="close"
+      >
         <div
           class="my-8 inline-block w-full transform overflow-hidden rounded-xl bg-surface-modal text-left align-middle shadow-xl focus-visible:outline-none max-w-xl"
           role="dialog"
           aria-label="CRM Search"
-          style="pointer-events:auto;"
+          style="pointer-events: auto"
         >
           <!-- ── Input ── -->
           <div class="flex items-center">
             <div class="relative flex items-center ml-4 pr-4 py-3 w-full">
-              <div class="absolute inset-y-0 left-0 flex items-center text-ink-gray-8 pl-3">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
-                  stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                  class="shrink-0 h-4">
-                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <div
+                class="absolute inset-y-0 left-0 flex items-center text-ink-gray-8 pl-3"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  class="shrink-0 h-4"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
                 </svg>
               </div>
               <input
@@ -36,7 +55,7 @@
             </div>
           </div>
 
-          <hr>
+          <hr />
 
           <!-- ── Results ── -->
           <div class="p-4 max-h-96 overflow-y-auto">
@@ -45,35 +64,56 @@
                 v-for="(result, i) in results"
                 :key="result.doctype + '::' + result.name"
                 class="py-2 px-2 cursor-pointer rounded"
-                :class="activeIdx === i ? 'bg-surface-gray-2' : 'hover:bg-surface-gray-2'"
+                :class="
+                  activeIdx === i
+                    ? 'bg-surface-gray-2'
+                    : 'hover:bg-surface-gray-2'
+                "
                 @click="selectResult(result)"
                 @mouseenter="activeIdx = i"
               >
                 <div class="text-base text-ink-gray-8">
-                  {{ dtLabel(result.doctype) }} : {{ result.title || result.name }}
+                  {{ dtLabel(result.doctype) }} :
+                  {{ result.title || result.name }}
                 </div>
-                <div class="text-sm text-ink-gray-5" v-html="result.excerpt"></div>
+                <!-- eslint-disable-next-line vue/no-v-html -- server-sanitised excerpt with <mark> highlights -->
+                <div
+                  class="text-sm text-ink-gray-5"
+                  v-html="result.excerpt"
+                ></div>
               </li>
             </ul>
 
-            <div v-else-if="query.length > 0 && !loading" class="text-sm text-ink-gray-5 text-center py-4">
-              No results for <strong class="text-ink-gray-8">{{ query }}</strong>
+            <div
+              v-else-if="query.length > 0 && !loading"
+              class="text-sm text-ink-gray-5 text-center py-4"
+            >
+              No results for
+              <strong class="text-ink-gray-8">{{ query }}</strong>
             </div>
-            <div v-else-if="loading" class="text-sm text-ink-gray-5 text-center py-4">
+            <div
+              v-else-if="loading"
+              class="text-sm text-ink-gray-5 text-center py-4"
+            >
               Searching…
             </div>
             <div v-else class="py-4">
-              <p class="text-xs text-ink-gray-4 text-center">Type to search leads, deals, contacts…</p>
+              <p class="text-xs text-ink-gray-4 text-center">
+                Type to search leads, deals, contacts…
+              </p>
             </div>
           </div>
 
-          <hr>
+          <hr />
 
           <!-- ── Footer ── -->
           <div class="flex items-center justify-between px-4 h-12">
             <div>
               <p v-if="results.length" class="text-xs text-ink-gray-5">
-                <b>{{ results.length }}</b> result{{ results.length === 1 ? '' : 's' }} found
+                <b>{{ results.length }}</b> result{{
+                  results.length === 1 ? '' : 's'
+                }}
+                found
               </p>
             </div>
             <div class="flex justify-center">
@@ -86,7 +126,6 @@
               </button>
             </div>
           </div>
-
         </div>
       </div>
     </div>
@@ -102,29 +141,31 @@ const props = defineProps({
 const emit = defineEmits(['close', 'navigate'])
 
 // ── State ──────────────────────────────────────────────────────────────────
-const query     = ref('')
-const results   = ref([])
-const loading   = ref(false)
-const hasMore   = ref(false)
+const query = ref('')
+const results = ref([])
+const loading = ref(false)
+const hasMore = ref(false)
 const activeIdx = ref(0)
-const inputRef  = ref(null)
+const inputRef = ref(null)
 
-let offset        = 0
+let offset = 0
 let debounceTimer = null
-let inflight      = null
+let inflight = null
 
 // ── Route map (handles both native FCRM and bridge doctype names) ───────────
 const ROUTES = {
-  'CRM Lead':         (n) => ({ path: `/crm/leads/${encodeURIComponent(n)}` }),
-  'Lead':             (n) => ({ path: `/crm/leads/${encodeURIComponent(n)}` }),
-  'CRM Deal':         (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
-  'Opportunity':      (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
-  'Contact':          (n) => ({ path: `/crm/contacts/${encodeURIComponent(n)}` }),
-  'CRM Organization': (n) => ({ path: `/crm/organizations/${encodeURIComponent(n)}` }),
-  'FCRM Note':        ()  => ({ path: '/crm/notes/view/list' }),
-  'CRM Task':         ()  => ({ path: '/crm/tasks/view/list' }),
-  'CRM Call Log':     ()  => ({ path: '/crm/call-logs/view/list' }),
-  'Event':            null,
+  'CRM Lead': (n) => ({ path: `/crm/leads/${encodeURIComponent(n)}` }),
+  Lead: (n) => ({ path: `/crm/leads/${encodeURIComponent(n)}` }),
+  'CRM Deal': (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
+  Opportunity: (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
+  Contact: (n) => ({ path: `/crm/contacts/${encodeURIComponent(n)}` }),
+  'CRM Organization': (n) => ({
+    path: `/crm/organizations/${encodeURIComponent(n)}`,
+  }),
+  'FCRM Note': () => ({ path: '/crm/notes/view/list' }),
+  'CRM Task': () => ({ path: '/crm/tasks/view/list' }),
+  'CRM Call Log': () => ({ path: '/crm/call-logs/view/list' }),
+  Event: null,
 }
 
 function routeFor(doctype, name) {
@@ -134,39 +175,66 @@ function routeFor(doctype, name) {
 
 // ── Doctype labels ───────────────────────────────────────────────────────────
 const DT_LABELS = {
-  'CRM Lead':         'Lead',
-  'Lead':             'Lead',
-  'CRM Deal':         'Deal',
-  'Opportunity':      'Deal',
-  'Contact':          'Contact',
+  'CRM Lead': 'Lead',
+  Lead: 'Lead',
+  'CRM Deal': 'Deal',
+  Opportunity: 'Deal',
+  Contact: 'Contact',
   'CRM Organization': 'Org',
-  'FCRM Note':        'Note',
-  'CRM Task':         'Task',
-  'Event':            'Calendar',
-  'CRM Call Log':     'Call',
+  'FCRM Note': 'Note',
+  'CRM Task': 'Task',
+  Event: 'Calendar',
+  'CRM Call Log': 'Call',
 }
 
-function dtLabel(dt) { return DT_LABELS[dt] || 'Record' }
+function dtLabel(dt) {
+  return DT_LABELS[dt] || 'Record'
+}
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────
-watch(() => props.show, (val) => {
-  if (val) {
-    query.value     = ''
-    results.value   = []
-    hasMore.value   = false
-    activeIdx.value = 0
-    nextTick(() => inputRef.value?.focus())
-  }
-})
+watch(
+  () => props.show,
+  (val) => {
+    if (val) {
+      query.value = ''
+      results.value = []
+      hasMore.value = false
+      activeIdx.value = 0
+      nextTick(() => inputRef.value?.focus())
+    }
+  },
+)
 
-function close() { emit('close') }
+function close() {
+  emit('close')
+}
 
 // ── Keyboard ────────────────────────────────────────────────────────────────
 function handleKeyDown(e) {
-  if (e.key === 'Escape')    { e.preventDefault(); close(); return }
-  if (e.key === 'Enter')     { e.preventDefault(); results.value[activeIdx.value] ? selectResult(results.value[activeIdx.value]) : (query.value && doSearch(false)); return }
-  if (e.key === 'ArrowDown') { e.preventDefault(); activeIdx.value = Math.min(activeIdx.value + 1, results.value.length - 1); return }
-  if (e.key === 'ArrowUp')   { e.preventDefault(); activeIdx.value = Math.max(activeIdx.value - 1, 0); return }
+  if (e.key === 'Escape') {
+    e.preventDefault()
+    close()
+    return
+  }
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    if (results.value[activeIdx.value]) {
+      selectResult(results.value[activeIdx.value])
+    } else if (query.value) {
+      doSearch(false)
+    }
+    return
+  }
+  if (e.key === 'ArrowDown') {
+    e.preventDefault()
+    activeIdx.value = Math.min(activeIdx.value + 1, results.value.length - 1)
+    return
+  }
+  if (e.key === 'ArrowUp') {
+    e.preventDefault()
+    activeIdx.value = Math.max(activeIdx.value - 1, 0)
+    return
+  }
 }
 
 function onInput() {
@@ -174,7 +242,9 @@ function onInput() {
   debounceTimer = setTimeout(() => doSearch(false), 250)
 }
 
-function loadMore() { doSearch(true) }
+function loadMore() {
+  doSearch(true)
+}
 
 // ── Search ──────────────────────────────────────────────────────────────────
 function getCsrfToken() {
@@ -182,9 +252,16 @@ function getCsrfToken() {
 }
 
 function doSearch(append) {
-  if (!query.value) { results.value = []; hasMore.value = false; return }
+  if (!query.value) {
+    results.value = []
+    hasMore.value = false
+    return
+  }
   if (!append) offset = 0
-  if (inflight) { inflight.abort(); inflight = null }
+  if (inflight) {
+    inflight.abort()
+    inflight = null
+  }
 
   loading.value = true
   const ctrl = new AbortController()
@@ -197,7 +274,7 @@ function doSearch(append) {
     headers: {
       'Content-Type': 'application/json',
       'X-Frappe-CSRF-Token': getCsrfToken(),
-      'Accept': 'application/json',
+      Accept: 'application/json',
     },
     body: JSON.stringify({ text: query.value, start: offset, limit: 10 }),
   })
@@ -206,15 +283,25 @@ function doSearch(append) {
       if (ctrl.signal.aborted) return
       // frappe_search returns message = [resultsArray, hasMoreBool]
       // fallback returns the same shape
-      const raw  = data?.message
-      const list = Array.isArray(raw) ? (Array.isArray(raw[0]) ? raw[0] : raw) : []
-      hasMore.value   = !!(Array.isArray(raw) && raw[1])
-      results.value   = append ? [...results.value, ...mapResults(list)] : mapResults(list)
+      const raw = data?.message
+      const list = Array.isArray(raw)
+        ? Array.isArray(raw[0])
+          ? raw[0]
+          : raw
+        : []
+      hasMore.value = !!(Array.isArray(raw) && raw[1])
+      results.value = append
+        ? [...results.value, ...mapResults(list)]
+        : mapResults(list)
       activeIdx.value = 0
       offset += 10
     })
-    .catch((err) => { if (err.name !== 'AbortError') results.value = [] })
-    .finally(() => { loading.value = false })
+    .catch((err) => {
+      if (err.name !== 'AbortError') results.value = []
+    })
+    .finally(() => {
+      loading.value = false
+    })
 }
 
 // ── Result mapping ───────────────────────────────────────────────────────────
@@ -222,7 +309,8 @@ function mapResults(list) {
   const seen = new Set()
   return list
     .map((r) => {
-      const title  = r.title || extractTitle(r.content || r.marked_string || '') || r.name
+      const title =
+        r.title || extractTitle(r.content || r.marked_string || '') || r.name
       const excerpt = r.marked_string || r.content || ''
       return { title, excerpt, doctype: r.doctype, name: r.name }
     })
@@ -257,6 +345,10 @@ function selectResult(result) {
   const route = routeFor(result.doctype, result.name)
   close()
   if (route) emit('navigate', route)
-  else window.open(`/app/${(result.doctype || '').toLowerCase().replace(/\s+/g, '-')}/${encodeURIComponent(result.name)}`, '_blank')
+  else
+    window.open(
+      `/app/${(result.doctype || '').toLowerCase().replace(/\s+/g, '-')}/${encodeURIComponent(result.name)}`,
+      '_blank',
+    )
 }
 </script>

@@ -3,7 +3,7 @@ app_title = "Frappe CRM XT"
 app_publisher = "rtcamp"
 app_description = "FCRM extensions: frappe_search bar and extensible sidebar list views."
 app_email = "support@rtcamp.com"
-app_license = "mit"
+app_license = "agpl-3"
 
 required_apps = ["crm"]
 
@@ -18,8 +18,8 @@ required_apps = ["crm"]
 #       Sidebar display label, e.g. "Purchase Orders"
 #
 #   type           (str, required)  "list_view" | "route"
-#       "list_view" – opens /xt/list/<doctype> with the built-in list view.
-#       "route"     – navigates to an arbitrary URL (internal or external).
+#       "list_view" - opens /xt/list/<doctype> with the built-in list view.
+#       "route"     - navigates to an arbitrary URL (internal or external).
 #
 #   doctype        (str)  Required when type == "list_view".
 #       Frappe DocType name, e.g. "Purchase Order"
@@ -35,9 +35,17 @@ required_apps = ["crm"]
 #         building, building-2, list, external-link, link, layout-grid
 #
 #   default_filters (dict, optional)
-#       Filters pre-applied when the list view opens.
+#       Filters pre-applied when the list view opens AND shown in the filter UI.
+#       Users can see and remove these filters.
 #       Format: { "fieldname": ["operator", "value"], ... }
 #       Example: { "status": ["=", "Open"], "priority": ["=", "High"] }
+#
+#   hidden_filters (dict, optional)
+#       Filters always applied to every query but NEVER shown in the filter UI.
+#       Users cannot see or remove these filters — useful for scoping a view to
+#       a specific subset without cluttering the filter panel.
+#       Format: { "fieldname": ["operator", "value"], ... }
+#       Example: { "is_standard": ["=", "Yes"], "module": ["=", "CRM"] }
 #
 #   fields          (list[str], optional)
 #       Ordered list of fieldnames to display as columns.
@@ -50,6 +58,24 @@ required_apps = ["crm"]
 #       Keys: "field" (fieldname str) and "dir" ("asc" | "desc").
 #       Example: { "field": "creation", "dir": "desc" }
 #
+#   row_url         (str, optional)
+#       URL template opened when a row is clicked.
+#       Use {name} as a placeholder for the record name (URL-encoded automatically).
+#       Defaults to /app/{doctype-slug}/{name}  (standard Frappe form view).
+#       Example: "/desk/query-report/{name}"  →  opens the ERPNext report runner
+#
+#   search_field    (str, optional)
+#       Fieldname used for the always-visible quick-search input in the toolbar.
+#       Defaults to the doctype's title field (usually "name").
+#       The input component is chosen automatically based on the field's type:
+#         Data / Small Text / Text  → text input  (uses "like %value%" filter)
+#         Select / Check            → dropdown    (uses "=" filter)
+#         Link                      → autocomplete (uses "=" filter, loads options
+#                                      from the linked doctype)
+#         Date / Datetime           → date picker  (uses "=" filter)
+#         Int / Float / Currency    → text input   (uses "=" filter)
+#       Example: "supplier"  (shows supplier autocomplete in the toolbar)
+#
 # ─── Example ──────────────────────────────────────────────────────────────────
 #
 # crm_sidebar = [
@@ -59,6 +85,7 @@ required_apps = ["crm"]
 #         "doctype": "Purchase Order",
 #         "icon": "shopping-cart",   # any name from lucide.dev/icons
 #         "default_filters": {"status": ["=", "To Receive and Bill"]},
+#         "hidden_filters":  {"company": ["=", "My Company"]},   # always applied, not shown
 #         "fields": ["supplier", "transaction_date", "status", "grand_total"],
 #         "default_sort": {"field": "transaction_date", "dir": "desc"},
 #     },
@@ -70,11 +97,11 @@ required_apps = ["crm"]
 #     },
 # ]
 #
-crm_sidebar = [
-    {
-        "label": "CRM Leads",
-        "type": "list_view",
-        "doctype": "CRM Lead",
-        "icon": "users",
-    },
-]
+# crm_sidebar = [
+# {
+# "label": "CRM Leads",
+# "type": "list_view",
+# "doctype": "CRM Lead",
+# "icon": "users",
+# },
+# ]
