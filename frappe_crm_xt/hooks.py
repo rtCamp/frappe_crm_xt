@@ -10,6 +10,15 @@ required_apps = ["crm"]
 # Optional: install frappe_search to enable the Cmd/Ctrl+K global search bar.
 # Optional: install frappe_gmail_thread for gmail-thread activity entries.
 
+# ─── API overrides ────────────────────────────────────────────────────────────
+#
+# Intercept FCRM's get_activities so we can append frappe_gmail_thread entries.
+# frappe_crm_xt must be listed after crm in apps.txt for the override to win.
+#
+override_whitelisted_methods = {
+	"crm.api.activities.get_activities": "frappe_crm_xt.api.activity.get_activities",
+}
+
 # ─── CRM Sidebar hook ─────────────────────────────────────────────────────────
 #
 # Any installed Frappe app can define this hook to inject items into the FCRM
