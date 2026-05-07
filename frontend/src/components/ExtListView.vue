@@ -114,7 +114,7 @@
           </template>
         </ListHeaderItem>
       </ListHeader>
-      <ListRows />
+      <ListRows class="mx-3 sm:mx-5" />
       <ListEmptyState v-if="!loading && !rows.length" />
     </ListView>
 
