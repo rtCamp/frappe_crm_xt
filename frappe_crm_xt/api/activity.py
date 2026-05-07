@@ -19,11 +19,18 @@ def get_activities(name: str):
 	from crm.api.activities import get_activities as _upstream
 
 	activities, calls, notes, tasks, attachments = _upstream(name)
+	activities = list(activities)
 
 	if "frappe_gmail_thread" in frappe.get_installed_apps():
 		from frappe_gmail_thread.api.activity import get_linked_gmail_threads
 
-		doctype = "Lead" if frappe.db.exists("CRM Lead", name) else "Deal"
+		if frappe.db.exists("CRM Lead", name):
+			doctype = "CRM Lead"
+			is_lead = True
+		else:
+			doctype = "CRM Deal"
+			is_lead = False
+
 		threads = get_linked_gmail_threads(doctype, name)
 
 		for thread in threads:
@@ -46,7 +53,7 @@ def get_activities(name: str):
 						"read_by_recipient": doc["read_by_recipient"],
 						"delivery_status": doc["delivery_status"],
 					},
-					"is_lead": doctype == "Lead",
+					"is_lead": is_lead,
 				}
 			)
 
