@@ -2,26 +2,43 @@
 from __future__ import annotations
 import frappe
 
+# Keys forwarded from each hook item to the frontend.
+# All are optional except label and type.
+_ALLOWED_KEYS = {
+    "label", "type", "doctype", "url", "icon",
+    # list-view customisation
+    "default_filters",  # dict  { fieldname: [operator, value] }
+    "fields",           # list  [fieldname, ...]  – column order override
+    "default_sort",     # dict  { field: str, dir: "asc"|"desc" }
+}
+
 
 @frappe.whitelist()
 def get_sidebar_items() -> list[dict]:
     """
     Reads the ``crm_sidebar`` hook from every installed app and returns a
-    merged flat list.
+    merged flat list.  Each item is validated and stripped to allowed keys
+    before being sent to the browser.
 
-    Each app defines in its hooks.py::
+    Supported hook schema (in any app's hooks.py)::
 
         crm_sidebar = [
-            {"label": "Purchase Orders", "type": "list_view", "doctype": "Purchase Order", "icon": "file-text"},
-            {"label": "Support",         "type": "route",     "url": "https://support.example.com"},
+            {
+                "label":           "Purchase Orders",   # required
+                "type":            "list_view",         # "list_view" | "route"
+                "doctype":         "Purchase Order",    # required for list_view
+                "icon":            "shopping-cart",     # feather icon name
+                "default_filters": {"status": ["=", "To Receive and Bill"]},
+                "fields":          ["supplier", "transaction_date", "status"],
+                "default_sort":    {"field": "transaction_date", "dir": "desc"},
+            },
+            {
+                "label": "Support",
+                "type":  "route",
+                "url":   "https://support.example.com",
+                "icon":  "external-link",
+            },
         ]
-
-    Supported item keys:
-        label   (str)  – sidebar label
-        type    (str)  – "list_view" | "route"
-        doctype (str)  – required when type == "list_view"
-        url     (str)  – required when type == "route"
-        icon    (str)  – optional Feather icon name (default "list")
     """
     items: list[dict] = []
     for app in frappe.get_installed_apps():
@@ -30,7 +47,32 @@ def get_sidebar_items() -> list[dict]:
             continue
         for entry in hook_val:
             if isinstance(entry, dict):
-                items.append(entry)
+                items.append(_sanitise(entry))
             elif isinstance(entry, (list, tuple)):
-                items.extend(e for e in entry if isinstance(e, dict))
+                items.extend(_sanitise(e) for e in entry if isinstance(e, dict))
     return items
+
+
+def _sanitise(item: dict) -> dict:
+    """Strip unknown keys and apply light validation."""
+    out = {k: v for k, v in item.items() if k in _ALLOWED_KEYS}
+    # Ensure default_filters is a plain dict
+    if "default_filters" in out and not isinstance(out["default_filters"], dict):
+        del out["default_filters"]
+    # Ensure fields is a list of strings
+    if "fields" in out:
+        if not isinstance(out["fields"], (list, tuple)):
+            del out["fields"]
+        else:
+            out["fields"] = [str(f) for f in out["fields"]]
+    # Ensure default_sort has expected shape
+    if "default_sort" in out:
+        ds = out["default_sort"]
+        if not (isinstance(ds, dict) and "field" in ds):
+            del out["default_sort"]
+        else:
+            out["default_sort"] = {
+                "field": str(ds["field"]),
+                "dir": "asc" if str(ds.get("dir", "desc")).lower() == "asc" else "desc",
+            }
+    return out

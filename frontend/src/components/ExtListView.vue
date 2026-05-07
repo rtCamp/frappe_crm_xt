@@ -20,7 +20,7 @@
     </div>
 
     <!-- ── View Controls ── matches FCRM ViewControls (no quick-filter chips) ─ -->
-    <div class="flex items-center justify-between gap-2 border-b border-outline-gray-2 px-5 py-4">
+    <div class="flex items-center justify-between gap-2 px-5 py-4">
       <!-- Left: empty flex spacer (quick filter chips area, unused here) -->
       <div class="flex flex-1 items-center overflow-x-auto -ml-1 h-9" />
 
@@ -138,7 +138,13 @@ import {
 } from 'frappe-ui'
 import ListFilterLocal from './ListFilterLocal.vue'
 
-const props = defineProps({ doctype: { type: String, required: true } })
+const props = defineProps({
+  doctype:        { type: String,  required: true },
+  // Optional hook overrides from crm_sidebar
+  defaultFilters: { type: Object,  default: () => ({}) },  // { fieldname: [op, val] }
+  fields:         { type: Array,   default: () => [] },     // ordered fieldname list for columns
+  defaultSort:    { type: Object,  default: () => ({}) },   // { field, dir } e.g. {field:'status',dir:'asc'}
+})
 
 // ── State ─────────────────────────────────────────────────────────────────────
 const rows        = ref([])
@@ -198,43 +204,48 @@ const SYSTEM_SKIP  = new Set(['name','owner','creation','modified','modified_by'
 async function loadMeta() {
   try {
     const meta   = await call('frappe.client.get', { doctype: 'DocType', name: props.doctype })
-    const fields = meta?.fields || []
+    const metaFields = meta?.fields || []
 
     // Expose all filterable fields to ListFilter
-    docfields.value = fields.filter(f =>
+    docfields.value = metaFields.filter(f =>
       !f.hidden && (ALLOWED.has(f.fieldtype) || ['Date','Datetime','Link','Select'].includes(f.fieldtype))
     )
 
-    const titleKey = meta?.title_field || 'name'
-    const titleMeta = fields.find(f => f.fieldname === titleKey)
+    const fieldMap  = Object.fromEntries(metaFields.map(f => [f.fieldname, f]))
+    const titleKey  = meta?.title_field || 'name'
+    const titleMeta = fieldMap[titleKey]
 
-    // Primary column
-    const primary = {
-      label: titleMeta?.label || 'Name',
-      key: titleKey,
-      width: 2,
-    }
+    // Primary column (always first)
+    const primary = { label: titleMeta?.label || 'Name', key: titleKey, width: 2 }
 
-    // In-list-view fields (up to 4, skip primary & system)
-    let listFields = fields.filter(f =>
-      f.in_list_view && !f.hidden && ALLOWED.has(f.fieldtype) &&
-      f.fieldname !== titleKey && !SYSTEM_SKIP.has(f.fieldname)
-    ).slice(0, 4)
-
-    // Fallback if sparse
-    if (listFields.length < 2) {
-      const already = new Set([titleKey, ...listFields.map(f => f.fieldname)])
-      const extra = fields.filter(f =>
-        !f.hidden && ALLOWED.has(f.fieldtype) &&
-        !SYSTEM_SKIP.has(f.fieldname) && !already.has(f.fieldname)
-      ).slice(0, 4 - listFields.length)
-      listFields = [...listFields, ...extra]
-    }
-
-    // Modified always last
+    // Modified column (always last)
     const modifiedCol = {
       label: 'Modified', key: 'modified', width: 1,
       getLabel: ({ row }) => timeAgo(row.modified),
+    }
+
+    let listFields
+    if (props.fields.length) {
+      // ── Hook override: use the explicit fieldname list ─────────────────────
+      listFields = props.fields
+        .filter(fn => fn !== titleKey && fn !== 'modified' && fieldMap[fn])
+        .map(fn => fieldMap[fn])
+    } else {
+      // ── Auto-detect: in_list_view fields (up to 4, skip primary & system) ─
+      listFields = metaFields.filter(f =>
+        f.in_list_view && !f.hidden && ALLOWED.has(f.fieldtype) &&
+        f.fieldname !== titleKey && !SYSTEM_SKIP.has(f.fieldname)
+      ).slice(0, 4)
+
+      // Fallback if sparse
+      if (listFields.length < 2) {
+        const already = new Set([titleKey, ...listFields.map(f => f.fieldname)])
+        const extra = metaFields.filter(f =>
+          !f.hidden && ALLOWED.has(f.fieldtype) &&
+          !SYSTEM_SKIP.has(f.fieldname) && !already.has(f.fieldname)
+        ).slice(0, 4 - listFields.length)
+        listFields = [...listFields, ...extra]
+      }
     }
 
     allColumns.value = [
@@ -352,9 +363,10 @@ watch(
     offset = 0
     rows.value = []
     allColumns.value = []
-    activeFilters.value = {}
-    sortField.value = 'modified'
-    sortDir.value = 'desc'
+    // Apply hook-provided defaults (fall back to sane defaults if not set)
+    activeFilters.value = { ...props.defaultFilters }
+    sortField.value = props.defaultSort?.field || 'modified'
+    sortDir.value   = props.defaultSort?.dir   || 'desc'
     await loadMeta()
     await loadRows(false)
   },
