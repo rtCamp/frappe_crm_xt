@@ -27,11 +27,12 @@ required_apps = ["crm"]
 #   url            (str)  Required when type == "route".
 #       Destination URL, e.g. "/app/purchase-order" or "https://example.com"
 #
-#   icon           (str, optional)  Feather icon name (default: "list")
-#       Supported names (any Feather icon name works):
-#         users, user, briefcase, file-text, package, shopping-cart, tag,
-#         inbox, phone, calendar, check-square, dollar-sign, trending-up,
-#         activity, star, settings, grid, building, list, external-link, link
+#   icon           (str, optional)  Lucide icon name (default: "list")
+#       Any of the 1600+ Lucide icon names work — see https://lucide.dev/icons/
+#       Common examples: users, user, briefcase, file-text, package,
+#         shopping-cart, tag, inbox, phone, calendar, square-check,
+#         dollar-sign, trending-up, activity, star, settings, grid-2x2,
+#         building, building-2, list, external-link, link, layout-grid
 #
 #   default_filters (dict, optional)
 #       Filters pre-applied when the list view opens.
@@ -56,7 +57,7 @@ required_apps = ["crm"]
 #         "label": "Purchase Orders",
 #         "type": "list_view",
 #         "doctype": "Purchase Order",
-#         "icon": "shopping-cart",
+#         "icon": "shopping-cart",   # any name from lucide.dev/icons
 #         "default_filters": {"status": ["=", "To Receive and Bill"]},
 #         "fields": ["supplier", "transaction_date", "status", "grand_total"],
 #         "default_sort": {"field": "transaction_date", "dir": "desc"},
