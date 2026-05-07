@@ -67,12 +67,19 @@ def get_search_results(text: str, start: int = 0, limit: int = 50):
     if "frappe_search" in frappe.get_installed_apps():
         from frappe_search.api.search import get_global_search_results
 
-        return get_global_search_results(
+        raw = get_global_search_results(
             text=text,
             start=start,
             limit=limit,
             allowed_doctypes=allowed_doctypes,
         )
+        # frappe_search filters by doctype after fetching, so it can return
+        # more rows than `limit`.  Enforce our limit and propagate has_more.
+        results_list, has_more = (raw[0], raw[1]) if (isinstance(raw, (list, tuple)) and len(raw) == 2) else (raw, False)
+        if len(results_list) > limit:
+            has_more = True
+            results_list = list(results_list)[:limit]
+        return results_list, has_more
 
     # ── Fallback: frappe built-in global search ────────────────────────────────
     # Uses the __global_search table (populated via in_global_search=1 fields),

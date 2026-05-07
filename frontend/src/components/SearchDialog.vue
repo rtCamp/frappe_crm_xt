@@ -199,7 +199,7 @@ function doSearch(append) {
       'X-Frappe-CSRF-Token': getCsrfToken(),
       'Accept': 'application/json',
     },
-    body: JSON.stringify({ text: query.value, start: offset, limit: 50 }),
+    body: JSON.stringify({ text: query.value, start: offset, limit: 10 }),
   })
     .then((r) => r.json())
     .then((data) => {
@@ -211,7 +211,7 @@ function doSearch(append) {
       hasMore.value   = !!(Array.isArray(raw) && raw[1])
       results.value   = append ? [...results.value, ...mapResults(list)] : mapResults(list)
       activeIdx.value = 0
-      offset += 50
+      offset += 10
     })
     .catch((err) => { if (err.name !== 'AbortError') results.value = [] })
     .finally(() => { loading.value = false })
