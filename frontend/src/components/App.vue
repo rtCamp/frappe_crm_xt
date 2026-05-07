@@ -88,6 +88,15 @@ function injectFCRMRoute() {
 
   try {
     router.addRoute({ path: '/xt/list/:doctype', component: _extShim })
+    // If the page loaded directly on one of our routes, the router already
+    // resolved to a 404/redirect before we registered the route.  Re-push
+    // the current location so the newly-added route can match.
+    const loc = window.location.pathname          // e.g. /crm/xt/list/CRM%20Lead
+    const base = '/crm'
+    const routerPath = loc.startsWith(base) ? loc.slice(base.length) : loc
+    if (/^\/xt\/list\//i.test(routerPath)) {
+      router.replace(routerPath + window.location.search + window.location.hash)
+    }
   } catch (e) {
     console.warn('[crm-xt] route injection failed', e)
   }

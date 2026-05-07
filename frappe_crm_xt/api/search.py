@@ -1,10 +1,8 @@
 """
 Search API for frappe_crm_xt.
 
-Provides a single whitelisted endpoint that:
-  1. Determines the correct doctype list (FCRM native vs. ERPNext bridge).
-  2. Delegates to frappe_search when installed for full-text results.
-  3. Falls back to a basic frappe.get_list name-match otherwise.
+Delegates to frappe_search when installed for full-text results,
+falls back to Frappe's built-in global search, then a basic name-match.
 
 Response shape matches frappe_search:
     (results_list, has_more_bool)
@@ -17,7 +15,6 @@ from __future__ import annotations
 
 import frappe
 
-# ── Doctype lists ──────────────────────────────────────────────────────────────
 FCRM_DOCTYPES: list[str] = [
     "CRM Lead",
     "CRM Deal",
@@ -29,26 +26,6 @@ FCRM_DOCTYPES: list[str] = [
     "CRM Call Log",
 ]
 
-BRIDGE_DOCTYPES: list[str] = [
-    "Lead",
-    "Opportunity",
-    "Contact",
-    "CRM Organization",
-    "FCRM Note",
-    "CRM Task",
-    "Event",
-    "CRM Call Log",
-]
-
-
-def _search_doctypes() -> list[str]:
-    if "crm_erp_bridge" in frappe.get_installed_apps():
-        return BRIDGE_DOCTYPES
-    return FCRM_DOCTYPES
-
-
-# ── Public endpoint ────────────────────────────────────────────────────────────
-
 
 @frappe.whitelist()
 def get_search_results(text: str, start: int = 0, limit: int = 50):
@@ -57,12 +34,10 @@ def get_search_results(text: str, start: int = 0, limit: int = 50):
 
     Calls frappe_search.api.search.get_global_search_results when the app is
     installed; falls back to a simple name-match via frappe.get_list otherwise.
-
-    Custom logic (e.g. boosting, extra filters, post-processing) belongs here.
     """
     start = int(start)
     limit = int(limit)
-    allowed_doctypes = _search_doctypes()
+    allowed_doctypes = FCRM_DOCTYPES
 
     if "frappe_search" in frappe.get_installed_apps():
         from frappe_search.api.search import get_global_search_results
@@ -73,22 +48,21 @@ def get_search_results(text: str, start: int = 0, limit: int = 50):
             limit=limit,
             allowed_doctypes=allowed_doctypes,
         )
-        # frappe_search filters by doctype after fetching, so it can return
-        # more rows than `limit`.  Enforce our limit and propagate has_more.
-        results_list, has_more = (raw[0], raw[1]) if (isinstance(raw, (list, tuple)) and len(raw) == 2) else (raw, False)
+        results_list, has_more = (
+            (raw[0], raw[1])
+            if (isinstance(raw, (list, tuple)) and len(raw) == 2)
+            else (raw, False)
+        )
         if len(results_list) > limit:
             has_more = True
             results_list = list(results_list)[:limit]
         return results_list, has_more
 
     # ── Fallback: frappe built-in global search ────────────────────────────────
-    # Uses the __global_search table (populated via in_global_search=1 fields),
-    # filtered to FCRM doctypes.
     try:
         from frappe.utils.global_search import search as _frappe_global_search
 
         allowed_set = set(allowed_doctypes)
-        # Fetch more than limit so filtering by doctype leaves enough results
         raw = _frappe_global_search(text, start=start, page_length=limit * 3) or []
         results: list[dict] = []
         for r in raw:

@@ -30,8 +30,6 @@ def _inject_feature_flags(context):
     installed = frappe.get_installed_apps()
     features = {
         "frappe_search": "frappe_search" in installed,
-        "bridge": "crm_erp_bridge" in installed,
-        "gmail_thread": "frappe_gmail_thread" in installed,
     }
     # Inject as a window global — will be picked up by crm_xt_app.js
     # via window.crm_xt_features before the Vue app mounts.
