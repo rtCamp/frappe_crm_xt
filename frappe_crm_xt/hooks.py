@@ -7,6 +7,9 @@ app_license = "agpl-3"
 
 required_apps = ["crm"]
 
+# Optional: install frappe_search to enable the Cmd/Ctrl+K global search bar.
+# Optional: install frappe_gmail_thread for gmail-thread activity entries.
+
 # ─── CRM Sidebar hook ─────────────────────────────────────────────────────────
 #
 # Any installed Frappe app can define this hook to inject items into the FCRM
