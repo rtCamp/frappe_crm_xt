@@ -97,11 +97,16 @@ required_apps = ["crm"]
 #     },
 # ]
 #
-# crm_sidebar = [
-# {
-# "label": "CRM Leads",
-# "type": "list_view",
-# "doctype": "CRM Lead",
-# "icon": "users",
-# },
-# ]
+crm_sidebar = [
+	{
+		"label": "Reports",
+		"type": "list_view",
+		"doctype": "Report",
+		"icon": "chart-bar",
+		# Show the same columns as ERPNext's report list
+		"fields": ["ref_doctype", "is_standard", "report_type"],
+		"default_sort": {"field": "modified", "dir": "desc"},
+		# Open the ERPNext report runner instead of the Report form
+		"row_url": "/desk/query-report/{name}",
+	},
+]
