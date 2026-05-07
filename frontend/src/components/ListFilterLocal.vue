@@ -21,7 +21,7 @@
         </template>
         <template v-if="filters.length" #suffix>
           <div
-            class="flex h-5 w-5 items-center justify-center rounded bg-surface-gray-7 pt-[1px] text-2xs font-medium text-ink-white"
+            class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-surface-white pt-px text-xs font-medium text-ink-gray-8 shadow-sm"
           >
             {{ filters.length }}
           </div>
@@ -29,13 +29,13 @@
       </Button>
     </template>
     <template #body="{ close }">
-      <div class="my-2 rounded-lg border border-gray-100 bg-surface-white shadow-xl">
-        <div class="min-w-[400px] p-2">
+      <div class="my-2 min-w-40 rounded-lg bg-surface-modal shadow-2xl ring-1 ring-black ring-opacity-5 focus:outline-none">
+        <div class="min-w-72 p-2 sm:min-w-[400px]">
           <!-- Active filters -->
           <div
             v-for="(filter, i) in filters"
             :key="i"
-            class="mb-3 flex items-center justify-between gap-2"
+            class="mb-3 sm:mb-3 flex items-center justify-between gap-2"
           >
             <div class="flex flex-1 items-center gap-2">
               <div class="w-13 flex-shrink-0 pl-2 text-end text-base text-ink-gray-5">
@@ -45,7 +45,7 @@
                 <Autocomplete
                   :value="filter.fieldname"
                   :options="fields"
-                  @change="filter.fieldname = $event.value"
+                  @change="(opt) => updateFilter(i, { fieldname: opt.value, field: getField(opt.value), operator: getDefaultOperator(getField(opt.value).fieldtype), value: getDefaultValue(getField(opt.value)) })"
                   placeholder="Filter by..."
                 />
               </div>
@@ -53,7 +53,7 @@
                 <FormControl
                   type="select"
                   :modelValue="filter.operator"
-                  @update:modelValue="filter.operator = $event.value || $event"
+                  @update:modelValue="(v) => updateFilter(i, { operator: v?.value ?? v })"
                   :options="getOperators(filter.field?.fieldtype)"
                   placeholder="Operator"
                 />
@@ -61,7 +61,8 @@
               <div class="min-w-[140px] flex-1">
                 <component
                   :is="getValueSelector(filter.field?.fieldtype, filter.field?.options)"
-                  v-model="filter.value"
+                  :modelValue="filter.value"
+                  @update:modelValue="(v) => updateFilter(i, { value: v })"
                   placeholder="Value"
                 />
               </div>
@@ -83,9 +84,13 @@
               placeholder="Filter by..."
             >
               <template #target="{ togglePopover }">
-                <Button class="!text-ink-gray-5" variant="ghost" @click="togglePopover()" label="Add filter">
-                  <template #prefix><FeatherIcon name="plus" class="h-4" /></template>
-                </Button>
+                <Button
+                  class="!text-ink-gray-5"
+                  variant="ghost"
+                  label="Add Filter"
+                  icon-left="plus"
+                  @click="togglePopover()"
+                />
               </template>
             </Autocomplete>
             <div class="flex gap-2">
@@ -100,7 +105,7 @@
                 v-if="filters.length"
                 class="!text-ink-gray-5"
                 variant="ghost"
-                label="Clear all"
+                label="Clear All Filters"
                 @click="clearFilters()"
               />
             </div>
@@ -199,6 +204,11 @@ function getDefaultValue(field) {
   if (typeSelect.includes(field.fieldtype)) return (field.options || '').split('\n')[0] || ''
   if (typeCheck.includes(field.fieldtype)) return 'Yes'
   return ''
+}
+
+function updateFilter(index, changes) {
+  const newList = filters.value.map((f, i) => i === index ? { ...f, ...changes } : f)
+  emits('update:modelValue', makeFiltersDict(newList))
 }
 
 function addFilter(fieldname) {

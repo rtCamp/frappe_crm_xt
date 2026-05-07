@@ -1,17 +1,36 @@
 <template>
   <div class="flex h-full flex-col overflow-hidden bg-surface-white">
 
-    <!-- ── Header ── breadcrumb + refresh + new ──────────────────────────── -->
-    <div class="flex h-[52px] shrink-0 items-center justify-between border-b border-outline-gray-2 px-5">
-      <div class="flex items-center">
-        <span class="px-0.5 py-1 text-lg font-medium text-ink-gray-5">
-          {{ doctype }}
-        </span>
-        <span class="mx-0.5 text-base text-ink-gray-4">/</span>
-        <span class="px-0.5 py-1 text-lg font-medium text-ink-gray-9">List</span>
-      </div>
+    <!-- ── Header ── matches FCRM AppHeader + LayoutHeader ─────────────────── -->
+    <div class="flex border-b pr-5">
+      <header class="flex h-10.5 flex-1 items-center justify-between py-[7px] sm:pl-5 pl-2">
+        <!-- Left: breadcrumb -->
+        <div class="flex items-center gap-2">
+          <span class="px-0.5 py-1 text-lg font-medium text-ink-gray-5">
+            {{ doctype }}
+          </span>
+          <span class="mx-0.5 text-base text-ink-gray-4" aria-hidden="true">/</span>
+          <span class="px-0.5 py-1 text-lg font-medium text-ink-gray-7">List</span>
+        </div>
+        <!-- Right: actions -->
+        <div class="flex items-center gap-2">
+          <Button variant="solid" icon-left="plus" label="New" @click="openNew" />
+        </div>
+      </header>
+    </div>
+
+    <!-- ── View Controls ── matches FCRM ViewControls (no quick-filter chips) ─ -->
+    <div class="flex items-center justify-between gap-2 border-b border-outline-gray-2 px-5 py-4">
+      <!-- Left: empty flex spacer (quick filter chips area, unused here) -->
+      <div class="flex flex-1 items-center overflow-x-auto -ml-1 h-9" />
+
+      <!-- Divider -->
+      <div class="-ml-2 h-[70%] border-l border-outline-gray-2" />
+
+      <!-- Right: Refresh · Filter · Sort · Columns -->
       <div class="flex items-center gap-2">
-        <Button variant="ghost" :loading="loading" @click="reload">
+        <!-- Refresh -->
+        <Button :loading="loading" @click="reload">
           <template #icon>
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/>
@@ -19,22 +38,17 @@
             </svg>
           </template>
         </Button>
-        <Button variant="solid" icon-left="plus" label="New" @click="openNew" />
-      </div>
-    </div>
 
-    <!-- ── View Controls ── filter / sort / columns ──────────────────────── -->
-    <div class="flex items-center justify-between gap-2 border-b border-outline-gray-2 px-5 py-2">
-      <div class="flex items-center gap-2">
         <!-- Filter -->
         <ListFilterLocal
           v-model="activeFilters"
           :docfields="docfields"
           @update:modelValue="onFilterChange"
         />
+
         <!-- Sort -->
         <Dropdown :options="sortDropdownOptions">
-          <Button variant="ghost">
+          <Button>
             <template #prefix>
               <FeatherIcon
                 :name="sortDir === 'asc' ? 'arrow-up' : 'arrow-down'"
@@ -42,20 +56,20 @@
               />
             </template>
             <span>Sort</span>
-            <span
-              v-if="sortField !== 'modified'"
-              class="ml-1 text-xs text-ink-gray-5"
-            >
-              {{ columnLabel(sortField) }}
-            </span>
+            <template v-if="sortField !== 'modified'" #suffix>
+              <span class="text-xs text-ink-gray-5">{{ columnLabel(sortField) }}</span>
+            </template>
           </Button>
         </Dropdown>
+
         <!-- Columns -->
         <Dropdown :options="columnDropdownOptions">
-          <Button variant="ghost">
+          <Button>
             <template #prefix>
+              <!-- columns icon -->
               <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/>
+                <rect x="3" y="3" width="18" height="18" rx="2"/>
+                <line x1="9" y1="3" x2="9" y2="21"/>
                 <line x1="15" y1="3" x2="15" y2="21"/>
               </svg>
             </template>
@@ -65,7 +79,7 @@
       </div>
     </div>
 
-    <!-- ── ListView ──────────────────────────────────────────────────────── -->
+    <!-- ── ListView ──────────────────────────────────────────────────────────── -->
     <ListView
       class="flex-1 overflow-hidden"
       :columns="visibleColumns"
@@ -104,7 +118,7 @@
       <ListEmptyState v-if="!loading && !rows.length" />
     </ListView>
 
-    <!-- ── Footer ────────────────────────────────────────────────────────── -->
+    <!-- ── Footer ────────────────────────────────────────────────────────────── -->
     <div class="shrink-0 border-t border-outline-gray-2 px-5 py-2">
       <ListFooter
         v-model="pageLength"
