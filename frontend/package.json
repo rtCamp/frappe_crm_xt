@@ -8,6 +8,7 @@
     "dev": "vite build --watch"
   },
   "dependencies": {
+    "frappe-ui": "^0.1.261",
     "vue": "^3.5.22"
   },
   "devDependencies": {
