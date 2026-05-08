@@ -168,15 +168,21 @@ override_whitelisted_methods = {
 # ]
 #
 crm_sidebar = [
+	{"type": "separator"},
 	{
-		"label": "Reports",
-		"type": "list_view",
-		"doctype": "Report",
-		"icon": "chart-bar",
-		# Show the same columns as ERPNext's report list
-		"fields": ["ref_doctype", "is_standard", "report_type"],
-		"default_sort": {"field": "modified", "dir": "desc"},
-		# Open the ERPNext report runner instead of the Report form
-		"row_url": "/desk/query-report/{name}",
+		"label": "Frappe CRM XT",
+		"type": "group",
+		"icon": "layout-grid",
+		"items": [
+			{
+				"label": "Reports",
+				"type": "list_view",
+				"doctype": "Report",
+				"icon": "chart-bar",
+				"fields": ["ref_doctype", "is_standard", "report_type"],
+				"default_sort": {"field": "modified", "dir": "desc"},
+				"row_url": "/desk/query-report/{name}",
+			},
+		],
 	},
 ]
