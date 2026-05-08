@@ -168,6 +168,87 @@ function lucideIconInner(name) {
   return inner
 }
 
+// ── Sidebar collapse sync ────────────────────────────────────────────────────
+// Walk up from the Call Logs button to find the sidebar root div that switches
+// between w-12 (collapsed) and w-[220px] (expanded).
+let _sidebarEl = null
+
+function _findSidebarEl() {
+  if (_sidebarEl) return _sidebarEl
+  const span = Array.from(document.querySelectorAll('span')).find(
+    (s) => s.textContent.trim() === 'Call Logs',
+  )
+  if (!span) return null
+  let el = span.parentElement
+  while (el) {
+    if (
+      el.classList.contains('transition-all') &&
+      el.classList.contains('duration-300')
+    ) {
+      _sidebarEl = el
+      return el
+    }
+    el = el.parentElement
+  }
+  return null
+}
+
+function _isSidebarCollapsed() {
+  return _findSidebarEl()?.classList.contains('w-12') ?? false
+}
+
+// Apply or remove collapsed styles to all our custom injected elements.
+function _syncCollapse() {
+  const collapsed = _isSidebarCollapsed()
+
+  // Inner padding divs
+  document.querySelectorAll('[data-xt-inner]').forEach((d) => {
+    if (collapsed) {
+      d.classList.remove('px-2', 'py-[7px]')
+      d.classList.add('ml-[3px]', 'p-1')
+    } else {
+      d.classList.remove('ml-[3px]', 'p-1')
+      d.classList.add('px-2', 'py-[7px]')
+    }
+  })
+
+  // Label spans
+  document.querySelectorAll('[data-xt-label]').forEach((s) => {
+    if (collapsed) {
+      s.classList.remove('ml-2', 'w-auto', 'opacity-100')
+      s.classList.add('ml-0', 'w-0', 'overflow-hidden', 'opacity-0')
+    } else {
+      s.classList.remove('ml-0', 'w-0', 'overflow-hidden', 'opacity-0')
+      s.classList.add('ml-2', 'w-auto', 'opacity-100')
+    }
+  })
+
+  // Group chevrons and ⌘K badge — hide in collapsed mode
+  document.querySelectorAll('[data-xt-hide-collapsed]').forEach((el) => {
+    el.style.display = collapsed ? 'none' : ''
+  })
+
+  // Separators — hide in collapsed mode (no visual purpose for icon-only rail)
+  document.querySelectorAll('[data-xt-sep]').forEach((el) => {
+    el.style.display = collapsed ? 'none' : ''
+  })
+
+  // Group children — force-close when sidebar collapses
+  document.querySelectorAll('[data-xt-children]').forEach((el) => {
+    if (collapsed) el.style.display = 'none'
+  })
+}
+
+function _setupCollapseObserver() {
+  const sidebar = _findSidebarEl()
+  if (!sidebar) return
+  new MutationObserver(_syncCollapse).observe(sidebar, {
+    attributes: true,
+    attributeFilter: ['class'],
+  })
+  _syncCollapse()
+}
+
 // ── Build a sidebar nav button (shared by top-level and group children) ──────
 function _makeSidebarBtn(item, callLogsBtn) {
   const btn = document.createElement('button')
@@ -176,15 +257,16 @@ function _makeSidebarBtn(item, callLogsBtn) {
   const isRoute = item.type === 'route'
   const icon = item.icon || (isRoute ? 'external-link' : 'list')
   btn.innerHTML = `
-    <div class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
+    <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
       <div class="flex items-center truncate">
         <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
           stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
           class="flex items-center size-4 text-ink-gray-8">
           ${lucideIconInner(icon)}
         </svg>
-        <span class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
-          data-state="closed">${item.label}</span>
+        <span data-xt-label
+          class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
+        >${item.label}</span>
       </div>
     </div>
   `
@@ -225,6 +307,7 @@ function injectCustomSidebarBtns() {
       }
       const hr = document.createElement('hr')
       hr.id = id
+      hr.setAttribute('data-xt-sep', '')
       hr.className = 'mx-2 my-1 border-outline-gray-1'
       anchor.insertAdjacentElement('afterend', hr)
       anchor = hr
@@ -250,17 +333,18 @@ function injectCustomSidebarBtns() {
       headerBtn.setAttribute('aria-label', item.label)
       headerBtn.setAttribute('aria-expanded', 'false')
       headerBtn.innerHTML = `
-        <div class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
+        <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
           <div class="flex items-center truncate">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
               stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
               class="flex items-center size-4 text-ink-gray-8">
               ${lucideIconInner(icon)}
             </svg>
-            <span class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
-              data-state="closed">${item.label}</span>
+            <span data-xt-label
+              class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
+            >${item.label}</span>
           </div>
-          <svg class="crm-xt-chevron size-4 text-ink-gray-5 transition-transform duration-200"
+          <svg data-xt-hide-collapsed class="crm-xt-chevron size-4 text-ink-gray-5 transition-transform duration-200"
             viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <polyline points="6 9 12 15 18 9"/>
@@ -270,13 +354,15 @@ function injectCustomSidebarBtns() {
 
       // Children container (hidden by default)
       const childrenEl = document.createElement('div')
+      childrenEl.setAttribute('data-xt-children', '')
       childrenEl.className = 'flex-col pl-2'
       childrenEl.style.display = 'none'
 
       // Build child items
-      ;(item.items || []).forEach((child, cidx) => {
+      ;(item.items || []).forEach((child) => {
         if (child.type === 'separator') {
           const hr = document.createElement('hr')
+          hr.setAttribute('data-xt-sep', '')
           hr.className = 'mx-2 my-1 border-outline-gray-1'
           childrenEl.appendChild(hr)
           return
@@ -285,8 +371,9 @@ function injectCustomSidebarBtns() {
         childrenEl.appendChild(childBtn)
       })
 
-      // Toggle collapse
+      // Toggle collapse — only works when sidebar is expanded
       headerBtn.addEventListener('click', () => {
+        if (_isSidebarCollapsed()) return
         const expanded = headerBtn.getAttribute('aria-expanded') === 'true'
         headerBtn.setAttribute('aria-expanded', String(!expanded))
         const chevron = headerBtn.querySelector('.crm-xt-chevron')
@@ -312,6 +399,10 @@ function injectCustomSidebarBtns() {
     anchor.insertAdjacentElement('afterend', btn)
     anchor = btn
   })
+
+  // Wire up collapse sync after all elements are in the DOM
+  _setupCollapseObserver()
+  _syncCollapse()
 }
 
 // ── Sidebar Search button injection (Notifications container) ────────────────
@@ -337,16 +428,18 @@ function injectSidebarBtn() {
     'flex h-7.5 cursor-pointer items-center rounded text-ink-gray-8 duration-300 ease-in-out focus:outline-none focus:transition-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-outline-gray-3 hover:bg-surface-gray-2 relative mx-2 my-[1.5px]'
   btn.setAttribute('aria-label', 'Search')
   btn.innerHTML = `
-    <div class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
+    <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
       <div class="flex items-center truncate">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
           stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
           class="flex items-center size-4 text-ink-gray-8">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <span class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100">Search</span>
+        <span data-xt-label
+          class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
+        >Search</span>
       </div>
-      <span class="flex gap-1 items-center">
+      <span data-xt-hide-collapsed class="flex gap-1 items-center">
         <kbd class="text-[0.65rem] text-ink-gray-5">${modKey}</kbd>
         <kbd class="text-xs text-ink-gray-5">K</kbd>
       </span>
@@ -356,6 +449,7 @@ function injectSidebarBtn() {
     showSearch.value = true
   })
   container.insertBefore(btn, notifBtn.nextSibling)
+  _syncCollapse()
 }
 
 // ── Mount ───────────────────────────────────────────────────────────────────
