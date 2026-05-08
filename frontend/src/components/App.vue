@@ -58,6 +58,18 @@ async function loadSidebarItems() {
   }
 }
 
+// ── Recursively search sidebar items for a doctype config ───────────────────
+function findItemForDoctype(items, doctype) {
+  for (const item of items) {
+    if (item.doctype === doctype) return item
+    if (item.type === 'group' && Array.isArray(item.items)) {
+      const found = findItemForDoctype(item.items, doctype)
+      if (found) return found
+    }
+  }
+  return null
+}
+
 // ── Shim component injected into FCRM's router ──────────────────────────────
 // Problem: our bundle ships its own Vue copy.  If we register ExtListView
 // directly, FCRM's renderer runs the component but the reactive refs it
@@ -91,9 +103,8 @@ const _extShim = {
         this._app = null
       }
       if (!doctype) return
-      // Look up any hook config for this doctype from loaded sidebar items
-      const itemCfg =
-        sidebarItems.value.find((i) => i.doctype === doctype) || {}
+      // Look up hook config — search recursively inside groups too
+      const itemCfg = findItemForDoctype(sidebarItems.value, doctype) || {}
       this._app = createApp(ExtListView, {
         doctype,
         defaultFilters: itemCfg.default_filters || {},
@@ -157,6 +168,40 @@ function lucideIconInner(name) {
   return inner
 }
 
+// ── Build a sidebar nav button (shared by top-level and group children) ──────
+function _makeSidebarBtn(item, callLogsBtn) {
+  const btn = document.createElement('button')
+  btn.className = callLogsBtn.className
+  btn.setAttribute('aria-label', item.label)
+  const isRoute = item.type === 'route'
+  const icon = item.icon || (isRoute ? 'external-link' : 'list')
+  btn.innerHTML = `
+    <div class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
+      <div class="flex items-center truncate">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+          class="flex items-center size-4 text-ink-gray-8">
+          ${lucideIconInner(icon)}
+        </svg>
+        <span class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
+          data-state="closed">${item.label}</span>
+      </div>
+    </div>
+  `
+  btn.addEventListener('click', () => {
+    if (item.type === 'list_view' && item.doctype) {
+      const path = `/crm/xt/list/${encodeURIComponent(item.doctype)}`
+      window.history.pushState({}, '', path)
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    } else {
+      const url = item.url || item.route || ''
+      if (url.startsWith('http')) window.open(url, '_blank')
+      else window.location.href = url
+    }
+  })
+  return btn
+}
+
 // ── Inject custom sidebar buttons below "Call Logs" ──────────────────────────
 function injectCustomSidebarBtns() {
   if (!sidebarItems.value.length) return
@@ -169,51 +214,104 @@ function injectCustomSidebarBtns() {
   if (!callLogsBtn) return
 
   let anchor = callLogsBtn
-  for (const item of sidebarItems.value) {
-    const id = `crm-xt-sb-item-${item.label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`
-    if (document.getElementById(id)) {
-      anchor = document.getElementById(id)
-      continue
+
+  sidebarItems.value.forEach((item, idx) => {
+    // ── Separator ────────────────────────────────────────────────────────────
+    if (item.type === 'separator') {
+      const id = `crm-xt-sb-sep-${idx}`
+      if (document.getElementById(id)) {
+        anchor = document.getElementById(id)
+        return
+      }
+      const hr = document.createElement('hr')
+      hr.id = id
+      hr.className = 'mx-2 my-1 border-outline-gray-1'
+      anchor.insertAdjacentElement('afterend', hr)
+      anchor = hr
+      return
     }
 
-    const btn = document.createElement('button')
-    btn.id = id
-    // Exact same classes as the existing nav buttons (copied from Call Logs)
-    btn.className = callLogsBtn.className
-    btn.setAttribute('aria-label', item.label)
+    const id = `crm-xt-sb-${item.type}-${item.label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`
+    if (document.getElementById(id)) {
+      anchor = document.getElementById(id)
+      return
+    }
 
-    const isRoute = item.type === 'route'
-    const icon = item.icon || (isRoute ? 'external-link' : 'list')
+    // ── Group (collapsible section) ──────────────────────────────────────────
+    if (item.type === 'group') {
+      const wrapper = document.createElement('div')
+      wrapper.id = id
+      wrapper.className = 'flex flex-col'
 
-    btn.innerHTML = `
-      <div class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
-        <div class="flex items-center truncate">
-          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-            class="flex items-center size-4 text-ink-gray-8">
-            ${lucideIconInner(icon)}
+      // Header button
+      const icon = item.icon || 'folder'
+      const headerBtn = document.createElement('button')
+      headerBtn.className = callLogsBtn.className
+      headerBtn.setAttribute('aria-label', item.label)
+      headerBtn.setAttribute('aria-expanded', 'false')
+      headerBtn.innerHTML = `
+        <div class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
+          <div class="flex items-center truncate">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
+              stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+              class="flex items-center size-4 text-ink-gray-8">
+              ${lucideIconInner(icon)}
+            </svg>
+            <span class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
+              data-state="closed">${item.label}</span>
+          </div>
+          <svg class="crm-xt-chevron size-4 text-ink-gray-5 transition-transform duration-200"
+            viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
           </svg>
-          <span class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
-            data-state="closed">${item.label}</span>
         </div>
-      </div>
-    `
+      `
 
-    btn.addEventListener('click', () => {
-      if (item.type === 'list_view' && item.doctype) {
-        const path = `/crm/xt/list/${encodeURIComponent(item.doctype)}`
-        window.history.pushState({}, '', path)
-        window.dispatchEvent(new PopStateEvent('popstate'))
-      } else {
-        const url = item.url || item.route || ''
-        if (url.startsWith('http')) window.open(url, '_blank')
-        else window.location.href = url
-      }
-    })
+      // Children container (hidden by default)
+      const childrenEl = document.createElement('div')
+      childrenEl.className = 'flex-col pl-2'
+      childrenEl.style.display = 'none'
 
+      // Build child items
+      ;(item.items || []).forEach((child, cidx) => {
+        if (child.type === 'separator') {
+          const hr = document.createElement('hr')
+          hr.className = 'mx-2 my-1 border-outline-gray-1'
+          childrenEl.appendChild(hr)
+          return
+        }
+        const childBtn = _makeSidebarBtn(child, callLogsBtn)
+        childrenEl.appendChild(childBtn)
+      })
+
+      // Toggle collapse
+      headerBtn.addEventListener('click', () => {
+        const expanded = headerBtn.getAttribute('aria-expanded') === 'true'
+        headerBtn.setAttribute('aria-expanded', String(!expanded))
+        const chevron = headerBtn.querySelector('.crm-xt-chevron')
+        if (!expanded) {
+          childrenEl.style.display = 'flex'
+          if (chevron) chevron.style.transform = 'rotate(180deg)'
+        } else {
+          childrenEl.style.display = 'none'
+          if (chevron) chevron.style.transform = ''
+        }
+      })
+
+      wrapper.appendChild(headerBtn)
+      wrapper.appendChild(childrenEl)
+      anchor.insertAdjacentElement('afterend', wrapper)
+      anchor = wrapper
+      return
+    }
+
+    // ── list_view / route ────────────────────────────────────────────────────
+    const btn = _makeSidebarBtn(item, callLogsBtn)
+    btn.id = id
     anchor.insertAdjacentElement('afterend', btn)
     anchor = btn
-  }
+  })
 }
 
 // ── Sidebar Search button injection (Notifications container) ────────────────
@@ -295,7 +393,11 @@ onMounted(() => {
   const obs = new MutationObserver(() => {
     if (!document.getElementById('crm-xt-search-btn')) injectSidebarBtn()
     if (sidebarItems.value.length) {
-      const firstId = `crm-xt-sb-item-${sidebarItems.value[0].label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`
+      // Find first item with a label (separators have none)
+      const firstLabeled = sidebarItems.value.find((i) => i.label)
+      const firstId = firstLabeled
+        ? `crm-xt-sb-${firstLabeled.type}-${firstLabeled.label.replace(/[^a-z0-9]/gi, '-').toLowerCase()}`
+        : 'crm-xt-sb-sep-0'
       if (!document.getElementById(firstId)) injectCustomSidebarBtns()
     }
   })

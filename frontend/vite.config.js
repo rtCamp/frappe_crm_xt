@@ -20,11 +20,36 @@ function stubIconsPlugin() {
   }
 }
 
+// Stub out vue-router so frappe-ui's Button (which optionally uses RouterLink)
+// bundles cleanly as an IIFE.  We run inside FCRM which owns the real router;
+// we never call router APIs ourselves, so a no-op shim is sufficient.
+function stubVueRouterPlugin() {
+  const STUB_ID = '\0stub-vue-router'
+  return {
+    name: 'stub-vue-router',
+    resolveId(id) {
+      if (id === 'vue-router') return STUB_ID
+    },
+    load(id) {
+      if (id === STUB_ID) {
+        // Export the handful of symbols frappe-ui actually imports
+        return `
+export const RouterLink = { render() {} }
+export const RouterView = { render() {} }
+export function useRouter() { return null }
+export function useRoute() { return null }
+export function useLink() { return {} }
+`
+      }
+    },
+  }
+}
+
 export default defineConfig({
   define: {
     'process.env.NODE_ENV': JSON.stringify('production'),
   },
-  plugins: [stubIconsPlugin(), vue()],
+  plugins: [stubIconsPlugin(), stubVueRouterPlugin(), vue()],
   build: {
     outDir: resolve(__dirname, '../frappe_crm_xt/public/js'),
     emptyOutDir: false,

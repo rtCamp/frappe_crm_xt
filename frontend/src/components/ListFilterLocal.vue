@@ -147,10 +147,7 @@
                 variant="solid"
                 size="sm"
                 label="Apply"
-                @click="
-                  applyFilters()
-                  close()
-                "
+                @click="applyAndClose(close)"
               />
               <Button
                 v-if="filters.length"
@@ -320,6 +317,11 @@ function removeFilter(index) {
 
 function applyFilters() {
   emits('update:modelValue', makeFiltersDict(filters.value))
+}
+
+function applyAndClose(closeFn) {
+  applyFilters()
+  closeFn?.()
 }
 
 function clearFilters() {

@@ -5,7 +5,6 @@ from __future__ import annotations
 import frappe
 
 # Keys forwarded from each hook item to the frontend.
-# All are optional except label and type.
 _ALLOWED_KEYS = {
 	"label",
 	"type",
@@ -13,12 +12,14 @@ _ALLOWED_KEYS = {
 	"url",
 	"icon",
 	# list-view customisation
-	"default_filters",  # dict  { fieldname: [operator, value] }  - shown in filter UI
-	"hidden_filters",  # dict  { fieldname: [operator, value] }  - always applied, never shown
-	"fields",  # list  [fieldname, ...]  - column order override
-	"default_sort",  # dict  { field: str, dir: "asc"|"desc" }
-	"search_field",  # str   fieldname used for the toolbar quick-search input
-	"row_url",  # str   URL template for row clicks; {name} = record name
+	"default_filters",
+	"hidden_filters",
+	"fields",
+	"default_sort",
+	"search_field",
+	"row_url",
+	# group type
+	"items",
 }
 
 
@@ -29,25 +30,12 @@ def get_sidebar_items() -> list[dict]:
 	merged flat list.  Each item is validated and stripped to allowed keys
 	before being sent to the browser.
 
-	Supported hook schema (in any app's hooks.py)::
+	Supported item types:
 
-	    crm_sidebar = [
-	        {
-	            "label": "Purchase Orders",  # required
-	            "type": "list_view",  # "list_view" | "route"
-	            "doctype": "Purchase Order",  # required for list_view
-	            "icon": "shopping-cart",  # feather icon name
-	            "default_filters": {"status": ["=", "To Receive and Bill"]},
-	            "fields": ["supplier", "transaction_date", "status"],
-	            "default_sort": {"field": "transaction_date", "dir": "desc"},
-	        },
-	        {
-	            "label": "Support",
-	            "type": "route",
-	            "url": "https://support.example.com",
-	            "icon": "external-link",
-	        },
-	    ]
+	``list_view``   Opens the built-in list view for a DocType.
+	``route``       Navigates to an arbitrary URL.
+	``separator``   Renders a horizontal divider line.
+	``group``       Collapsible section; child items live in ``items``.
 	"""
 	items: list[dict] = []
 	for app in frappe.get_installed_apps():
@@ -64,19 +52,32 @@ def get_sidebar_items() -> list[dict]:
 
 def _sanitise(item: dict) -> dict:
 	"""Strip unknown keys and apply light validation."""
+	item_type = item.get("type")
+
+	# ── Separator ──────────────────────────────────────────────────────────────
+	if item_type == "separator":
+		return {"type": "separator"}
+
 	out = {k: v for k, v in item.items() if k in _ALLOWED_KEYS}
-	# Ensure default_filters / hidden_filters are plain dicts
+
+	# ── Group ──────────────────────────────────────────────────────────────────
+	if item_type == "group":
+		if isinstance(out.get("items"), list | tuple):
+			out["items"] = [_sanitise(i) for i in out["items"] if isinstance(i, dict)]
+		else:
+			out["items"] = []
+		return out
+
+	# ── list_view / route ──────────────────────────────────────────────────────
 	if "default_filters" in out and not isinstance(out["default_filters"], dict):
 		del out["default_filters"]
 	if "hidden_filters" in out and not isinstance(out["hidden_filters"], dict):
 		del out["hidden_filters"]
-	# Ensure fields is a list of strings
 	if "fields" in out:
 		if not isinstance(out["fields"], list | tuple):
 			del out["fields"]
 		else:
 			out["fields"] = [str(f) for f in out["fields"]]
-	# Ensure default_sort has expected shape
 	if "default_sort" in out:
 		ds = out["default_sort"]
 		if not (isinstance(ds, dict) and "field" in ds):

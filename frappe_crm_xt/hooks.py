@@ -14,7 +14,8 @@ fixtures = [
 			["property", "=", "in_global_search"],
 			["doc_type", "in", ["CRM Lead", "CRM Deal", "CRM Organization", "FCRM Note", "CRM Task"]],
 		],
-	}
+	},
+	{"dt": "Custom Field", "filters": [["dt", "=", "CRM Deal Status"]]},
 ]
 
 # Optional: install frappe_search to enable the Cmd/Ctrl+K global search bar.
@@ -37,6 +38,15 @@ global_search_doctypes = {
 	]
 }
 
+# ─── Doc events ───────────────────────────────────────────────────────────────
+
+doc_events = {
+	"CRM Deal": {
+		"before_save": "frappe_crm_xt.api.deal.before_save",
+		"after_insert": "frappe_crm_xt.api.deal.after_insert",
+	},
+}
+
 # ─── API overrides ────────────────────────────────────────────────────────────
 #
 # Intercept FCRM's get_activities so we can append frappe_gmail_thread entries.
@@ -56,9 +66,11 @@ override_whitelisted_methods = {
 #   label          (str, required)
 #       Sidebar display label, e.g. "Purchase Orders"
 #
-#   type           (str, required)  "list_view" | "route"
-#       "list_view" - opens /xt/list/<doctype> with the built-in list view.
-#       "route"     - navigates to an arbitrary URL (internal or external).
+#   type           (str, required)  "list_view" | "route" | "separator" | "group"
+#       "list_view"  - opens /xt/list/<doctype> with the built-in list view.
+#       "route"      - navigates to an arbitrary URL (internal or external).
+#       "separator"  - renders a horizontal divider line; no other keys needed.
+#       "group"      - collapsible section; child items live in the "items" key.
 #
 #   doctype        (str)  Required when type == "list_view".
 #       Frappe DocType name, e.g. "Purchase Order"
@@ -103,6 +115,10 @@ override_whitelisted_methods = {
 #       Defaults to /app/{doctype-slug}/{name}  (standard Frappe form view).
 #       Example: "/desk/query-report/{name}"  →  opens the ERPNext report runner
 #
+#   items           (list, optional)  Only for type == "group".
+#       Child items — each follows the same schema (list_view, route, separator).
+#       Groups do NOT nest inside other groups (only one level deep).
+#
 #   search_field    (str, optional)
 #       Fieldname used for the always-visible quick-search input in the toolbar.
 #       Defaults to the doctype's title field (usually "name").
@@ -128,11 +144,26 @@ override_whitelisted_methods = {
 #         "fields": ["supplier", "transaction_date", "status", "grand_total"],
 #         "default_sort": {"field": "transaction_date", "dir": "desc"},
 #     },
+#     {"type": "separator"},          # ── horizontal divider ──────────────────
 #     {
-#         "label": "Support Portal",
-#         "type": "route",
-#         "url": "https://support.example.com",
-#         "icon": "external-link",
+#         "label": "Procurement",     # ── collapsible group ───────────────────
+#         "type": "group",
+#         "icon": "package",
+#         "items": [
+#             {
+#                 "label": "Suppliers",
+#                 "type": "list_view",
+#                 "doctype": "Supplier",
+#                 "icon": "building",
+#             },
+#             {"type": "separator"},
+#             {
+#                 "label": "Support Portal",
+#                 "type": "route",
+#                 "url": "https://support.example.com",
+#                 "icon": "external-link",
+#             },
+#         ],
 #     },
 # ]
 #
