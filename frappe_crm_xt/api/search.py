@@ -4,13 +4,16 @@ Search API for frappe_crm_xt.
 Two backends are supported (tried in order):
 
 1. frappe_search  — full-text search via the frappe_search app (if installed).
-2. Frappe global search — built-in ``frappe.utils.global_search`` (always available).
+2. Frappe global search — ``frappe.utils.global_search.search``.
+   FCRM doctypes are registered via the global_search_doctypes hook so they
+   are included in Frappe's __global_search index.
+   Run ``bench rebuild-global-search`` after install to populate the index.
 
 Response shape:
     (results_list, has_more_bool)
 
 Each result dict:
-    { doctype, name, marked_string }   ← marked_string may contain <mark> tags
+    { doctype, name, marked_string }
 """
 
 from __future__ import annotations
@@ -24,7 +27,6 @@ FCRM_DOCTYPES: list[str] = [
 	"CRM Organization",
 	"FCRM Note",
 	"CRM Task",
-	"Event",
 	"CRM Call Log",
 ]
 
@@ -63,19 +65,17 @@ def get_search_results(text: str, start: int = 0, limit: int = 50):
 	from frappe.utils.global_search import search as _frappe_global_search
 
 	allowed_set = set(allowed_doctypes)
-	raw = _frappe_global_search(text, start=start, page_length=limit * 3) or []
-	results: list[dict] = []
-	for r in raw:
-		if r.get("doctype") not in allowed_set:
-			continue
-		results.append(
-			{
-				"doctype": r["doctype"],
-				"name": r["name"],
-				"marked_string": r.get("content") or r["name"],
-			}
-		)
-		if len(results) >= limit:
-			break
-	has_more = len(raw) >= limit * 3
+	raw = _frappe_global_search(text, start=start, limit=limit + 1) or []
+
+	results: list[dict] = [
+		{
+			"doctype": r["doctype"],
+			"name": r["name"],
+			"marked_string": r.get("title") or r.get("content") or r["name"],
+		}
+		for r in raw[:limit]
+		if r.get("doctype") in allowed_set
+	]
+
+	has_more = len(raw) > limit
 	return results, has_more

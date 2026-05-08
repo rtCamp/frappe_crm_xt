@@ -7,8 +7,35 @@ app_license = "agpl-3"
 
 required_apps = ["crm"]
 
+fixtures = [
+	{
+		"dt": "Property Setter",
+		"filters": [
+			["property", "=", "in_global_search"],
+			["doc_type", "in", ["CRM Lead", "CRM Deal", "CRM Organization", "FCRM Note", "CRM Task"]],
+		],
+	}
+]
+
 # Optional: install frappe_search to enable the Cmd/Ctrl+K global search bar.
 # Optional: install frappe_gmail_thread for gmail-thread activity entries.
+
+# ─── Global Search ────────────────────────────────────────────────────────────
+#
+# Register FCRM doctypes so they are included in Frappe's __global_search index.
+# After installing or changing this list run:
+#   bench --site <site> rebuild-global-search
+#
+global_search_doctypes = {
+	"Default": [
+		{"doctype": "CRM Lead"},
+		{"doctype": "CRM Deal"},
+		{"doctype": "CRM Organization"},
+		{"doctype": "FCRM Note"},
+		{"doctype": "CRM Task"},
+		{"doctype": "CRM Call Log"},
+	]
+}
 
 # ─── API overrides ────────────────────────────────────────────────────────────
 #
