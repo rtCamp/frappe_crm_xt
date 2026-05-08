@@ -53,7 +53,25 @@ doc_events = {
 # frappe_crm_xt must be listed after crm in apps.txt for the override to win.
 #
 override_whitelisted_methods = {
+	# Append frappe_gmail_thread activity entries to FCRM's activity feed.
 	"crm.api.activities.get_activities": "frappe_crm_xt.api.activity.get_activities",
+	# Stubs for crm_erp_bridge — browser JS may still call these after the app
+	# is uninstalled.  Route them here so we return sensible values instead of 417.
+	"crm_erp_bridge.api.notifications.is_document_followed": "frappe_crm_xt.api.crm_erp_compat.is_document_followed",
+	"crm_erp_bridge.api.notifications.toggle_document_follow": "frappe_crm_xt.api.crm_erp_compat.toggle_document_follow",
+	"crm_erp_bridge.crm_ui_api.link_address_to_doc": "frappe_crm_xt.api.crm_erp_compat.link_address_to_doc",
+}
+
+# ─── Scheduler ────────────────────────────────────────────────────────────────
+#
+# Event notification scheduler — sends in-browser realtime alerts (and
+# optionally emails) to event owners and participants ahead of their events.
+#
+scheduler_events = {
+	"all": ["frappe_crm_xt.api.event.trigger_offset_event_notifications"],
+	"hourly": ["frappe_crm_xt.api.event.trigger_hourly_event_notifications"],
+	"daily": ["frappe_crm_xt.api.event.trigger_daily_event_notifications"],
+	"weekly": ["frappe_crm_xt.api.event.trigger_weekly_event_notifications"],
 }
 
 # ─── CRM Sidebar hook ─────────────────────────────────────────────────────────
@@ -174,6 +192,15 @@ crm_sidebar = [
 		"type": "group",
 		"icon": "layout-grid",
 		"items": [
+			{
+				"label": "Events",
+				"type": "list_view",
+				"doctype": "Event",
+				"icon": "calendar",
+				"fields": ["subject", "starts_on", "ends_on", "event_type", "status"],
+				"default_sort": {"field": "starts_on", "dir": "desc"},
+				"row_url": "/app/event/{name}",
+			},
 			{
 				"label": "Reports",
 				"type": "list_view",

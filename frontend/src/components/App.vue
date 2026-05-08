@@ -10,6 +10,7 @@
 import { ref, onMounted, h, createApp } from 'vue'
 import SearchDialog from './SearchDialog.vue'
 import ExtListView from './ExtListView.vue'
+import InjectedEventsTab from './InjectedEventsTab.vue'
 import { getLucideIcon } from '../lucideIcons.js'
 
 const showSearch = ref(false)
@@ -105,6 +106,7 @@ const _extShim = {
       if (!doctype) return
       // Look up hook config — search recursively inside groups too
       const itemCfg = findItemForDoctype(sidebarItems.value, doctype) || {}
+      // eslint-disable-next-line vue/one-component-per-file -- createApp mount, not a component definition
       this._app = createApp(ExtListView, {
         doctype,
         defaultFilters: itemCfg.default_filters || {},
@@ -452,6 +454,146 @@ function injectSidebarBtn() {
   _syncCollapse()
 }
 
+// ── Events tab injection ─────────────────────────────────────────────────────
+// FCRM doesn't have an Events tab.  We:
+//   1. Inject a fake "Events" tab button into the tablist
+//   2. When clicked, mount InjectedEventsTab inside an absolute overlay that
+//      covers the live tabpanel (the tabpanel always stays in the DOM because
+//      Activities component owns it — we just paint on top)
+//   3. When any real Reka tab is clicked, remove the overlay
+
+let _xtEventsApp = null // the Vue app instance
+let _xtEventsEl = null // the overlay <div>
+let _xtEventsTabBtn = null // our injected <button>
+const _listenedTablists = new WeakSet()
+
+function _getCurrentDocInfo() {
+  const m = window.location.pathname.match(/\/crm\/(leads|deals)\/([^?#/]+)/)
+  if (!m) return null
+  return {
+    doctype: m[1] === 'leads' ? 'CRM Lead' : 'CRM Deal',
+    docname: decodeURIComponent(m[2]),
+  }
+}
+
+function _removeEventsOverlay() {
+  if (_xtEventsApp) {
+    _xtEventsApp.unmount()
+    _xtEventsApp = null
+  }
+  if (_xtEventsEl?.parentNode) {
+    _xtEventsEl.parentNode.removeChild(_xtEventsEl)
+    _xtEventsEl = null
+  }
+  if (_xtEventsTabBtn) {
+    _xtEventsTabBtn.setAttribute('data-state', 'inactive')
+    _xtEventsTabBtn.style.borderBottom = ''
+    _xtEventsTabBtn.style.color = ''
+  }
+}
+
+function _getVisiblePanel() {
+  // There are 8 tabpanels (one per tab).  Only the active one is visible.
+  return (
+    Array.from(document.querySelectorAll('[role="tabpanel"]')).find(
+      (p) => !p.hasAttribute('hidden') && p.offsetHeight > 0,
+    ) || document.querySelector('[role="tabpanel"]:not([hidden])')
+  )
+}
+
+function _showEventsOverlay(doctype, docname) {
+  _removeEventsOverlay()
+
+  const panel = _getVisiblePanel()
+  if (!panel) return
+
+  panel.style.position = 'relative'
+
+  const overlay = document.createElement('div')
+  overlay.setAttribute('data-xt-events-overlay', '')
+  overlay.style.cssText =
+    'position:absolute;inset:0;z-index:20;overflow:hidden;' +
+    'background:var(--surface-white,#ffffff);'
+  panel.appendChild(overlay)
+  _xtEventsEl = overlay
+
+  // eslint-disable-next-line vue/one-component-per-file -- createApp mount, not a component definition
+  _xtEventsApp = createApp(InjectedEventsTab, { doctype, docname })
+  _xtEventsApp.mount(overlay)
+
+  // Visually mark our button active with the same underline Reka uses
+  if (_xtEventsTabBtn) {
+    _xtEventsTabBtn.setAttribute('data-state', 'active')
+    _xtEventsTabBtn.style.borderBottom = '1px solid var(--ink-gray-9,#1c1c1c)'
+    _xtEventsTabBtn.style.color = 'var(--ink-gray-9,#1c1c1c)'
+  }
+}
+
+function _tryInjectEventsTab() {
+  const docInfo = _getCurrentDocInfo()
+  // Not on a Lead/Deal detail page — clean up and stop
+  if (!docInfo) {
+    _removeEventsOverlay()
+    _xtEventsTabBtn = null
+    return
+  }
+
+  const tablist = document.querySelector('[role="tablist"]')
+  if (!tablist) return
+
+  // Register click listener on this tablist once only
+  if (!_listenedTablists.has(tablist)) {
+    _listenedTablists.add(tablist)
+    tablist.addEventListener(
+      'click',
+      (e) => {
+        // Any click on a real Reka tab (not our button) dismisses the overlay
+        const t = e.target.closest('[role="tab"]')
+        if (t) _removeEventsOverlay()
+      },
+      true, // capture — fires before Reka's own handler
+    )
+  }
+
+  // Re-use an already-injected button (handles re-render by FCRM)
+  const existing = tablist.querySelector('[data-xt-events-tab]')
+  if (existing) {
+    _xtEventsTabBtn = existing
+    return
+  }
+
+  // Clone className from the first real tab so we match FCRM's styling exactly.
+  // NOTE: do NOT set role="tab" — Reka would intercept the click and collapse
+  // the tabpanel (setting its height to 0), making our overlay invisible.
+  const refTab = tablist.querySelector('[role="tab"]')
+  if (!refTab) return
+
+  const btn = document.createElement('button')
+  btn.setAttribute('type', 'button')
+  btn.setAttribute('data-xt-events-tab', '')
+  btn.setAttribute('data-state', 'inactive')
+  btn.className = refTab.className
+
+  // Calendar icon + label — matches the icon+text structure of other tabs
+  btn.innerHTML =
+    '<span style="display:flex;align-items:center;gap:6px;">' +
+    '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"' +
+    ' stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">' +
+    '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>' +
+    '<line x1="16" y1="2" x2="16" y2="6"/>' +
+    '<line x1="8" y1="2" x2="8" y2="6"/>' +
+    '<line x1="3" y1="10" x2="21" y2="10"/>' +
+    '</svg>Events</span>'
+
+  btn.addEventListener('click', () => {
+    const di = _getCurrentDocInfo()
+    if (di) _showEventsOverlay(di.doctype, di.docname)
+  })
+
+  tablist.appendChild(btn)
+  _xtEventsTabBtn = btn
+}
+
 // ── Mount ───────────────────────────────────────────────────────────────────
 onMounted(() => {
   // Keyboard shortcut
@@ -480,7 +622,8 @@ onMounted(() => {
     setTimeout(() => {
       injectSidebarBtn()
       injectCustomSidebarBtns()
-    }, 120),
+      _tryInjectEventsTab()
+    }, 250),
   )
 
   // MutationObserver: re-inject if FCRM Vue router rebuilds the sidebar
@@ -494,6 +637,8 @@ onMounted(() => {
         : 'crm-xt-sb-sep-0'
       if (!document.getElementById(firstId)) injectCustomSidebarBtns()
     }
+    // Try to inject events tab whenever DOM changes (tab switches, navigation)
+    _tryInjectEventsTab()
   })
   obs.observe(document.body, { childList: true, subtree: true })
 })

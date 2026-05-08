@@ -76,11 +76,12 @@
                   {{ dtLabel(result.doctype) }} :
                   {{ result.title || result.name }}
                 </div>
-                <!-- eslint-disable-next-line vue/no-v-html -- server-sanitised excerpt with <mark> highlights -->
+                <!-- eslint-disable vue/no-v-html -- server-sanitised excerpt with <mark> highlights -->
                 <div
                   class="text-sm text-ink-gray-5"
                   v-html="result.excerpt"
                 ></div>
+                <!-- eslint-enable vue/no-v-html -->
               </li>
             </ul>
 
