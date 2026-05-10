@@ -110,3 +110,15 @@ crm_sidebar = [
 		"row_url": "/desk/query-report/{name}",
 	},
 ]
+
+# ─── Setup hooks ──────────────────────────────────────────────────────────────
+#
+# Install/refresh the CRM-side custom fields that mirror rtcamp's ERPNext-side
+# customisations. Lets the ERPNext → Frappe CRM migrator auto-map fields by
+# same-name match without any per-row review by the user.
+#
+# create_custom_fields(..., update=True) is idempotent — safe to call on every
+# migrate.
+
+after_install = "frappe_crm_xt.setup.install_custom_fields"
+after_migrate = "frappe_crm_xt.setup.install_custom_fields"

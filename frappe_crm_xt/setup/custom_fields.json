@@ -1,0 +1,519 @@
+{
+  "CRM Deal": [
+    {
+      "fieldname": "custom__project_size",
+      "fieldtype": "Select",
+      "label": " Project Size",
+      "options": "\nSmall (< $50K)\nMedium ($50K - $100K)\nLarge ($100K+)"
+    },
+    {
+      "fieldname": "custom_acv",
+      "fieldtype": "Data",
+      "label": "ACV",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_acv_currency",
+      "fieldtype": "Link",
+      "label": "ACV Currency",
+      "options": "Currency"
+    },
+    {
+      "fieldname": "custom_billing_type",
+      "fieldtype": "Select",
+      "label": "Billing Type",
+      "options": "\nFixed Cost\nTime and Material\nRetainer"
+    },
+    {
+      "fieldname": "custom_column_break_9qcv8",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_column_break_min5b",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_column_break_rrheo",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_column_break_ztyg2",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_communication_response_details",
+      "fieldtype": "Section Break",
+      "label": "Communication Response Details"
+    },
+    {
+      "fieldname": "custom_complexity_level",
+      "fieldtype": "Select",
+      "label": "Complexity Level",
+      "options": "\nC1\nC2\nC3",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_current_host",
+      "fieldtype": "Link",
+      "label": "Current Host",
+      "options": "Host"
+    },
+    {
+      "fieldname": "custom_deal_type",
+      "fieldtype": "Select",
+      "label": "Deal Type",
+      "options": "Old-Old\nOld-New\nNew-New"
+    },
+    {
+      "fieldname": "custom_description",
+      "fieldtype": "Text Editor",
+      "label": "Description",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_drive_folder_link",
+      "fieldtype": "Data",
+      "label": "Drive Folder Link"
+    },
+    {
+      "default": "",
+      "fieldname": "custom_duration",
+      "fieldtype": "Select",
+      "label": "Duration",
+      "options": "\nShort-term (< 3 months)\nMedium-term (3-12 months)\nLong-term (> 1 year)"
+    },
+    {
+      "fieldname": "custom_effective_hourly_rate",
+      "fieldtype": "Currency",
+      "label": "Effective Hourly Rate (Project Completion)"
+    },
+    {
+      "fieldname": "custom_effective_hourly_rate_company_currency",
+      "fieldtype": "Currency",
+      "label": "Effective Hourly Rate (Company Currency)"
+    },
+    {
+      "fieldname": "custom_effective_hourly_rate_currency_",
+      "fieldtype": "Link",
+      "label": "Effective Hourly Rate Currency (Project Completion)",
+      "options": "Currency"
+    },
+    {
+      "fieldname": "custom_effective_hourly_rate_exchange_rate",
+      "fieldtype": "Float",
+      "label": "Effective Hourly Rate Exchange Rate"
+    },
+    {
+      "fieldname": "custom_estimatedpurchased_hours",
+      "fieldtype": "Float",
+      "label": "Estimated/Purchased Hours"
+    },
+    {
+      "fieldname": "custom_fallback_currency",
+      "fieldtype": "Data",
+      "label": "Fallback Currency",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_fallback_value",
+      "fieldtype": "Data",
+      "label": "Fallback Value",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_key_account",
+      "fieldtype": "Check",
+      "label": "Key Account"
+    },
+    {
+      "fieldname": "custom_last_incoming_email_time",
+      "fieldtype": "Datetime",
+      "label": "Last Incoming Email Time",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_responded_on",
+      "fieldtype": "Datetime",
+      "label": "Last Responded On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_response_by",
+      "fieldtype": "Datetime",
+      "label": "Last Response By",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_response_time",
+      "fieldtype": "Duration",
+      "label": "Last Response Time",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_marketing_medium",
+      "fieldtype": "Select",
+      "label": "Marketing Medium",
+      "options": "Events\nReferral\nOrganic\nPaid\nRepeat Business\nEmail"
+    },
+    {
+      "fieldname": "custom_marketing_source",
+      "fieldtype": "Link",
+      "label": "Marketing Source",
+      "options": "Marketing Source"
+    },
+    {
+      "fieldname": "custom_original_hourly_rate_amount",
+      "fieldtype": "Currency",
+      "label": "Original Hourly Rate"
+    },
+    {
+      "fieldname": "custom_original_hourly_rate_amount_company_currency",
+      "fieldtype": "Currency",
+      "label": "Original Hourly Rate (Company Currency)"
+    },
+    {
+      "fieldname": "custom_original_hourly_rate_currency",
+      "fieldtype": "Link",
+      "label": "Original Hourly Rate Currency",
+      "options": "Currency"
+    },
+    {
+      "fieldname": "custom_original_hourly_rate_exchange_rate",
+      "fieldtype": "Float",
+      "label": "Exchange Rate"
+    },
+    {
+      "fieldname": "custom_pipedrive_deal_id",
+      "fieldtype": "Data",
+      "label": "Pipedrive Deal ID",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_pipeline",
+      "fieldtype": "Data",
+      "label": "Pipeline",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_previous_cms",
+      "fieldtype": "Data",
+      "label": "Previous CMS"
+    },
+    {
+      "fieldname": "custom_project_details",
+      "fieldtype": "Section Break",
+      "label": "Project Details"
+    },
+    {
+      "fieldname": "custom_project_manager",
+      "fieldtype": "Link",
+      "label": "Project Manager",
+      "link_filters": "[[\"User\",\"user_type\",\"=\",\"System User\"]]",
+      "options": "User"
+    },
+    {
+      "fieldname": "custom_project_type",
+      "fieldtype": "Link",
+      "label": "Project Type",
+      "options": "Project Type"
+    },
+    {
+      "fieldname": "custom_restricted_under_nda",
+      "fieldtype": "Check",
+      "label": "Restricted under NDA"
+    },
+    {
+      "fieldname": "custom_section_break_dhz4k",
+      "fieldtype": "Section Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_section_break_mnjqa",
+      "fieldtype": "Section Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_service_type",
+      "fieldtype": "Link",
+      "label": "Service Type",
+      "options": "Service Type"
+    },
+    {
+      "fieldname": "custom_source_channel",
+      "fieldtype": "Data",
+      "label": "Source Channel",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_source_channel_id",
+      "fieldtype": "Data",
+      "label": "Source Channel ID",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_source_origin",
+      "fieldtype": "Data",
+      "label": "Source Origin",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_timezone",
+      "fieldtype": "Data",
+      "label": "Timezone"
+    },
+    {
+      "fieldname": "custom_vip_contact",
+      "fieldtype": "Link",
+      "label": "VIP Contact",
+      "options": "Contact"
+    }
+  ],
+  "CRM Lead": [
+    {
+      "fieldname": "custom_account_manager",
+      "fieldtype": "Link",
+      "label": "Account Manager",
+      "options": "User"
+    },
+    {
+      "fieldname": "custom_column_break_v0dhr",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_communication_response_details",
+      "fieldtype": "Section Break",
+      "label": "Communication Response Details"
+    },
+    {
+      "fieldname": "custom_complexity_level",
+      "fieldtype": "Select",
+      "label": "Complexity Level",
+      "options": "\nC1\nC2\nC3",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_current_cmsplatforms_in_use",
+      "fieldtype": "Data",
+      "label": "Current CMS/Platforms in use",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_deal_type",
+      "fieldtype": "Data",
+      "label": "Deal Type",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_description",
+      "fieldtype": "Long Text",
+      "label": "Description"
+    },
+    {
+      "fieldname": "custom_duration",
+      "fieldtype": "Data",
+      "label": "Duration",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_how_soon_do_you_want_to_start",
+      "fieldtype": "Data",
+      "label": "How soon do you want to start?",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_is_archived",
+      "fieldtype": "Check",
+      "label": "Is archived"
+    },
+    {
+      "fieldname": "custom_last_incoming_email_time",
+      "fieldtype": "Datetime",
+      "label": "Last Incoming Email Time",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_responded_on",
+      "fieldtype": "Datetime",
+      "label": "Last Responded On",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_response_by",
+      "fieldtype": "Datetime",
+      "label": "Last Response By",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_response_time",
+      "fieldtype": "Duration",
+      "label": "Last Response Time",
+      "read_only": 1
+    },
+    {
+      "depends_on": "eval:doc.request_type == 'Other'",
+      "fieldname": "custom_other_request_type",
+      "fieldtype": "Data",
+      "label": "Other Request Type",
+      "mandatory_depends_on": "eval:doc.request_type == 'Other'"
+    },
+    {
+      "fieldname": "custom_pipedrive_lead_id",
+      "fieldtype": "Data",
+      "label": "Pipedrive Lead ID",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_project_budget",
+      "fieldtype": "Data",
+      "label": "Project Budget",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_section_break_uqt4s",
+      "fieldtype": "Section Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_service_type",
+      "fieldtype": "Data",
+      "label": "Service Type",
+      "translatable": 1
+    }
+  ],
+  "CRM Organization": [
+    {
+      "fieldname": "custom_account_manager",
+      "fieldtype": "Link",
+      "label": "Account Manager",
+      "options": "User"
+    },
+    {
+      "fieldname": "custom_bio",
+      "fieldtype": "Small Text",
+      "label": "Bio",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_cam_internal_processes__logs",
+      "fieldtype": "Small Text",
+      "label": "CAM Internal Processes & Logs",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_column_break_ggwgz",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_column_break_jsmzg",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_column_break_q68is",
+      "fieldtype": "Column Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_contact_details",
+      "fieldtype": "Section Break",
+      "label": "Contact Details"
+    },
+    {
+      "fieldname": "custom_email1",
+      "fieldtype": "Data",
+      "label": "Email-1",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_email2",
+      "fieldtype": "Data",
+      "label": "Email-2",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_email3",
+      "fieldtype": "Data",
+      "label": "Email-3",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_key_account",
+      "fieldtype": "Check",
+      "label": "Key Account"
+    },
+    {
+      "fieldname": "custom_label",
+      "fieldtype": "Data",
+      "label": "Label",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_org_email",
+      "fieldtype": "Data",
+      "label": "Org Email",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_org_phone",
+      "fieldtype": "Data",
+      "label": "Org Phone",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_org_type",
+      "fieldtype": "Data",
+      "label": "Org Type",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_phone",
+      "fieldtype": "Data",
+      "label": "Phone",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_pipedrive_organization_id",
+      "fieldtype": "Data",
+      "label": "Pipedrive Organization ID",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_section_break_csuxq",
+      "fieldtype": "Section Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_section_break_lw9n3",
+      "fieldtype": "Section Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_section_break_uhlda",
+      "fieldtype": "Section Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_section_break_xyp4p",
+      "fieldtype": "Section Break",
+      "label": ""
+    },
+    {
+      "fieldname": "custom_social",
+      "fieldtype": "Data",
+      "label": "Social",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_source",
+      "fieldtype": "Link",
+      "label": "Source",
+      "options": "Lead Source"
+    }
+  ]
+}
