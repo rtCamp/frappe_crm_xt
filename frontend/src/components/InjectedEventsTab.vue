@@ -205,8 +205,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, createApp } from 'vue'
-import { dayjs, Avatar, Tooltip, Button } from 'frappe-ui'
+import { ref, onMounted, createApp, h, defineComponent } from 'vue'
+import { dayjs, Avatar, Tooltip, Button, Dialogs } from 'frappe-ui'
 import InjectedEventModal from './InjectedEventModal.vue'
 
 const _t = window.__ || ((s) => s)
@@ -302,20 +302,30 @@ function openEvent(event) {
   const el = document.createElement('div')
   document.body.appendChild(el)
   _modalEl = el
-  _modalApp = createApp(InjectedEventModal, {
-    event: event || {},
-    doctype: props.doctype,
-    docname: props.docname,
-    onClose: closeModal,
-    onSaved: () => {
-      closeModal()
-      fetchEvents()
-    },
-    onDeleted: () => {
-      closeModal()
-      fetchEvents()
+  // Wrap InjectedEventModal + Dialogs in a root component so frappe-ui's
+  // confirmDialog has a Dialogs mount point in the same Vue app instance.
+  const Root = defineComponent({
+    render() {
+      return h('div', [
+        h(InjectedEventModal, {
+          event: event || {},
+          doctype: props.doctype,
+          docname: props.docname,
+          onClose: closeModal,
+          onSaved: () => {
+            closeModal()
+            fetchEvents()
+          },
+          onDeleted: () => {
+            closeModal()
+            fetchEvents()
+          },
+        }),
+        h(Dialogs),
+      ])
     },
   })
+  _modalApp = createApp(Root)
   _modalApp.config.globalProperties.__ = window.__ || ((s) => s)
   _modalApp.mount(el)
 }

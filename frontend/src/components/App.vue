@@ -465,6 +465,7 @@ function injectSidebarBtn() {
 let _xtEventsApp = null // the Vue app instance
 let _xtEventsEl = null // the overlay <div>
 let _xtEventsTabBtn = null // our injected <button>
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 let _prevActiveTab = null // native Reka tab that was active before overlay
 const _listenedTablists = new WeakSet()
 

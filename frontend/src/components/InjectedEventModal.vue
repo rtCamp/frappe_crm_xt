@@ -241,6 +241,63 @@
         </div>
       </div>
     </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <Transition name="crm-xt-fade">
+      <div
+        v-if="showDeleteDialog"
+        class="fixed inset-0 z-[10000] flex items-center justify-center bg-black-overlay-200 dark:bg-black-overlay-700 outline-none"
+        @click.self="cancelDelete"
+      >
+        <div
+          class="my-8 inline-block w-full transform overflow-hidden rounded-xl bg-surface-modal text-left align-middle shadow-xl focus-visible:outline-none max-w-lg"
+          role="dialog"
+          aria-label="Delete Event"
+          data-state="open"
+          style="pointer-events: auto"
+          @click.stop
+        >
+          <!-- Header -->
+          <div class="bg-surface-modal px-4 pb-6 pt-5 sm:px-6">
+            <div class="flex">
+              <div class="w-full flex-1">
+                <div class="mb-6 flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <h3
+                      class="text-2xl font-semibold leading-6 text-ink-gray-9"
+                    >
+                      {{ __('Delete') }}
+                    </h3>
+                  </div>
+                  <Button variant="ghost" @click="cancelDelete">
+                    <template #icon>
+                      <FeatherIcon name="x" class="h-4 w-4 text-ink-gray-9" />
+                    </template>
+                  </Button>
+                </div>
+                <p class="text-p-base text-ink-gray-7">
+                  {{ __('Are you sure you want to delete this event?') }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="px-4 pb-7 pt-4 sm:px-6">
+            <div class="space-y-2">
+              <Button
+                :label="__('Delete')"
+                class="w-full"
+                variant="solid"
+                theme="red"
+                :loading="saving"
+                @click="confirmDelete"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -295,6 +352,7 @@ const emit = defineEmits(['close', 'saved', 'deleted'])
 const titleRef = ref(null)
 const saving = ref(false)
 const error = ref(null)
+const showDeleteDialog = ref(false)
 
 const mode = computed(() =>
   _event.value.id === 'duplicate'
@@ -502,7 +560,12 @@ function duplicateEvent() {
 
 function deleteEvent() {
   if (!_event.value.id) return
-  if (!window.confirm(__('Are you sure you want to delete this event?'))) return
+  showDeleteDialog.value = true
+}
+
+function confirmDelete() {
+  if (!_event.value.id) return
+  showDeleteDialog.value = false
   saving.value = true
   apiFetch('frappe.client.delete', { doctype: 'Event', name: _event.value.id })
     .then(() => {
@@ -514,6 +577,10 @@ function deleteEvent() {
     .finally(() => {
       saving.value = false
     })
+}
+
+function cancelDelete() {
+  showDeleteDialog.value = false
 }
 
 function csrf() {
