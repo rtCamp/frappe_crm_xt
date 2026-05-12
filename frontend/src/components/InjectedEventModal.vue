@@ -1,12 +1,31 @@
 <template>
   <!-- Plain overlay — component is mounted directly to body by InjectedEventsTab -->
   <div
-    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/20 dark:bg-black/50 px-4 py-4"
-    style="position: fixed; inset: 0; z-index: 9999"
+    style="
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 1rem;
+    "
     @click.self="emit('close')"
   >
     <div
-      class="relative w-full max-w-xl overflow-hidden rounded-xl bg-surface-modal text-start shadow-xl"
+      style="
+        position: relative;
+        width: 100%;
+        max-width: 36rem;
+        overflow: hidden;
+        border-radius: 0.75rem;
+        background: var(--surface-modal, #ffffff);
+        text-align: start;
+        box-shadow:
+          0 20px 25px -5px rgba(0, 0, 0, 0.1),
+          0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      "
     >
       <div class="bg-surface-modal px-4 pb-6 pt-5 sm:px-6">
         <!-- Header -->
@@ -257,8 +276,18 @@ import {
   computeAutoToTime,
   validateTimeRange,
 } from '../composables/event'
-import { CalendarColorMap as colorMap } from 'frappe-ui'
 import { onMounted, ref, computed, h } from 'vue'
+
+// CalendarColorMap is not exported from frappe-ui's public index — define inline
+const colorMap = {
+  green: { color: '#30A66D' },
+  amber: { color: '#DB7706' },
+  violet: { color: '#6846E3' },
+  pink: { color: '#E34AA6' },
+  cyan: { color: '#2BA8AB' },
+  blue: { color: '#3278E4' },
+  orange: { color: '#E85F2C' },
+}
 
 const __ =
   window.__ ||
@@ -529,7 +558,7 @@ async function apiFetch(method, params = {}) {
         }
       })
       if (parsed.length) msg = parsed.join('\n')
-    } catch (_e) {
+    } catch {
       // ignore JSON parse errors on the outer _server_messages wrapper
     }
     throw new Error(msg || `HTTP ${res.status}`)

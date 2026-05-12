@@ -465,6 +465,7 @@ function injectSidebarBtn() {
 let _xtEventsApp = null // the Vue app instance
 let _xtEventsEl = null // the overlay <div>
 let _xtEventsTabBtn = null // our injected <button>
+let _prevActiveTab = null // native Reka tab that was active before overlay
 const _listenedTablists = new WeakSet()
 
 function _getCurrentDocInfo() {
@@ -489,6 +490,10 @@ function _removeEventsOverlay() {
     _xtEventsTabBtn.setAttribute('data-state', 'inactive')
     _xtEventsTabBtn.style.borderBottom = ''
     _xtEventsTabBtn.style.color = ''
+  }
+  if (_prevActiveTab) {
+    _prevActiveTab.style.borderBottom = ''
+    _prevActiveTab = null
   }
 }
 
@@ -523,6 +528,15 @@ function _showEventsOverlay(doctype, docname) {
 
   // Visually mark our button active with the same underline Reka uses
   if (_xtEventsTabBtn) {
+    // Hide the currently active native Reka tab's border
+    const tablist = _xtEventsTabBtn.closest('[role="tablist"]')
+    const activeNativeTab = tablist?.querySelector(
+      '[role="tab"][data-state="active"]',
+    )
+    if (activeNativeTab && activeNativeTab !== _xtEventsTabBtn) {
+      _prevActiveTab = activeNativeTab
+      activeNativeTab.style.borderBottom = 'none'
+    }
     _xtEventsTabBtn.setAttribute('data-state', 'active')
     _xtEventsTabBtn.style.borderBottom = '1px solid var(--ink-gray-9,#1c1c1c)'
     _xtEventsTabBtn.style.color = 'var(--ink-gray-9,#1c1c1c)'

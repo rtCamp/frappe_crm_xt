@@ -13,6 +13,10 @@ const STYLES = `
 .crm-xt-fade-enter-active, .crm-xt-fade-leave-active { transition: opacity .15s ease; }
 .crm-xt-fade-enter-from, .crm-xt-fade-leave-to { opacity: 0; }
 
+/* frappe-ui Dialog overlay color (defined in CRM theme but needed by our secondary app) */
+.bg-black-overlay-200 { background-color: #00000045; }
+.dark:bg-black-overlay-700 { background-color: #000000b8; }
+
 /* mark highlight in search excerpts */
 #crm-xt-app mark {
   background: #fef08a; color: inherit; border-radius: 2px; padding: 0 1px;
