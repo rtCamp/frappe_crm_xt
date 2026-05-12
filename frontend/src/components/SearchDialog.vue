@@ -160,13 +160,17 @@ const ROUTES = {
   'CRM Deal': (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
   Opportunity: (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
   Contact: (n) => ({ path: `/crm/contacts/${encodeURIComponent(n)}` }),
+  'CRM Contact': (n) => ({ path: `/crm/contacts/${encodeURIComponent(n)}` }),
   'CRM Organization': (n) => ({
     path: `/crm/organizations/${encodeURIComponent(n)}`,
   }),
-  'FCRM Note': () => ({ path: '/crm/notes/view/list' }),
-  'CRM Task': () => ({ path: '/crm/tasks/view/list' }),
-  'CRM Call Log': () => ({ path: '/crm/call-logs/view/list' }),
-  Event: null,
+  Organization: (n) => ({
+    path: `/crm/organizations/${encodeURIComponent(n)}`,
+  }),
+  'FCRM Note': (n) => ({ path: `/crm/notes/${encodeURIComponent(n)}` }),
+  'CRM Task': (n) => ({ path: `/crm/tasks/${encodeURIComponent(n)}` }),
+  'CRM Call Log': (n) => ({ path: `/crm/call-logs/${encodeURIComponent(n)}` }),
+  'CRM Meeting': (n) => ({ path: `/crm/meetings/${encodeURIComponent(n)}` }),
 }
 
 function routeFor(doctype, name) {
@@ -189,7 +193,7 @@ const DT_LABELS = {
 }
 
 function dtLabel(dt) {
-  return DT_LABELS[dt] || 'Record'
+  return DT_LABELS[dt] || dt
 }
 
 // ── Lifecycle ───────────────────────────────────────────────────────────────

@@ -1,49 +1,14 @@
-"""
-Search API for frappe_crm_xt.
-
-Two backends are supported (tried in order):
-
-1. frappe_search  — full-text search via the frappe_search app (if installed).
-2. Frappe global search — ``frappe.utils.global_search.search``.
-   FCRM doctypes are registered via the global_search_doctypes hook so they
-   are included in Frappe's __global_search index.
-   Run ``bench rebuild-global-search`` after install to populate the index.
-
-Response shape:
-    (results_list, has_more_bool)
-
-Each result dict:
-    { doctype, name, marked_string }
-"""
-
 from __future__ import annotations
 
 import frappe
 
-FCRM_DOCTYPES: list[str] = [
-	"CRM Lead",
-	"CRM Deal",
-	"Contact",
-	"CRM Organization",
-	"FCRM Note",
-	"CRM Task",
-	"CRM Call Log",
-]
-
 
 @frappe.whitelist()
-def get_search_results(text: str, start: int = 0, limit: int = 50):
-	"""
-	Unified search endpoint for frappe_crm_xt.
-
-	Uses frappe_search when installed; falls back to Frappe's built-in
-	global search otherwise.
-	"""
+def get_search_results(text: str, start: int = 0, limit: int = 10):
 	start = int(start)
 	limit = int(limit)
-	allowed_doctypes = FCRM_DOCTYPES
+	allowed_doctypes = ["CRM Lead", "CRM Deal", "CRM Organization", "FCRM Note", "CRM Task", "Event"]
 
-	# ── Backend 1: frappe_search (optional) ───────────────────────────────────
 	if "frappe_search" in frappe.get_installed_apps():
 		from frappe_search.api.search import get_global_search_results
 
@@ -61,21 +26,20 @@ def get_search_results(text: str, start: int = 0, limit: int = 50):
 			results_list = list(results_list)[:limit]
 		return results_list, has_more
 
-	# ── Backend 2: Frappe built-in global search ───────────────────────────────
-	from frappe.utils.global_search import search as _frappe_global_search
+	from frappe.utils.global_search import search as global_search
 
-	allowed_set = set(allowed_doctypes)
-	raw = _frappe_global_search(text, start=start, limit=limit + 1) or []
-
-	results: list[dict] = [
-		{
-			"doctype": r["doctype"],
-			"name": r["name"],
-			"marked_string": r.get("title") or r.get("content") or r["name"],
-		}
-		for r in raw[:limit]
-		if r.get("doctype") in allowed_set
-	]
+	raw = global_search(text, start=start, limit=limit + 1) or []
 
 	has_more = len(raw) > limit
+	results = []
+	for r in raw[:limit]:
+		results.append(
+			{
+				"doctype": r.get("doctype"),
+				"name": r.get("name"),
+				"title": r.get("title") or r.get("name"),
+				"marked_string": r.get("content") or r.get("name"),
+			}
+		)
+
 	return results, has_more

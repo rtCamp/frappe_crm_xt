@@ -21,23 +21,6 @@ fixtures = [
 # Optional: install frappe_search to enable the Cmd/Ctrl+K global search bar.
 # Optional: install frappe_gmail_thread for gmail-thread activity entries.
 
-# ─── Global Search ────────────────────────────────────────────────────────────
-#
-# Register FCRM doctypes so they are included in Frappe's __global_search index.
-# After installing or changing this list run:
-#   bench --site <site> rebuild-global-search
-#
-global_search_doctypes = {
-	"Default": [
-		{"doctype": "CRM Lead"},
-		{"doctype": "CRM Deal"},
-		{"doctype": "CRM Organization"},
-		{"doctype": "FCRM Note"},
-		{"doctype": "CRM Task"},
-		{"doctype": "CRM Call Log"},
-	]
-}
-
 # ─── Doc events ───────────────────────────────────────────────────────────────
 
 doc_events = {
