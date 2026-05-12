@@ -413,28 +413,6 @@ function update() {
 function createEvent() {
   saving.value = true
   error.value = null
-  const currentUser =
-    window.frappe?.boot?.user || window.frappe?.session?.user || ''
-  const participants = [
-    {
-      doctype: 'Event Participants',
-      reference_doctype: props.doctype,
-      reference_docname: props.docname,
-    },
-  ]
-  if (currentUser && currentUser !== 'Administrator') {
-    participants.push({
-      doctype: 'Event Participants',
-      reference_doctype: 'User',
-      reference_docname: currentUser,
-      email: currentUser,
-    })
-  }
-  ;(_event.value.event_participants || []).forEach((p) => {
-    if (p.email && !participants.some((ep) => ep.email === p.email)) {
-      participants.push({ doctype: 'Event Participants', email: p.email })
-    }
-  })
   apiFetch('frappe.client.insert', {
     doc: {
       doctype: 'Event',
@@ -448,15 +426,13 @@ function createEvent() {
       color: _event.value.color,
       reference_doctype: props.doctype,
       reference_docname: props.docname,
-      event_participants: participants,
+      event_participants: _event.value.event_participants,
       notifications: _event.value.notifications,
     },
   })
-    .then(() => {
-      emit('saved')
-    })
+    .then(() => emit('saved'))
     .catch((e) => {
-      error.value = e?.message || 'Failed to create event'
+      error.value = e?.message || __('Failed to create event')
     })
     .finally(() => {
       saving.value = false
@@ -470,43 +446,27 @@ function updateEvent() {
   }
   saving.value = true
   error.value = null
-  apiFetch('frappe.client.get', { doctype: 'Event', name: _event.value.id })
-    .then((doc) => {
-      const currentUser = window.frappe?.session?.user || ''
-      const keepEmails = new Set([
-        props.docname,
-        currentUser,
-        ...(_event.value.event_participants || [])
-          .map((p) => p.email)
-          .filter(Boolean),
-      ])
-      const existingParts = (doc.event_participants || []).filter(
-        (p) => keepEmails.has(p.email) || keepEmails.has(p.reference_docname),
-      )
-      ;(_event.value.event_participants || []).forEach((p) => {
-        if (p.email && !existingParts.some((ep) => ep.email === p.email)) {
-          existingParts.push({ doctype: 'Event Participants', email: p.email })
-        }
-      })
-      Object.assign(doc, {
-        subject: _event.value.title,
-        description: _event.value.description,
-        starts_on: _event.value.fromDate + ' ' + _event.value.fromTime,
-        ends_on: _event.value.toDate + ' ' + _event.value.toTime,
-        all_day: _event.value.isFullDay,
-        event_type: _event.value.eventType,
-        location: _event.value.location || '',
-        color: _event.value.color,
-        event_participants: existingParts,
-        notifications: _event.value.notifications,
-      })
-      return apiFetch('frappe.client.save', { doc })
-    })
-    .then(() => {
-      emit('saved')
-    })
+  apiFetch('frappe.client.set_value', {
+    doctype: 'Event',
+    name: _event.value.id,
+    fieldname: {
+      subject: _event.value.title,
+      description: _event.value.description,
+      starts_on: _event.value.fromDate + ' ' + _event.value.fromTime,
+      ends_on: _event.value.toDate + ' ' + _event.value.toTime,
+      all_day: _event.value.isFullDay,
+      event_type: _event.value.eventType,
+      location: _event.value.location || '',
+      color: _event.value.color,
+      reference_doctype: props.doctype,
+      reference_docname: props.docname,
+      event_participants: _event.value.event_participants,
+      notifications: _event.value.notifications,
+    },
+  })
+    .then(() => emit('saved'))
     .catch((e) => {
-      error.value = e?.message || 'Failed to update event'
+      error.value = e?.message || __('Failed to update event')
     })
     .finally(() => {
       saving.value = false
@@ -537,7 +497,12 @@ function deleteEvent() {
 }
 
 function csrf() {
-  return window.csrf_token || window.boot?.csrf_token || ''
+  return (
+    window.frappe?.csrf_token ||
+    window.csrf_token ||
+    window.boot?.csrf_token ||
+    ''
+  )
 }
 
 async function apiFetch(method, params = {}) {
@@ -552,7 +517,23 @@ async function apiFetch(method, params = {}) {
     body: JSON.stringify(params),
   })
   const data = await res.json()
-  if (data.exc) throw new Error(data._server_messages || data.exc)
+  if (!res.ok || data.exc) {
+    let msg = data.exc || ''
+    try {
+      const msgs = JSON.parse(data._server_messages || '[]')
+      const parsed = msgs.map((m) => {
+        try {
+          return JSON.parse(m).message
+        } catch {
+          return m
+        }
+      })
+      if (parsed.length) msg = parsed.join('\n')
+    } catch (_e) {
+      // ignore JSON parse errors on the outer _server_messages wrapper
+    }
+    throw new Error(msg || `HTTP ${res.status}`)
+  }
   return data.message
 }
 </script>

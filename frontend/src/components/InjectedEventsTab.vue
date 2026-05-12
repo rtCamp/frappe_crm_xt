@@ -206,7 +206,7 @@
 
 <script setup>
 import { ref, onMounted, createApp } from 'vue'
-import { dayjs, Avatar, Tooltip, Button, FeatherIcon } from 'frappe-ui'
+import { dayjs, Avatar, Tooltip, Button } from 'frappe-ui'
 import InjectedEventModal from './InjectedEventModal.vue'
 
 const _t = window.__ || ((s) => s)
