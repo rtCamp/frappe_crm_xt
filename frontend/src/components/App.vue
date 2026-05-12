@@ -637,6 +637,215 @@ function _tryInjectEventsTab() {
   _xtEventsTabBtn = btn
 }
 
+// ── Notification helper (matches frappe-ui toast styling) ─────────────────────
+function _showNotification(message, type = 'info') {
+  // Frappe-UI toast: dark bg, bottom-right, rounded
+  const iconSvg =
+    type === 'success'
+      ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>'
+      : type === 'error'
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>'
+        : '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>'
+
+  const notify = document.createElement('div')
+  notify.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--surface-gray-6, #1f2937);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 400;
+    z-index: 2147483647;
+    max-width: 400px;
+    min-width: 280px;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    pointer-events: auto;
+    animation: crm-xt-toast-in 0.2s ease-out;
+  `
+  notify.innerHTML =
+    iconSvg +
+    '<span>' +
+    message.replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+    '</span>'
+
+  // Add animation keyframes if not already present
+  if (!document.getElementById('crm-xt-toast-style')) {
+    const style = document.createElement('style')
+    style.id = 'crm-xt-toast-style'
+    style.textContent = `
+      @keyframes crm-xt-toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      @keyframes crm-xt-toast-out { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(8px); } }
+    `
+    document.head.appendChild(style)
+  }
+
+  document.body.appendChild(notify)
+  setTimeout(() => {
+    notify.style.animation = 'crm-xt-toast-out 0.2s ease-in forwards'
+    setTimeout(() => notify.remove(), 200)
+  }, 3000)
+}
+
+// Expose globally so any XT module-level code can use it
+window.$toast = {
+  success: (msg) => _showNotification(msg, 'success'),
+  error: (msg) => _showNotification(msg, 'error'),
+  warning: (msg) => _showNotification(msg, 'warning'),
+  info: (msg) => _showNotification(msg, 'info'),
+}
+
+// ── Follow button injection ──────────────────────────────────────────────────
+let _followBtn = null
+let _followState = {}
+
+async function _loadFollowState(doctype, docname) {
+  const resp = await fetch(
+    `/api/method/frappe_crm_xt.api.follow.is_document_followed`,
+    {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Frappe-CSRF-Token': csrf(),
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ doctype, doc_name: docname }),
+    },
+  )
+  const data = await resp.json()
+  const isFollowing = data?.message || false
+  _followState[`${doctype}::${docname}`] = isFollowing
+  return isFollowing
+}
+
+async function _toggleFollow(btn, doctype, docname) {
+  try {
+    const key = `${doctype}::${docname}`
+    const currentState = _followState[key] || false
+    const newState = !currentState
+
+    const resp = await fetch(
+      `/api/method/frappe_crm_xt.api.follow.update_follow`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Frappe-CSRF-Token': csrf(),
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          doctype,
+          doc_name: docname,
+          following: newState,
+        }),
+      },
+    )
+
+    const data = await resp.json()
+
+    // Check for server-side error messages first (even if resp.ok)
+    const serverMsgs = data?._server_messages || data?.data?._server_messages
+    if (serverMsgs) {
+      let errorText = 'Unable to update follow status'
+      try {
+        const raw =
+          typeof serverMsgs === 'string' ? JSON.parse(serverMsgs) : serverMsgs
+        const first = Array.isArray(raw) ? raw[0] : raw
+        const parsed = typeof first === 'string' ? JSON.parse(first) : first
+        errorText = parsed.message || errorText
+      } catch {
+        /* use default */
+      }
+      _showNotification(errorText, 'error')
+      return
+    }
+
+    if (resp.ok && data?.message === 1) {
+      _followState[key] = newState
+      _updateFollowBtnIcon(btn, newState)
+      _showNotification(newState ? 'Following' : 'Unfollowed', 'success')
+    } else {
+      _showNotification('Unable to update follow status', 'error')
+    }
+  } catch (err) {
+    _showNotification('Follow error: ' + err.message, 'error')
+  }
+}
+
+function _updateFollowBtnIcon(btn, isFollowing) {
+  if (!btn) return
+  // Eye filled icon if following, eye outline if not
+  const eyeSvg = isFollowing
+    ? '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" class="h-4"><path d="M12 5C7 5 2.73 8.11 1 12.46c1.73 4.35 6 7.54 11 7.54s9.27-3.19 11-7.54C21.27 8.11 17 5 12 5zm0 12.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 8.5 12 8.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-7c-1.38 0-2.5 1.12-2.5 2.5s1.12 2.5 2.5 2.5 2.5-1.12 2.5-2.5-1.12-2.5-2.5-2.5z"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>'
+  btn.innerHTML = eyeSvg
+}
+
+function _tryInjectFollowBtn() {
+  const docInfo = _getCurrentDocInfo()
+  if (!docInfo) {
+    _followBtn = null
+    return
+  }
+
+  // Find doc name heading (h1 or similar)
+  const docNameEl = Array.from(
+    document.querySelectorAll(
+      'h1, [class*="text-2xl"], [class*="text-xl"][class*="font-bold"]',
+    ),
+  ).find((el) => el.textContent.trim() === docInfo.docname)
+
+  if (!docNameEl) return
+
+  // Icon row is next sibling: div.flex.gap-1.5
+  const iconRow = docNameEl.nextElementSibling
+  if (!iconRow || !iconRow.classList.contains('flex')) {
+    return
+  }
+
+  // Re-use existing button (handles re-render by FCRM)
+  let existing = document.querySelector('[data-xt-follow-btn]')
+  if (existing) {
+    _followBtn = existing
+    return
+  }
+
+  // Clone className from first button in icon row to match styling
+  const refBtn = iconRow.querySelector('button')
+  if (!refBtn) return
+
+  const btn = document.createElement('button')
+  btn.setAttribute('type', 'button')
+  btn.setAttribute('data-xt-follow-btn', '')
+  btn.setAttribute('aria-label', 'Follow')
+  btn.className = refBtn.className
+  btn.style.cursor = 'pointer'
+
+  // Show outline eye by default while loading
+  _updateFollowBtnIcon(btn, false)
+
+  // Load follow state and update icon with actual state
+  _loadFollowState(docInfo.doctype, docInfo.docname).then((isFollowing) => {
+    _updateFollowBtnIcon(btn, isFollowing)
+  })
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault()
+    _toggleFollow(btn, docInfo.doctype, docInfo.docname)
+  })
+
+  // Append to the icon row so it stays inline with the 4 icons
+  iconRow.appendChild(btn)
+  _followBtn = btn
+}
+
 // ── Mount ───────────────────────────────────────────────────────────────────
 onMounted(() => {
   // Keyboard shortcut
@@ -666,6 +875,7 @@ onMounted(() => {
       injectSidebarBtn()
       injectCustomSidebarBtns()
       _tryInjectEventsTab()
+      _tryInjectFollowBtn()
     }, 250),
   )
 
@@ -682,6 +892,8 @@ onMounted(() => {
     }
     // Try to inject events tab whenever DOM changes (tab switches, navigation)
     _tryInjectEventsTab()
+    // Try to inject follow button whenever DOM changes
+    _tryInjectFollowBtn()
   })
   obs.observe(document.body, { childList: true, subtree: true })
 })
