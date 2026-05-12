@@ -7,7 +7,6 @@ Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features wit
 - **Events tab** — calendar events tab injected into every Lead and Deal page; create, edit, and delete Frappe `Event` records linked to the record.
 - **Event notifications** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
 - **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [frappe_gmail_thread](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
-- **crm_erp_bridge stubs** — safe fallback handlers for `crm_erp_bridge` API methods so cached browser JS doesn't produce 417 errors after that app is uninstalled.
 
 ---
 
@@ -176,18 +175,6 @@ The built-in list view rendered for every `"list_view"` sidebar item includes:
 - **Sort** — click any column header to toggle ascending/descending sort.
 - **Load More** — incremental pagination; loads 20 rows at a time.
 - **Custom row URL** — `row_url` template determines where a row click navigates; defaults to the standard Frappe form view.
-
----
-
-### crm_erp_bridge Compatibility Stubs
-
-If `crm_erp_bridge` is uninstalled but browsers still have its JavaScript cached, API calls to `crm_erp_bridge.*` methods return HTTP 417. This app registers fallback handlers via `override_whitelisted_methods` that return safe defaults:
-
-| Method | Behaviour |
-|--------|-----------|
-| `crm_erp_bridge.api.notifications.is_document_followed` | Delegates to Frappe's `document_follow` module |
-| `crm_erp_bridge.api.notifications.toggle_document_follow` | Delegates to Frappe's `update_follow` |
-| `crm_erp_bridge.crm_ui_api.link_address_to_doc` | No-op |
 
 ---
 

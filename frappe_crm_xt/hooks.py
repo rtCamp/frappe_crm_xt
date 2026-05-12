@@ -55,11 +55,6 @@ doc_events = {
 override_whitelisted_methods = {
 	# Append frappe_gmail_thread activity entries to FCRM's activity feed.
 	"crm.api.activities.get_activities": "frappe_crm_xt.api.activity.get_activities",
-	# Stubs for crm_erp_bridge — browser JS may still call these after the app
-	# is uninstalled.  Route them here so we return sensible values instead of 417.
-	"crm_erp_bridge.api.notifications.is_document_followed": "frappe_crm_xt.api.crm_erp_compat.is_document_followed",
-	"crm_erp_bridge.api.notifications.toggle_document_follow": "frappe_crm_xt.api.crm_erp_compat.toggle_document_follow",
-	"crm_erp_bridge.crm_ui_api.link_address_to_doc": "frappe_crm_xt.api.crm_erp_compat.link_address_to_doc",
 }
 
 # ─── Scheduler ────────────────────────────────────────────────────────────────
