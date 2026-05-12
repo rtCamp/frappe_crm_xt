@@ -1,686 +1,541 @@
 <template>
-  <Dialog v-model="show" :options="{ size: 'xl' }">
-    <!-- ── Header ── -->
-    <template #body-header>
-      <div class="mb-6 flex items-center justify-between">
-        <h3 class="text-2xl font-semibold leading-6 text-ink-gray-9">
-          {{
-            mode === 'edit'
-              ? _t('Edit an event')
-              : mode === 'duplicate'
-                ? _t('Duplicate an event')
-                : _t('Create an event')
-          }}
-        </h3>
-        <div class="flex gap-1">
-          <!-- Delete (edit only) -->
-          <button
-            v-if="mode === 'edit'"
-            class="inline-flex items-center justify-center size-7 rounded hover:bg-surface-gray-2 text-ink-gray-9 transition-colors"
-            :title="_t('Delete')"
-            @click="confirmDelete"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              class="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <polyline points="3 6 5 6 21 6" />
-              <path d="M19 6l-1 14H6L5 6" />
-              <path d="M10 11v6" />
-              <path d="M14 11v6" />
-              <path d="M9 6V4h6v2" />
-            </svg>
-          </button>
-          <!-- Duplicate (edit only) -->
-          <button
-            v-if="mode === 'edit'"
-            class="inline-flex items-center justify-center size-7 rounded hover:bg-surface-gray-2 text-ink-gray-9 transition-colors"
-            :title="_t('Duplicate')"
-            @click="duplicateEvent"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              class="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-              <path
-                d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
-              />
-            </svg>
-          </button>
-          <!-- Close -->
-          <button
-            class="inline-flex items-center justify-center size-7 rounded hover:bg-surface-gray-2 text-ink-gray-9 transition-colors"
-            @click="show = false"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              class="h-4 w-4"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </template>
-
-    <!-- ── Body ── -->
-    <template #body-content>
-      <div class="flex flex-col gap-4">
-        <!-- Title + color picker -->
-        <div class="flex items-center">
-          <div class="text-base text-ink-gray-7 w-3/12">{{ _t('Title') }}</div>
-          <div class="flex gap-1 w-9/12">
-            <Dropdown :options="colorOptions">
-              <div
-                class="flex items-center justify-center size-7 shrink-0 border border-outline-gray-2 bg-surface-white hover:border-outline-gray-3 hover:shadow-sm rounded cursor-pointer"
-              >
-                <div
-                  style="
-                    width: 10px;
-                    height: 10px;
-                    border-radius: 50%;
-                    flex-shrink: 0;
-                  "
-                  :style="{ backgroundColor: form.color || '#30A66D' }"
-                />
-              </div>
-            </Dropdown>
-            <input
-              ref="titleInput"
-              v-model="form.title"
-              type="text"
-              :placeholder="_t('Call with John Doe')"
-              class="w-full rounded border border-outline-gray-2 bg-surface-white px-3 py-1.5 text-sm text-ink-gray-9 placeholder-ink-gray-4 focus:border-outline-gray-3 focus:outline-none"
-              required
-              @keydown.enter.prevent="submit"
-            />
+  <!-- Plain overlay — component is mounted directly to body by InjectedEventsTab -->
+  <div
+    class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/20 dark:bg-black/50 px-4 py-4"
+    style="position: fixed; inset: 0; z-index: 9999"
+    @click.self="emit('close')"
+  >
+    <div
+      class="relative w-full max-w-xl overflow-hidden rounded-xl bg-surface-modal text-start shadow-xl"
+    >
+      <div class="bg-surface-modal px-4 pb-6 pt-5 sm:px-6">
+        <!-- Header -->
+        <div class="mb-6 flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <h3 class="text-2xl font-semibold leading-6 text-ink-gray-9">
+              {{
+                mode === 'edit'
+                  ? __('Edit an Event')
+                  : mode === 'duplicate'
+                    ? __('Duplicate an Event')
+                    : __('Create an Event')
+              }}
+            </h3>
           </div>
-        </div>
-
-        <!-- All day -->
-        <div class="flex items-center">
-          <div class="text-base text-ink-gray-7 w-3/12">
-            {{ _t('All day') }}
-          </div>
-          <Switch v-model="form.isFullDay" />
-        </div>
-
-        <div class="border-t border-outline-gray-1" />
-
-        <!-- Date & Time -->
-        <div class="flex items-center">
-          <div class="text-base text-ink-gray-7 w-3/12">
-            {{ _t('Date & Time') }}
-          </div>
-          <div class="flex gap-2 w-9/12 flex-wrap">
-            <DatePicker
-              :class="form.isFullDay ? 'flex-1' : 'w-[158px]'"
-              variant="outline"
-              :value="form.fromDate"
-              :format="'MMM D, YYYY'"
-              :placeholder="_t('May 1, 2025')"
-              :clearable="false"
-              @update:modelValue="(d) => updateDate(d)"
-            >
-              <template #suffix="{ togglePopover }">
-                <svg
-                  viewBox="0 0 24 24"
-                  class="h-4 w-4 cursor-pointer text-ink-gray-5"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  @click="togglePopover"
-                >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
+          <div class="flex gap-1">
+            <Button v-if="mode === 'edit'" variant="ghost" @click="deleteEvent">
+              <template #icon>
+                <FeatherIcon name="trash-2" class="h-4 w-4 text-ink-gray-9" />
               </template>
-            </DatePicker>
-            <TimePicker
-              v-if="!form.isFullDay"
-              class="max-w-[112px]"
-              variant="outline"
-              :modelValue="form.fromTime"
-              :placeholder="_t('Start Time')"
-              @update:modelValue="(t) => updateFromTime(t)"
-            />
-            <TimePicker
-              v-if="!form.isFullDay"
-              class="max-w-[112px]"
-              variant="outline"
-              :modelValue="form.toTime"
-              :options="toTimeOptions"
-              :placeholder="_t('End Time')"
-              placement="bottom-end"
-              @update:modelValue="(t) => updateToTime(t)"
-            />
+            </Button>
+            <Button
+              v-if="mode === 'edit'"
+              variant="ghost"
+              @click="duplicateEvent"
+            >
+              <template #icon>
+                <FeatherIcon name="copy" class="h-4 w-4 text-ink-gray-9" />
+              </template>
+            </Button>
+            <Button variant="ghost" @click="emit('close')">
+              <template #icon>
+                <FeatherIcon name="x" class="h-4 w-4 text-ink-gray-9" />
+              </template>
+            </Button>
           </div>
         </div>
 
-        <!-- Attendees -->
-        <div class="flex items-start">
-          <div class="text-base text-ink-gray-7 mt-1.5 w-3/12">
-            {{ _t('Attendees') }}
-          </div>
-          <div class="w-9/12">
-            <!-- Email tags input -->
-            <div
-              class="min-h-[34px] rounded border border-outline-gray-2 bg-surface-white px-2 py-1 flex flex-wrap gap-1 focus-within:border-outline-gray-3 cursor-text"
-              @click="focusAttendeeInput"
-            >
-              <div
-                v-for="a in form.attendees"
-                :key="a.email"
-                class="inline-flex items-center gap-1 rounded-full bg-surface-gray-2 px-2 py-0.5 text-xs text-ink-gray-8"
-              >
-                <span>{{ a.email }}</span>
-                <button
-                  class="text-ink-gray-4 hover:text-ink-gray-7 leading-none"
-                  @click.stop="removeAttendee(a.email)"
+        <!-- Form fields -->
+        <div class="flex flex-col gap-4">
+          <div class="flex items-center">
+            <div class="text-base text-ink-gray-7 w-3/12">
+              {{ __('Title') }}
+            </div>
+            <div class="flex gap-1 w-9/12">
+              <Dropdown :options="colors">
+                <div
+                  class="flex items-center justify-center size-7 shrink-0 border border-outline-gray-2 bg-surface-white hover:border-outline-gray-3 hover:shadow-sm rounded cursor-pointer"
                 >
-                  ×
-                </button>
-              </div>
-              <input
-                ref="attendeeInput"
-                v-model="attendeeInputVal"
-                type="email"
-                :placeholder="
-                  form.attendees.length ? '' : _t('Add email address')
+                  <div
+                    class="size-2.5 rounded-full"
+                    :style="{ backgroundColor: _event.color || '#30A66D' }"
+                  />
+                </div>
+              </Dropdown>
+              <TextInput
+                ref="titleRef"
+                v-model="_event.title"
+                class="w-full"
+                size="sm"
+                :placeholder="__('Call with John Doe')"
+                variant="outline"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="flex items-center">
+            <div class="text-base text-ink-gray-7 w-3/12">
+              {{ __('All Day') }}
+            </div>
+            <Switch v-model="_event.isFullDay" />
+          </div>
+
+          <div class="border-t border-outline-gray-1" />
+
+          <div class="flex items-center">
+            <div class="text-base text-ink-gray-7 w-3/12">
+              {{ __('Date & Time') }}
+            </div>
+            <div class="flex gap-2 w-9/12">
+              <DatePicker
+                :class="[_event.isFullDay ? 'w-full' : 'w-[158px]']"
+                variant="outline"
+                :value="_event.fromDate"
+                :format="'MMM D, YYYY'"
+                :placeholder="__('May 1, 2025')"
+                :clearable="false"
+                @update:modelValue="(d) => updateDate(d)"
+              >
+                <template #suffix="{ togglePopover }">
+                  <FeatherIcon
+                    name="chevron-down"
+                    class="h-4 w-4 cursor-pointer"
+                    @click="togglePopover"
+                  />
+                </template>
+              </DatePicker>
+              <TimePicker
+                v-if="!_event.isFullDay"
+                class="max-w-[112px]"
+                variant="outline"
+                :modelValue="_event.fromTime"
+                :placeholder="__('Start Time')"
+                @update:modelValue="(t) => updateTime(t, true)"
+              />
+              <TimePicker
+                v-if="!_event.isFullDay"
+                class="max-w-[112px]"
+                variant="outline"
+                :modelValue="_event.toTime"
+                :options="toOptions"
+                :placeholder="__('End Time')"
+                placement="bottom-end"
+                @update:modelValue="(t) => updateTime(t)"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-start">
+            <div class="text-base text-ink-gray-7 mt-1.5 w-3/12">
+              {{ __('Attendees') }}
+            </div>
+            <div class="w-9/12">
+              <Attendee
+                v-model="peoples"
+                :validate="validateEmail"
+                :error-message="
+                  (v) => __('{0} is an invalid email address', [v])
                 "
-                class="flex-1 min-w-[140px] bg-transparent text-sm text-ink-gray-9 placeholder-ink-gray-4 outline-none py-0.5"
-                @keydown.enter.prevent="addAttendee"
-                @keydown.tab.prevent="addAttendee"
-                @keydown="
-                  (e) => e.key === ',' && (e.preventDefault(), addAttendee())
-                "
-                @blur="addAttendee"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-start">
+            <div class="text-base text-ink-gray-7 mt-1.5 w-3/12">
+              {{ __('Visibility') }}
+            </div>
+            <div class="w-9/12">
+              <FormControl
+                v-model="_event.eventType"
+                class="w-full"
+                type="select"
+                :options="[
+                  { label: __('Private'), value: 'Private' },
+                  { label: __('Public'), value: 'Public' },
+                ]"
+                variant="outline"
+                :placeholder="__('Private or Public')"
+              />
+            </div>
+          </div>
+
+          <div class="flex items-start">
+            <div class="text-base text-ink-gray-7 mt-1.5 w-3/12">
+              {{ __('Location') }}
+            </div>
+            <div class="w-9/12">
+              <TextInput
+                v-model="_event.location"
+                class="w-full"
+                size="sm"
+                variant="outline"
+                :placeholder="__('Add Location')"
+              />
+            </div>
+          </div>
+
+          <div class="flex">
+            <div class="mt-2 text-base text-ink-gray-7 w-3/12">
+              {{ __('Description') }}
+            </div>
+            <div class="w-9/12">
+              <TextEditor
+                editor-class="!prose-sm overflow-auto min-h-[80px] max-h-80 py-1.5 px-2 rounded border border-outline-gray-2 placeholder-ink-gray-4 hover:border-outline-gray-3 hover:shadow-sm focus:bg-surface-white focus:border-outline-gray-4 focus:shadow-sm focus:ring-0 focus-visible:ring-2 focus-visible:ring-outline-gray-3 text-ink-gray-8 transition-colors"
+                :bubbleMenu="true"
+                :content="_event.description"
+                :placeholder="__('Add Description.')"
+                @change="(val) => (_event.description = val)"
+              />
+            </div>
+          </div>
+
+          <div class="border-t border-outline-gray-1" />
+
+          <div class="flex">
+            <div class="mt-1.5 text-base text-ink-gray-7 w-3/12">
+              {{ __('Notifications') }}
+            </div>
+            <div class="w-9/12">
+              <EventNotifications
+                v-model="_event.notifications"
+                :isAllDay="_event.isFullDay"
               />
             </div>
           </div>
         </div>
+      </div>
 
-        <!-- Visibility -->
-        <div class="flex items-start">
-          <div class="text-base text-ink-gray-7 mt-1.5 w-3/12">
-            {{ _t('Visibility') }}
+      <!-- Footer -->
+      <div class="px-4 pb-7 pt-4 sm:px-6">
+        <div class="flex w-full items-center justify-between">
+          <div>
+            <ErrorMessage v-if="error" :message="__(error)" />
           </div>
-          <div class="w-9/12">
-            <FormControl
-              v-model="form.eventType"
-              class="w-full"
-              type="select"
-              variant="outline"
-              :options="[
-                { label: _t('Private'), value: 'Private' },
-                { label: _t('Public'), value: 'Public' },
-              ]"
-            />
-          </div>
-        </div>
-
-        <!-- Location -->
-        <div class="flex items-start">
-          <div class="text-base text-ink-gray-7 mt-1.5 w-3/12">
-            {{ _t('Location') }}
-          </div>
-          <div class="w-9/12">
-            <input
-              v-model="form.location"
-              type="text"
-              :placeholder="_t('Add location')"
-              class="w-full rounded border border-outline-gray-2 bg-surface-white px-3 py-1.5 text-sm text-ink-gray-9 placeholder-ink-gray-4 focus:border-outline-gray-3 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <!-- Description -->
-        <div class="flex">
-          <div class="mt-2 text-base text-ink-gray-7 w-3/12">
-            {{ _t('Description') }}
-          </div>
-          <div class="w-9/12">
-            <TextEditor
-              editor-class="!prose-sm overflow-auto min-h-[80px] max-h-80 py-1.5 px-2 rounded border border-outline-gray-2 hover:border-outline-gray-3 focus-within:border-outline-gray-3 bg-surface-white"
-              :bubbleMenu="true"
-              :content="form.description"
-              :placeholder="_t('Add description.')"
-              @change="(v) => (form.description = v)"
+          <div class="flex gap-2 justify-end">
+            <Button :label="__('Cancel')" @click="emit('close')" />
+            <Button
+              variant="solid"
+              :label="
+                mode === 'edit'
+                  ? __('Update')
+                  : mode === 'duplicate'
+                    ? __('Duplicate')
+                    : __('Create')
+              "
+              :disabled="!dirty"
+              :loading="saving"
+              @click="update"
             />
           </div>
         </div>
       </div>
-    </template>
-
-    <!-- ── Actions ── -->
-    <template #actions>
-      <div class="flex w-full items-center justify-between">
-        <div>
-          <ErrorMessage v-if="error" :message="_t(error)" />
-        </div>
-        <div class="flex gap-2 justify-end">
-          <Button :label="_t('Cancel')" @click="show = false" />
-          <Button
-            variant="solid"
-            :label="
-              mode === 'edit'
-                ? _t('Update')
-                : mode === 'duplicate'
-                  ? _t('Duplicate')
-                  : _t('Create')
-            "
-            :disabled="!dirty"
-            :loading="saving"
-            @click="submit"
-          />
-        </div>
-      </div>
-    </template>
-  </Dialog>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, nextTick, h, onMounted } from 'vue'
+import EventNotifications from './EventNotifications.vue'
+import Attendee from './Attendee.vue'
 import {
-  Dialog,
-  Button,
   Switch,
+  TextEditor,
+  ErrorMessage,
   DatePicker,
   TimePicker,
-  Dropdown,
-  FormControl,
-  ErrorMessage,
-  TextEditor,
   dayjs,
+  Dropdown,
+  TextInput,
+  FormControl,
+  FeatherIcon,
+  Button,
 } from 'frappe-ui'
+import { validateEmail } from '../utils'
+import {
+  normalizeParticipants,
+  buildEndTimeOptions,
+  computeAutoToTime,
+  validateTimeRange,
+} from '../composables/event'
+import { CalendarColorMap as colorMap } from 'frappe-ui'
+import { onMounted, ref, computed, h } from 'vue'
 
-const _t = window.__ || ((s) => s)
+const __ =
+  window.__ ||
+  ((s, r) => (r ? s.replace(/\{(\d+)\}/g, (_, i) => r[i] ?? _) : s))
 
-// ── Props / emits ─────────────────────────────────────────────────────────────
 const props = defineProps({
   event: { type: Object, default: () => ({}) },
   doctype: { type: String, default: '' },
   docname: { type: String, default: '' },
 })
-const emit = defineEmits(['saved', 'deleted'])
-const show = defineModel({ type: Boolean, default: false })
 
-// ── State ─────────────────────────────────────────────────────────────────────
+const emit = defineEmits(['close', 'saved', 'deleted'])
+
+const titleRef = ref(null)
 const saving = ref(false)
-const error = ref('')
-const titleInput = ref(null)
-const attendeeInput = ref(null)
-const attendeeInputVal = ref('')
+const error = ref(null)
 
-// ── Color palette (matches frappe-ui CalendarColorMap) ────────────────────────
-const PALETTE = [
-  { name: 'green', color: '#30A66D' },
-  { name: 'blue', color: '#2490EF' },
-  { name: 'purple', color: '#7B5EA7' },
-  { name: 'red', color: '#E24C4C' },
-  { name: 'orange', color: '#F97316' },
-  { name: 'yellow', color: '#EAB308' },
-  { name: 'gray', color: '#6B7280' },
-  { name: 'teal', color: '#0D9488' },
-  { name: 'pink', color: '#EC4899' },
-]
-
-const colorOptions = computed(() =>
-  PALETTE.map((c) => {
-    const isActive = (form.value.color || '#30A66D') === c.color
-    return {
-      label: c.name.charAt(0).toUpperCase() + c.name.slice(1),
-      // Functional component — Vue 3 accepts () => VNode as a component.
-      // Active color gets an outline ring; inactive gets none.
-      icon: () =>
-        h('div', {
-          style: {
-            width: '12px',
-            height: '12px',
-            borderRadius: '50%',
-            backgroundColor: c.color,
-            flexShrink: '0',
-            outline: isActive
-              ? `2px solid ${c.color}`
-              : '2px solid transparent',
-            outlineOffset: '2px',
-          },
-        }),
-      onClick: () => {
-        form.value.color = c.color
-      },
-    }
-  }),
+const mode = computed(() =>
+  _event.value.id === 'duplicate'
+    ? 'duplicate'
+    : _event.value.id
+      ? 'edit'
+      : 'create',
 )
 
-// ── Blank form factory ────────────────────────────────────────────────────────
-function blankForm() {
-  const now = dayjs()
-  return {
-    id: '',
-    title: '',
-    description: '',
-    fromDate: now.format('YYYY-MM-DD'),
-    toDate: now.format('YYYY-MM-DD'),
-    fromTime: now.add(1, 'hour').startOf('hour').format('HH:mm'),
-    toTime: now.add(2, 'hour').startOf('hour').format('HH:mm'),
-    isFullDay: false,
-    eventType: 'Public',
-    location: '',
-    color: '#30A66D',
-    attendees: [],
-  }
-}
-
-const form = ref(blankForm())
-const oldForm = ref(blankForm())
-
-// ── Mode ──────────────────────────────────────────────────────────────────────
-const mode = computed(() => {
-  if (!form.value.id) return 'create'
-  if (form.value.id === 'duplicate') return 'duplicate'
-  return 'edit'
+const oldEvent = ref({})
+const _event = ref({
+  title: '',
+  description: '',
+  fromDate: '',
+  toDate: '',
+  fromTime: '',
+  toTime: '',
+  isFullDay: false,
+  eventType: 'Public',
+  location: '',
+  color: '#30A66D',
+  referenceDoctype: '',
+  referenceDocname: '',
+  event_participants: [],
+  notifications: [],
 })
 
 const dirty = computed(
-  () => JSON.stringify(form.value) !== JSON.stringify(oldForm.value),
+  () => JSON.stringify(_event.value) !== JSON.stringify(oldEvent.value),
 )
 
-// ── Populate form from event prop ─────────────────────────────────────────────
+const peoples = computed({
+  get() {
+    return _event.value.event_participants || []
+  },
+  set(list) {
+    _event.value.event_participants = normalizeParticipants(list)
+  },
+})
+
+const toOptions = computed(() => buildEndTimeOptions(_event.value.fromTime))
+
+const colors = Object.keys(colorMap).map((c) => ({
+  label: c.charAt(0).toUpperCase() + c.slice(1),
+  value: colorMap[c].color,
+  icon: h('div', {
+    class: '!size-2.5 rounded-full',
+    style: { backgroundColor: colorMap[c].color },
+  }),
+  onClick: () => (_event.value.color = colorMap[c].color),
+}))
+
 onMounted(() => {
-  if (props.event?.name) {
-    const e = props.event
-    const start = dayjs(e.starts_on)
-    const end = dayjs(e.ends_on)
-    form.value = {
-      id: e.name,
-      title: e.subject || '',
-      description: e.description || '',
+  if (props.event) {
+    let start = dayjs(props.event.starts_on)
+    let end = dayjs(props.event.ends_on)
+    if (!props.event.name) {
+      start = dayjs()
+      end = dayjs().add(1, 'hour')
+    }
+    _event.value = {
+      id: props.event.name || '',
+      title: props.event.subject || '',
+      description: props.event.description || '',
       fromDate: start.format('YYYY-MM-DD'),
       toDate: end.format('YYYY-MM-DD'),
       fromTime: start.format('HH:mm'),
       toTime: end.format('HH:mm'),
-      isFullDay: !!e.all_day,
-      eventType: e.event_type || 'Public',
-      location: e.location || '',
-      color: e.color || '#30A66D',
-      attendees: (e.event_participants || [])
-        .filter((p) => p.email && p.email !== e.owner)
-        .map((p) => ({ email: p.email })),
+      isFullDay: !!props.event.all_day,
+      eventType: props.event.event_type || 'Public',
+      location: props.event.location || '',
+      color: props.event.color || '#30A66D',
+      referenceDoctype: props.event.reference_doctype || '',
+      referenceDocname: props.event.reference_docname || '',
+      event_participants: props.event.event_participants || [],
+      notifications: props.event.notifications || [],
     }
-    oldForm.value = JSON.parse(JSON.stringify(form.value))
+    oldEvent.value = JSON.parse(JSON.stringify(_event.value))
+    setTimeout(() => titleRef.value?.el?.focus(), 100)
   }
-  nextTick(() => titleInput.value?.focus())
-})
-
-// ── Time helpers ──────────────────────────────────────────────────────────────
-function allSlots() {
-  const slots = []
-  for (let h = 0; h < 24; h++) {
-    for (let m of [0, 15, 30, 45]) {
-      const hh = String(h).padStart(2, '0')
-      const mm = String(m).padStart(2, '0')
-      const ampm = h < 12 ? 'am' : 'pm'
-      const h12 = h % 12 || 12
-      slots.push({ value: `${hh}:${mm}`, label: `${h12}:${mm} ${ampm}` })
-    }
-  }
-  return slots
-}
-
-const toTimeOptions = computed(() => {
-  const slots = allSlots()
-  if (!form.value.fromTime) return slots
-  const startIdx = slots.findIndex((s) => s.value > form.value.fromTime)
-  if (startIdx === -1) return []
-  const [fh, fm] = form.value.fromTime.split(':').map(Number)
-  const fromMins = fh * 60 + fm
-  return slots.slice(startIdx).map((s) => {
-    const [th, tm] = s.value.split(':').map(Number)
-    const diff = th * 60 + tm - fromMins
-    const hrs = Math.floor(diff / 60)
-    const mins = diff % 60
-    const dur =
-      hrs && mins ? `${hrs}h ${mins}m` : hrs ? `${hrs} hr` : `${mins} min`
-    return { ...s, label: `${s.label} (${dur})` }
-  })
 })
 
 function updateDate(d) {
-  form.value.fromDate = d
-  form.value.toDate = d
+  _event.value.fromDate = d
+  _event.value.toDate = d
 }
 
-function updateFromTime(t) {
-  error.value = ''
-  form.value.fromTime = t
-  // auto-advance end time
-  const [h, m] = t.split(':').map(Number)
-  let nh = h + 1,
-    nm = m
-  if (nh >= 24) {
-    nh = 23
-    nm = 59
+function updateTime(t, fromTime = false) {
+  error.value = null
+  const prevTo = _event.value.toTime
+  if (fromTime) {
+    _event.value.fromTime = t
+    if (!_event.value.toTime || _event.value.toTime <= t) {
+      _event.value.toTime = computeAutoToTime(t)
+    }
+  } else {
+    _event.value.toTime = t
   }
-  const newTo = `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`
-  if (!form.value.toTime || form.value.toTime <= t) {
-    form.value.toTime = newTo
+  const { valid, error: err } = validateTimeRange({
+    fromDate: _event.value.fromDate,
+    fromTime: _event.value.fromTime,
+    toTime: _event.value.toTime,
+    isFullDay: _event.value.isFullDay,
+  })
+  if (!valid) {
+    error.value = err
+    _event.value.toTime = prevTo
   }
 }
 
-function updateToTime(t) {
-  error.value = ''
-  if (!form.value.isFullDay && t <= form.value.fromTime) {
-    error.value = _t('End time should be after start time')
+function update() {
+  error.value = null
+  if (!_event.value.title) {
+    error.value = __('Title is required')
+    titleRef.value?.el?.focus()
     return
   }
-  form.value.toTime = t
-}
-
-// ── Attendees ─────────────────────────────────────────────────────────────────
-function focusAttendeeInput() {
-  attendeeInput.value?.focus()
-}
-
-function addAttendee() {
-  const email = attendeeInputVal.value.trim().replace(/,$/, '')
-  if (!email) return
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    error.value = _t('{0} is an invalid email address', [email])
-    return
-  }
-  if (!form.value.attendees.some((a) => a.email === email)) {
-    form.value.attendees.push({ email })
-  }
-  attendeeInputVal.value = ''
-  error.value = ''
-}
-
-function removeAttendee(email) {
-  form.value.attendees = form.value.attendees.filter((a) => a.email !== email)
-}
-
-// ── Duplicate ─────────────────────────────────────────────────────────────────
-function duplicateEvent() {
-  form.value.id = 'duplicate'
-  form.value.title = form.value.title + ' (Copy)'
-  oldForm.value = JSON.parse(
-    JSON.stringify({ ...form.value, id: '', title: '' }),
-  ) // force dirty
-  nextTick(() => titleInput.value?.focus())
-}
-
-// ── Delete ────────────────────────────────────────────────────────────────────
-function confirmDelete() {
-  if (!form.value.id || form.value.id === 'duplicate') return
-  if (!window.confirm(_t('Are you sure you want to delete this event?'))) return
-  deleteEvent()
-}
-
-async function deleteEvent() {
-  saving.value = true
-  error.value = ''
-  try {
-    await apiFetch('frappe.client.delete', {
-      doctype: 'Event',
-      name: form.value.id,
-    })
-    show.value = false
-    emit('deleted')
-  } catch (e) {
-    error.value = e?.message || _t('Failed to delete event')
-  } finally {
-    saving.value = false
-  }
-}
-
-// ── Submit ────────────────────────────────────────────────────────────────────
-function submit() {
-  error.value = ''
-
-  // Flush any pending attendee input
-  if (attendeeInputVal.value.trim()) addAttendee()
-
-  if (!form.value.title.trim()) {
-    error.value = _t('Title is required')
-    titleInput.value?.focus()
-    return
-  }
-  if (!form.value.isFullDay && form.value.toTime <= form.value.fromTime) {
-    error.value = _t('End time should be after start time')
+  const { valid, error: err } = validateTimeRange({
+    fromDate: _event.value.fromDate,
+    fromTime: _event.value.fromTime,
+    toTime: _event.value.toTime,
+    isFullDay: _event.value.isFullDay,
+  })
+  if (!valid) {
+    error.value = err
     return
   }
 
-  if (mode.value === 'edit') {
+  if (_event.value.id && _event.value.id !== 'duplicate') {
     updateEvent()
   } else {
     createEvent()
   }
 }
 
-async function createEvent() {
+function createEvent() {
   saving.value = true
-  error.value = ''
-  try {
-    // boot.user is the reliable source in the CRM SPA context
-    const currentUser =
-      window.frappe?.boot?.user || window.frappe?.session?.user || ''
-
-    const participants = [
-      // Link to the CRM Lead / Deal that owns this events tab
-      {
-        doctype: 'Event Participants',
-        reference_doctype: props.doctype,
-        reference_docname: props.docname,
-      },
-    ]
-    if (currentUser && currentUser !== 'Administrator') {
-      participants.push({
-        doctype: 'Event Participants',
-        reference_doctype: 'User',
-        reference_docname: currentUser,
-        email: currentUser,
-      })
+  error.value = null
+  const currentUser =
+    window.frappe?.boot?.user || window.frappe?.session?.user || ''
+  const participants = [
+    {
+      doctype: 'Event Participants',
+      reference_doctype: props.doctype,
+      reference_docname: props.docname,
+    },
+  ]
+  if (currentUser && currentUser !== 'Administrator') {
+    participants.push({
+      doctype: 'Event Participants',
+      reference_doctype: 'User',
+      reference_docname: currentUser,
+      email: currentUser,
+    })
+  }
+  ;(_event.value.event_participants || []).forEach((p) => {
+    if (p.email && !participants.some((ep) => ep.email === p.email)) {
+      participants.push({ doctype: 'Event Participants', email: p.email })
     }
-    // Email-only attendees — no Contact link (omit reference fields entirely
-    // so Frappe doesn't require a reference_docname for them)
-    form.value.attendees.forEach((a) => {
-      participants.push({
-        doctype: 'Event Participants',
-        email: a.email,
-      })
-    })
-
-    await apiFetch('frappe.client.insert', {
-      doc: buildDoc(participants),
-    })
-    show.value = false
-    emit('saved')
-  } catch (e) {
-    error.value = e?.message || _t('Failed to create event')
-  } finally {
-    saving.value = false
-  }
-}
-
-async function updateEvent() {
-  saving.value = true
-  error.value = ''
-  try {
-    // Get current doc then patch
-    const doc = await apiFetch('frappe.client.get', {
+  })
+  apiFetch('frappe.client.insert', {
+    doc: {
       doctype: 'Event',
-      name: form.value.id,
+      subject: _event.value.title,
+      description: _event.value.description,
+      starts_on: _event.value.fromDate + ' ' + _event.value.fromTime,
+      ends_on: _event.value.toDate + ' ' + _event.value.toTime,
+      all_day: _event.value.isFullDay || false,
+      event_type: _event.value.eventType,
+      location: _event.value.location || '',
+      color: _event.value.color,
+      reference_doctype: props.doctype,
+      reference_docname: props.docname,
+      event_participants: participants,
+      notifications: _event.value.notifications,
+    },
+  })
+    .then(() => {
+      emit('saved')
     })
-    const patch = buildDoc(doc.event_participants || [])
-    Object.assign(doc, patch)
-    // Sync attendees in participants table
-    const currentUser = window.frappe?.session?.user || ''
-    const keepEmails = new Set([
-      props.docname,
-      currentUser,
-      ...form.value.attendees.map((a) => a.email),
-    ])
-    doc.event_participants = doc.event_participants.filter(
-      (p) => keepEmails.has(p.email) || keepEmails.has(p.reference_docname),
-    )
-    form.value.attendees.forEach((a) => {
-      if (!doc.event_participants.some((p) => p.email === a.email)) {
-        doc.event_participants.push({
-          doctype: 'Event Participants',
-          email: a.email,
-        })
-      }
+    .catch((e) => {
+      error.value = e?.message || 'Failed to create event'
     })
-    await apiFetch('frappe.client.save', { doc })
-    show.value = false
-    emit('saved')
-  } catch (e) {
-    error.value = e?.message || _t('Failed to update event')
-  } finally {
-    saving.value = false
-  }
+    .finally(() => {
+      saving.value = false
+    })
 }
 
-function buildDoc(participants) {
-  const d = form.value.fromDate
-  return {
-    doctype: 'Event',
-    subject: form.value.title.trim(),
-    description: form.value.description || '',
-    starts_on:
-      d +
-      ' ' +
-      (form.value.isFullDay ? '00:00:00' : form.value.fromTime + ':00'),
-    ends_on:
-      d + ' ' + (form.value.isFullDay ? '23:59:59' : form.value.toTime + ':00'),
-    all_day: form.value.isFullDay ? 1 : 0,
-    event_type: form.value.eventType || 'Public',
-    location: form.value.location || '',
-    color: form.value.color || '#30A66D',
-    status: 'Open',
-    event_participants: participants,
+function updateEvent() {
+  if (!_event.value.id) {
+    error.value = __('Event ID is required')
+    return
   }
+  saving.value = true
+  error.value = null
+  apiFetch('frappe.client.get', { doctype: 'Event', name: _event.value.id })
+    .then((doc) => {
+      const currentUser = window.frappe?.session?.user || ''
+      const keepEmails = new Set([
+        props.docname,
+        currentUser,
+        ...(_event.value.event_participants || [])
+          .map((p) => p.email)
+          .filter(Boolean),
+      ])
+      const existingParts = (doc.event_participants || []).filter(
+        (p) => keepEmails.has(p.email) || keepEmails.has(p.reference_docname),
+      )
+      ;(_event.value.event_participants || []).forEach((p) => {
+        if (p.email && !existingParts.some((ep) => ep.email === p.email)) {
+          existingParts.push({ doctype: 'Event Participants', email: p.email })
+        }
+      })
+      Object.assign(doc, {
+        subject: _event.value.title,
+        description: _event.value.description,
+        starts_on: _event.value.fromDate + ' ' + _event.value.fromTime,
+        ends_on: _event.value.toDate + ' ' + _event.value.toTime,
+        all_day: _event.value.isFullDay,
+        event_type: _event.value.eventType,
+        location: _event.value.location || '',
+        color: _event.value.color,
+        event_participants: existingParts,
+        notifications: _event.value.notifications,
+      })
+      return apiFetch('frappe.client.save', { doc })
+    })
+    .then(() => {
+      emit('saved')
+    })
+    .catch((e) => {
+      error.value = e?.message || 'Failed to update event'
+    })
+    .finally(() => {
+      saving.value = false
+    })
 }
 
-// ── API ───────────────────────────────────────────────────────────────────────
+function duplicateEvent() {
+  if (!_event.value.id) return
+  _event.value.id = 'duplicate'
+  _event.value.title = _event.value.title + ' (Copy)'
+  setTimeout(() => titleRef.value?.el?.focus(), 100)
+}
+
+function deleteEvent() {
+  if (!_event.value.id) return
+  if (!window.confirm(__('Are you sure you want to delete this event?'))) return
+  saving.value = true
+  apiFetch('frappe.client.delete', { doctype: 'Event', name: _event.value.id })
+    .then(() => {
+      emit('deleted')
+    })
+    .catch((e) => {
+      error.value = e?.message || 'Failed to delete event'
+    })
+    .finally(() => {
+      saving.value = false
+    })
+}
+
 function csrf() {
   return window.csrf_token || window.boot?.csrf_token || ''
 }

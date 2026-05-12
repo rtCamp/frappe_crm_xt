@@ -1,5 +1,33 @@
 <template>
   <div class="flex h-full flex-col overflow-hidden bg-surface-white">
+    <!-- ── Header ── -->
+    <div
+      class="mx-4 my-3 flex items-center justify-between text-lg font-medium sm:mx-10 sm:mb-4 sm:mt-8"
+    >
+      <div class="flex h-8 items-center text-xl font-semibold text-ink-gray-8">
+        {{ _t('Events') }}
+      </div>
+      <Button variant="solid" @click="openEvent(null)">
+        <template #prefix>
+          <svg
+            viewBox="0 0 24 24"
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </template>
+        <span>{{ _t('Schedule an Event') }}</span>
+      </Button>
+    </div>
+
     <!-- ── Scrollable list ── -->
     <div v-if="!loading && events.length" class="flex-1 overflow-y-auto py-3">
       <div v-for="(event, i) in events" :key="event.name">
@@ -153,25 +181,32 @@
         <line x1="3" y1="10" x2="21" y2="10" />
       </svg>
       <span>{{ _t('No Events Scheduled') }}</span>
-      <Button :label="_t('Schedule an Event')" @click="openEvent(null)" />
+      <Button variant="solid" @click="openEvent(null)">
+        <template #prefix>
+          <svg
+            viewBox="0 0 24 24"
+            class="h-4 w-4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
+        </template>
+        <span>{{ _t('Schedule an Event') }}</span>
+      </Button>
     </div>
-
-    <!-- ── Event Modal ── -->
-    <InjectedEventModal
-      v-if="modalVisible"
-      v-model="modalVisible"
-      :event="activeEvent"
-      :doctype="doctype"
-      :docname="docname"
-      @saved="fetchEvents"
-      @deleted="fetchEvents"
-    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { dayjs, Avatar, Tooltip, Button } from 'frappe-ui'
+import { ref, onMounted, createApp } from 'vue'
+import { dayjs, Avatar, Tooltip, Button, FeatherIcon } from 'frappe-ui'
 import InjectedEventModal from './InjectedEventModal.vue'
 
 const _t = window.__ || ((s) => s)
@@ -184,8 +219,8 @@ const props = defineProps({
 // ── State ────────────────────────────────────────────────────────────────────
 const loading = ref(true)
 const events = ref([])
-const modalVisible = ref(false)
-const activeEvent = ref(null)
+let _modalApp = null
+let _modalEl = null
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function csrf() {
@@ -251,9 +286,38 @@ async function fetchEvents() {
 }
 
 // ── Modal ─────────────────────────────────────────────────────────────────────
+function closeModal() {
+  if (_modalApp) {
+    _modalApp.unmount()
+    _modalApp = null
+  }
+  if (_modalEl?.parentNode) {
+    _modalEl.parentNode.removeChild(_modalEl)
+    _modalEl = null
+  }
+}
+
 function openEvent(event) {
-  activeEvent.value = event || {}
-  modalVisible.value = true
+  closeModal()
+  const el = document.createElement('div')
+  document.body.appendChild(el)
+  _modalEl = el
+  _modalApp = createApp(InjectedEventModal, {
+    event: event || {},
+    doctype: props.doctype,
+    docname: props.docname,
+    onClose: closeModal,
+    onSaved: () => {
+      closeModal()
+      fetchEvents()
+    },
+    onDeleted: () => {
+      closeModal()
+      fetchEvents()
+    },
+  })
+  _modalApp.config.globalProperties.__ = window.__ || ((s) => s)
+  _modalApp.mount(el)
 }
 
 // ── Formatting ────────────────────────────────────────────────────────────────
