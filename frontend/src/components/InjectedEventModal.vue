@@ -1,16 +1,7 @@
 <template>
   <!-- Plain overlay — component is mounted directly to body by InjectedEventsTab -->
   <div
-    style="
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.2);
-      padding: 1rem;
-    "
+    class="fixed inset-0 z-[9999] flex items-center justify-center overflow-y-auto bg-black-overlay-200 dark:bg-black-overlay-700 dialog-overlay outline-none px-4 py-4"
     @click.self="emit('close')"
   >
     <div

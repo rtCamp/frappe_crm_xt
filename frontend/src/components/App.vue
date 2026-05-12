@@ -488,13 +488,11 @@ function _removeEventsOverlay() {
   }
   if (_xtEventsTabBtn) {
     _xtEventsTabBtn.setAttribute('data-state', 'inactive')
-    _xtEventsTabBtn.style.borderBottom = ''
     _xtEventsTabBtn.style.color = ''
   }
-  if (_prevActiveTab) {
-    _prevActiveTab.style.borderBottom = ''
-    _prevActiveTab = null
-  }
+  _prevActiveTab = null
+  // Restore the Reka indicator to the currently-active native tab
+  _syncRekaIndicator()
 }
 
 function _getVisiblePanel() {
@@ -504,6 +502,44 @@ function _getVisiblePanel() {
       (p) => !p.hasAttribute('hidden') && p.offsetHeight > 0,
     ) || document.querySelector('[role="tabpanel"]:not([hidden])')
   )
+}
+
+// Move the Reka TabsIndicator to point at a given button.
+// If no button supplied, let Reka re-compute it for the currently active native tab
+// by briefly toggling a CSS transition so it snaps back naturally.
+function _syncRekaIndicator(targetBtn) {
+  const tablist =
+    (
+      _xtEventsTabBtn || document.querySelector('[data-xt-events-tab]')
+    )?.closest('[role="tablist"]') || document.querySelector('[role="tablist"]')
+  if (!tablist) return
+
+  const indicator = tablist.querySelector('div[style*="--reka-tabs-indicator"]')
+  if (!indicator) return
+
+  // Dim/restore native active tab text
+  const activeNative = tablist.querySelector(
+    '[role="tab"][data-state="active"]',
+  )
+  if (targetBtn) {
+    // Moving indicator to our button — dim the native active tab
+    if (activeNative) activeNative.style.color = 'var(--ink-gray-5,#6b6b6b)'
+    const tablistRect = tablist.getBoundingClientRect()
+    const btnRect = targetBtn.getBoundingClientRect()
+    const pos = btnRect.left - tablistRect.left + tablist.scrollLeft
+    indicator.style.setProperty(
+      '--reka-tabs-indicator-size',
+      btnRect.width + 'px',
+    )
+    indicator.style.setProperty('--reka-tabs-indicator-position', pos + 'px')
+  } else {
+    // Restoring — un-dim native tab, let Reka recompute naturally
+    if (activeNative) activeNative.style.color = ''
+    if (_xtEventsTabBtn) _xtEventsTabBtn.style.color = ''
+    // Reka updates indicator on its next frame when it detects active tab change
+    // Force it by dispatching a resize event (Reka listens to ResizeObserver)
+    window.dispatchEvent(new Event('resize'))
+  }
 }
 
 function _showEventsOverlay(doctype, docname) {
@@ -526,20 +562,12 @@ function _showEventsOverlay(doctype, docname) {
   _xtEventsApp = createApp(InjectedEventsTab, { doctype, docname })
   _xtEventsApp.mount(overlay)
 
-  // Visually mark our button active with the same underline Reka uses
+  // Move the native Reka TabsIndicator to sit under our button — identical appearance,
+  // zero CSS hacks. Also dim the native active tab text so it looks inactive.
   if (_xtEventsTabBtn) {
-    // Hide the currently active native Reka tab's border
-    const tablist = _xtEventsTabBtn.closest('[role="tablist"]')
-    const activeNativeTab = tablist?.querySelector(
-      '[role="tab"][data-state="active"]',
-    )
-    if (activeNativeTab && activeNativeTab !== _xtEventsTabBtn) {
-      _prevActiveTab = activeNativeTab
-      activeNativeTab.style.borderBottom = 'none'
-    }
     _xtEventsTabBtn.setAttribute('data-state', 'active')
-    _xtEventsTabBtn.style.borderBottom = '1px solid var(--ink-gray-9,#1c1c1c)'
     _xtEventsTabBtn.style.color = 'var(--ink-gray-9,#1c1c1c)'
+    _syncRekaIndicator(_xtEventsTabBtn)
   }
 }
 
