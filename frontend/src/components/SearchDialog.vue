@@ -156,13 +156,11 @@ let inflight = null
 // ── Route map (handles both native FCRM and bridge doctype names) ───────────
 const ROUTES = {
   'CRM Lead': (n) => ({ path: `/crm/leads/${encodeURIComponent(n)}` }),
+  Lead: (n) => ({ path: `/app/lead/${encodeURIComponent(n)}` }),
   'CRM Deal': (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
   Contact: (n) => ({ path: `/crm/contacts/${encodeURIComponent(n)}` }),
   'CRM Organization': (n) => ({
     path: `/crm/organizations/${encodeURIComponent(n)}`,
-  }),
-  company: (n) => ({
-    path: `/desk/company/${encodeURIComponent(n)}`,
   }),
   'FCRM Note': () => ({ path: `/crm/notes/view/list` }),
   'CRM Task': () => ({ path: `/crm/tasks/view/list` }),
