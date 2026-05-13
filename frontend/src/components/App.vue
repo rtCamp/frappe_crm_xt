@@ -795,32 +795,54 @@ function _tryInjectFollowBtn() {
     return
   }
 
-  // Find doc name heading (h1 or similar)
-  const docNameEl = Array.from(
-    document.querySelectorAll(
-      'h1, [class*="text-2xl"], [class*="text-xl"][class*="font-bold"]',
-    ),
-  ).find((el) => el.textContent.trim() === docInfo.docname)
-
-  if (!docNameEl) return
-
-  // Icon row is next sibling: div.flex.gap-1.5
-  const iconRow = docNameEl.nextElementSibling
-  if (!iconRow || !iconRow.classList.contains('flex')) {
-    return
-  }
-
-  // Re-use existing button (handles re-render by FCRM)
+  // Re-use existing button if it still exists in DOM
   let existing = document.querySelector('[data-xt-follow-btn]')
-  if (existing) {
+  if (existing && existing.parentElement) {
     _followBtn = existing
     return
   }
 
-  // Clone className from first button in icon row to match styling
-  const refBtn = iconRow.querySelector('button')
-  if (!refBtn) return
+  // Find the icon row by looking for a container with exactly 4 small icon buttons
+  // (email, link, paperclip, delete) which is the standard FCRM lead/deal icon row
+  let iconRow = null
 
+  // Get all elements and check each one
+  const allElements = Array.from(document.querySelectorAll('*'))
+
+  for (const el of allElements) {
+    // Count direct button children
+    const directButtonChildren = Array.from(el.children).filter(
+      (ch) => ch.tagName === 'BUTTON',
+    )
+
+    // The icon row should have 4 buttons (the standard FCRM icon set)
+    if (directButtonChildren.length !== 4) continue
+
+    // All buttons should be small (icon size, not action size)
+    const allSmallButtons = directButtonChildren.every((btn) => {
+      return btn.offsetWidth < 60 && btn.offsetHeight < 60
+    })
+
+    if (allSmallButtons) {
+      iconRow = el
+      console.log('[Follow] Found icon row with 4 small buttons')
+      break
+    }
+  }
+
+  if (!iconRow) {
+    console.log('[Follow] Could not find icon row with 4 buttons')
+    return
+  }
+
+  // Get reference button for styling
+  const refBtn = iconRow.querySelector('button')
+  if (!refBtn) {
+    console.log('[Follow] No reference button found')
+    return
+  }
+
+  // Create new button
   const btn = document.createElement('button')
   btn.setAttribute('type', 'button')
   btn.setAttribute('data-xt-follow-btn', '')
@@ -831,41 +853,48 @@ function _tryInjectFollowBtn() {
   // Show outline eye by default while loading
   _updateFollowBtnIcon(btn, false)
 
-  // Load follow state and update icon with actual state
-  _loadFollowState(docInfo.doctype, docInfo.docname).then((isFollowing) => {
-    _updateFollowBtnIcon(btn, isFollowing)
-  })
+  // Load follow state and update icon
+  _loadFollowState(docInfo.doctype, docInfo.docname)
+    .then((isFollowing) => {
+      _updateFollowBtnIcon(btn, isFollowing)
+    })
+    .catch((err) => {
+      console.warn('[Follow] Failed to load state:', err)
+    })
 
+  // Click handler
   btn.addEventListener('click', (e) => {
     e.preventDefault()
     _toggleFollow(btn, docInfo.doctype, docInfo.docname)
   })
 
-  // Append to the icon row so it stays inline with the 4 icons
+  // Append to icon row
   iconRow.appendChild(btn)
   _followBtn = btn
+  console.log('[Follow] Button successfully injected!')
 }
 
 // ── Tab Change Detection ────────────────────────────────────────────────────
 // Re-inject follow button when tabs are switched (Activity, Todos, Attachments, etc.)
 function setupTabObserver() {
-  const observer = new MutationObserver(() => {
+  const observer = new MutationObserver((mutations) => {
     // Check if follow button exists
     const existing = document.querySelector('[data-xt-follow-btn]')
 
     // If button doesn't exist, re-inject it
     if (!existing && _getCurrentDocInfo()) {
+      console.log('[Follow] Button missing, re-injecting...')
       _tryInjectFollowBtn()
     }
   })
 
-  // Observe tab container changes
-  const tabContainer =
-    document.querySelector('[class*="tabs"]') || document.body
-  observer.observe(tabContainer, {
+  // Observe the entire document for changes (more aggressive)
+  observer.observe(document.body, {
     childList: true,
     subtree: true,
-    attributes: false,
+    attributes: true, // Also watch attribute changes
+    attributeOldValue: false,
+    characterData: false,
   })
 }
 
@@ -875,15 +904,17 @@ onMounted(() => {
   setupTabObserver()
 
   // Polling mechanism to ensure button always exists (fallback)
+  // More aggressive: check every 300ms instead of 1000ms
   const pollInterval = setInterval(() => {
     const docInfo = _getCurrentDocInfo()
     if (docInfo) {
       const existing = document.querySelector('[data-xt-follow-btn]')
       if (!existing) {
+        console.log('[Follow] Button missing (polling), re-injecting...')
         _tryInjectFollowBtn()
       }
     }
-  }, 1000) // Check every second
+  }, 300) // Check every 300ms for faster detection
 
   // Keyboard shortcut
   document.addEventListener('keydown', (e) => {
