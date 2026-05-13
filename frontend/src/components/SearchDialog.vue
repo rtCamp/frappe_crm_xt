@@ -156,21 +156,19 @@ let inflight = null
 // ── Route map (handles both native FCRM and bridge doctype names) ───────────
 const ROUTES = {
   'CRM Lead': (n) => ({ path: `/crm/leads/${encodeURIComponent(n)}` }),
-  Lead: (n) => ({ path: `/crm/leads/${encodeURIComponent(n)}` }),
+  Lead: (n) => ({ path: `/desk/lead/${encodeURIComponent(n)}` }),
   'CRM Deal': (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
-  Opportunity: (n) => ({ path: `/crm/deals/${encodeURIComponent(n)}` }),
+  Opportunity: (n) => ({ path: `/desk/opportunity/${encodeURIComponent(n)}` }),
   Contact: (n) => ({ path: `/crm/contacts/${encodeURIComponent(n)}` }),
-  'CRM Contact': (n) => ({ path: `/crm/contacts/${encodeURIComponent(n)}` }),
   'CRM Organization': (n) => ({
     path: `/crm/organizations/${encodeURIComponent(n)}`,
   }),
-  Organization: (n) => ({
-    path: `/crm/organizations/${encodeURIComponent(n)}`,
+  company: (n) => ({
+    path: `/desk/company/${encodeURIComponent(n)}`,
   }),
-  'FCRM Note': (n) => ({ path: `/crm/notes/${encodeURIComponent(n)}` }),
-  'CRM Task': (n) => ({ path: `/crm/tasks/${encodeURIComponent(n)}` }),
-  'CRM Call Log': (n) => ({ path: `/crm/call-logs/${encodeURIComponent(n)}` }),
-  'CRM Meeting': (n) => ({ path: `/crm/meetings/${encodeURIComponent(n)}` }),
+  'FCRM Note': () => ({ path: `/crm/notes/view/list` }),
+  'CRM Task': () => ({ path: `/crm/tasks/view/list` }),
+  'CRM Call Log': () => ({ path: `/crm/call-logs/view/list` }),
 }
 
 function routeFor(doctype, name) {
@@ -181,9 +179,9 @@ function routeFor(doctype, name) {
 // ── Doctype labels ───────────────────────────────────────────────────────────
 const DT_LABELS = {
   'CRM Lead': 'Lead',
-  Lead: 'Lead',
+  Lead: 'ERP Lead',
   'CRM Deal': 'Deal',
-  Opportunity: 'Deal',
+  Opportunity: 'ERP Deal',
   Contact: 'Contact',
   'CRM Organization': 'Org',
   'FCRM Note': 'Note',

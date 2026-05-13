@@ -7,7 +7,15 @@ import frappe
 def get_search_results(text: str, start: int = 0, limit: int = 10):
 	start = int(start)
 	limit = int(limit)
-	allowed_doctypes = ["CRM Lead", "CRM Deal", "CRM Organization", "FCRM Note", "CRM Task", "Event"]
+	allowed_doctypes = [
+		"CRM Lead",
+		"CRM Deal",
+		"CRM Organization",
+		"FCRM Note",
+		"CRM Task",
+		"Event",
+		"Contact",
+	]
 
 	if "frappe_search" in frappe.get_installed_apps():
 		from frappe_search.api.search import get_global_search_results
