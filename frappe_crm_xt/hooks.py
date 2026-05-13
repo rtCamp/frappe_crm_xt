@@ -18,15 +18,16 @@ fixtures = [
 	{"dt": "Custom Field", "filters": [["dt", "=", "CRM Deal Status"]]},
 ]
 
-# Optional: install frappe_search to enable the Cmd/Ctrl+K global search bar.
-# Optional: install frappe_gmail_thread for gmail-thread activity entries.
-
 # ─── Doc events ───────────────────────────────────────────────────────────────
 
 doc_events = {
 	"CRM Deal": {
 		"before_save": "frappe_crm_xt.api.deal.before_save",
 		"after_insert": "frappe_crm_xt.api.deal.after_insert",
+	},
+	"Gmail Thread": {
+		"validate": "frappe_crm_xt.doc_events.gmail_thread.validate",
+		"on_update": "frappe_crm_xt.doc_events.gmail_thread.on_update",
 	},
 }
 
