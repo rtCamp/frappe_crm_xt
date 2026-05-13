@@ -598,7 +598,7 @@
       "options": "1-10\n11-50\n51-200\n201-500\n501-1000\n1000+"
     }
   ],
-  "CRM Note": [
+  "FCRM Note": [
     {
       "fieldname": "custom_note_attachments",
       "fieldtype": "Table",
