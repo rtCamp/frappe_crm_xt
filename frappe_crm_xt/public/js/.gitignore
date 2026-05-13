@@ -1,0 +1,20 @@
+.DS_Store
+*.pyc
+*.egg-info
+*.swp
+__pycache__
+dev-dist
+tags
+node_modules
+# Vite build output (source files like search_bar.js, style.css are tracked)
+frappe_crm_xt/public/js/crm_xt_app.js
+frappe_crm_xt/public/js/frappe-crm-xt-frontend.css
+build
+frontend/coverage
+
+.vscode
+
+CLAUDE.md
+AGENTS.md
+.claude
+.pi
