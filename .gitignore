@@ -6,8 +6,6 @@ __pycache__
 dev-dist
 tags
 node_modules
-frappe_crm_xt/public/js/crm_xt_app.js
-frappe_crm_xt/public/js/frappe-crm-xt-frontend.css
 build
 frontend/coverage
 
@@ -17,3 +15,5 @@ CLAUDE.md
 AGENTS.md
 .claude
 .pi
+frappe_crm_xt/public/js/crm_xt_app.js
+frappe_crm_xt/public/js/frappe-crm-xt-frontend.css

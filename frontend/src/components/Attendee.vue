@@ -98,7 +98,7 @@
 
 <script setup>
 import UserAvatar from './UserAvatar.vue'
-import { createResource, FeatherIcon, ErrorMessage, Button } from 'frappe-ui'
+import { FeatherIcon, ErrorMessage, Button, call } from 'frappe-ui'
 import {
   ComboboxRoot,
   ComboboxAnchor,
@@ -137,6 +137,7 @@ const text = ref('')
 const showOptions = ref(false)
 const optionsRef = ref(null)
 const tempSelection = ref(null)
+const searchResults = ref([])
 
 const metaByEmail = computed(() => {
   const out = {}
@@ -160,44 +161,16 @@ watchDebounced(
   query,
   (val) => {
     val = val || ''
-    if (text.value === val && options.value?.length) return
+    if (text.value === val && searchResults.value?.length) return
     text.value = val
     reload(val)
   },
   { debounce: 300, immediate: true },
 )
 
-const filterOptions = createResource({
-  url: '/api/method/frappe_crm_xt.api.event.search_emails',
-  method: 'POST',
-  cache: [text.value, 'Contact'],
-  params: { txt: text.value },
-  transform: (data) => {
-    let allData = data.map((option) => {
-      let fullName = option[0]
-      let email = option[1]
-      let name = option[2]
-      return {
-        label: fullName || name || email,
-        name: name,
-        value: email,
-      }
-    })
-
-    // Filter out existing emails
-    if (props.existingEmails?.length) {
-      allData = allData.filter((option) => {
-        return !props.existingEmails.includes(option.value)
-      })
-    }
-
-    return allData
-  },
-})
-
 const options = computed(() => {
-  let searchedContacts = Array.isArray(filterOptions.data)
-    ? [...filterOptions.data]
+  let searchedContacts = Array.isArray(searchResults.value)
+    ? [...searchResults.value]
     : []
   if (!searchedContacts.length && query.value) {
     searchedContacts.push({
@@ -218,10 +191,35 @@ const emptyStateText = computed(() =>
 function reload(val) {
   if (!props.fetchContacts) return
 
-  filterOptions.update({
-    params: { txt: val },
+  call('frappe_crm_xt.api.event.search_emails', {
+    txt: val,
   })
-  filterOptions.reload()
+    .then((data) => {
+      let allData = Array.isArray(data) ? data : []
+      allData = allData.map((option) => {
+        let fullName = option[0]
+        let email = option[1]
+        let name = option[2]
+        return {
+          label: fullName || name || email,
+          name: name,
+          value: email,
+        }
+      })
+
+      // Filter out existing emails
+      if (props.existingEmails?.length) {
+        allData = allData.filter((option) => {
+          return !props.existingEmails.includes(option.value)
+        })
+      }
+
+      searchResults.value = allData
+    })
+    .catch((err) => {
+      console.error('Error searching contacts:', err)
+      searchResults.value = []
+    })
 }
 
 function onSelect(val, fullOption = null) {
