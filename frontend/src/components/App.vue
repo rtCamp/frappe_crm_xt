@@ -598,7 +598,9 @@ function _tryInjectEventsTab() {
       (e) => {
         // Any click on a real Reka tab (not our button) dismisses the overlay
         const t = e.target.closest('[role="tab"]')
-        if (t) _removeEventsOverlay()
+        if (t) {
+          _removeEventsOverlay()
+        }
       },
       true, // capture — fires before Reka's own handler
     )
