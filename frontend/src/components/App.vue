@@ -846,8 +846,45 @@ function _tryInjectFollowBtn() {
   _followBtn = btn
 }
 
+// ── Tab Change Detection ────────────────────────────────────────────────────
+// Re-inject follow button when tabs are switched (Activity, Todos, Attachments, etc.)
+function setupTabObserver() {
+  const observer = new MutationObserver(() => {
+    // Check if follow button exists
+    const existing = document.querySelector('[data-xt-follow-btn]')
+
+    // If button doesn't exist, re-inject it
+    if (!existing && _getCurrentDocInfo()) {
+      _tryInjectFollowBtn()
+    }
+  })
+
+  // Observe tab container changes
+  const tabContainer =
+    document.querySelector('[class*="tabs"]') || document.body
+  observer.observe(tabContainer, {
+    childList: true,
+    subtree: true,
+    attributes: false,
+  })
+}
+
 // ── Mount ───────────────────────────────────────────────────────────────────
 onMounted(() => {
+  // Setup tab observer to re-inject button on tab changes
+  setupTabObserver()
+
+  // Polling mechanism to ensure button always exists (fallback)
+  const pollInterval = setInterval(() => {
+    const docInfo = _getCurrentDocInfo()
+    if (docInfo) {
+      const existing = document.querySelector('[data-xt-follow-btn]')
+      if (!existing) {
+        _tryInjectFollowBtn()
+      }
+    }
+  }, 1000) // Check every second
+
   // Keyboard shortcut
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
