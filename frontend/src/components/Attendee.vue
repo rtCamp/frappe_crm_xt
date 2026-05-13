@@ -32,7 +32,8 @@
         </ComboboxAnchor>
         <ComboboxPortal>
           <ComboboxContent
-            class="z-[10000] mt-1 min-w-48 w-full max-w-md bg-surface-modal overflow-hidden rounded-lg shadow-2xl ring-1 ring-black ring-opacity-5"
+            class="mt-1 min-w-48 w-full max-w-md bg-surface-modal overflow-hidden rounded-lg shadow-2xl ring-1 ring-black ring-opacity-5"
+            :style="{ zIndex: 10000 }"
             position="popper"
             :align="'start'"
             @openAutoFocus.prevent
@@ -313,9 +314,3 @@ function setFocus() {
 
 defineExpose({ setFocus })
 </script>
-
-<style>
-[data-reka-popper-content-wrapper] {
-  z-index: 10000 !important;
-}
-</style>
