@@ -472,9 +472,15 @@ const _listenedTablists = new WeakSet()
 function _getCurrentDocInfo() {
   const m = window.location.pathname.match(/\/crm\/(leads|deals)\/([^?#/]+)/)
   if (!m) return null
+
+  // Skip view/list pages - only inject on actual detail pages
+  // This excludes paths like /crm/leads/view/*, /crm/deals/view/*, etc.
+  const docname = decodeURIComponent(m[2])
+  if (docname === 'view') return null
+
   return {
     doctype: m[1] === 'leads' ? 'CRM Lead' : 'CRM Deal',
-    docname: decodeURIComponent(m[2]),
+    docname: docname,
   }
 }
 
@@ -750,30 +756,57 @@ async function _toggleFollow(btn, doctype, docname) {
 
     const data = await resp.json()
 
-    // Check for server-side error messages first (even if resp.ok)
+    // Extract message from _server_messages (contains actual success/error)
+    let statusMsg = null
     const serverMsgs = data?._server_messages || data?.data?._server_messages
     if (serverMsgs) {
-      let errorText = 'Unable to update follow status'
       try {
         const raw =
           typeof serverMsgs === 'string' ? JSON.parse(serverMsgs) : serverMsgs
         const first = Array.isArray(raw) ? raw[0] : raw
         const parsed = typeof first === 'string' ? JSON.parse(first) : first
-        errorText = parsed.message || errorText
+        statusMsg = parsed.message
       } catch {
-        /* use default */
+        /* ignore */
       }
-      _showNotification(errorText, 'error')
+    }
+
+    // Fallback to top-level message if string
+    if (!statusMsg && typeof data?.message === 'string') {
+      statusMsg = data.message
+    }
+
+    // Determine if success or error based on status message content
+    const isError =
+      statusMsg &&
+      (statusMsg.includes('not enabled') ||
+        statusMsg.includes('error') ||
+        statusMsg.includes('Error'))
+
+    if (statusMsg && !isError) {
+      // Success case - update state and icon
+      _followState[key] = newState
+      _updateFollowBtnIcon(btn, newState)
+      _showNotification(statusMsg, 'success')
       return
     }
 
+    if (statusMsg && isError) {
+      // Error case - show error message
+      _showNotification(statusMsg, 'error')
+      return
+    }
+
+    // Fallback for no message
     if (resp.ok && data?.message === 1) {
+      // message is 1 but no status msg - likely success
       _followState[key] = newState
       _updateFollowBtnIcon(btn, newState)
       _showNotification(newState ? 'Following' : 'Unfollowed', 'success')
-    } else {
-      _showNotification('Unable to update follow status', 'error')
+      return
     }
+
+    _showNotification('Unable to update follow status', 'error')
   } catch (err) {
     _showNotification('Follow error: ' + err.message, 'error')
   }
@@ -825,20 +858,17 @@ function _tryInjectFollowBtn() {
 
     if (allSmallButtons) {
       iconRow = el
-      console.log('[Follow] Found icon row with 4 small buttons')
       break
     }
   }
 
   if (!iconRow) {
-    console.log('[Follow] Could not find icon row with 4 buttons')
     return
   }
 
   // Get reference button for styling
   const refBtn = iconRow.querySelector('button')
   if (!refBtn) {
-    console.log('[Follow] No reference button found')
     return
   }
 
@@ -858,8 +888,8 @@ function _tryInjectFollowBtn() {
     .then((isFollowing) => {
       _updateFollowBtnIcon(btn, isFollowing)
     })
-    .catch((err) => {
-      console.warn('[Follow] Failed to load state:', err)
+    .catch(() => {
+      // Silently handle error
     })
 
   // Click handler
@@ -871,7 +901,6 @@ function _tryInjectFollowBtn() {
   // Append to icon row
   iconRow.appendChild(btn)
   _followBtn = btn
-  console.log('[Follow] Button successfully injected!')
 }
 
 // ── Tab Change Detection ────────────────────────────────────────────────────
@@ -883,7 +912,6 @@ function setupTabObserver() {
 
     // If button doesn't exist, re-inject it
     if (!existing && _getCurrentDocInfo()) {
-      console.log('[Follow] Button missing, re-injecting...')
       _tryInjectFollowBtn()
     }
   })
@@ -900,21 +928,43 @@ function setupTabObserver() {
 
 // ── Mount ───────────────────────────────────────────────────────────────────
 onMounted(() => {
-  // Setup tab observer to re-inject button on tab changes
-  setupTabObserver()
+  // Only set up follow button injection on detail pages
+  let isOnDetailPage = !!_getCurrentDocInfo()
+  let tabObserverId = null
+  let pollInterval = null
 
-  // Polling mechanism to ensure button always exists (fallback)
-  // More aggressive: check every 300ms instead of 1000ms
-  const pollInterval = setInterval(() => {
-    const docInfo = _getCurrentDocInfo()
-    if (docInfo) {
-      const existing = document.querySelector('[data-xt-follow-btn]')
-      if (!existing) {
-        console.log('[Follow] Button missing (polling), re-injecting...')
-        _tryInjectFollowBtn()
-      }
+  function setupFollowButtonHandlers() {
+    // Setup tab observer to re-inject button on tab changes
+    if (!tabObserverId) {
+      setupTabObserver()
     }
-  }, 300) // Check every 300ms for faster detection
+
+    // Polling mechanism to ensure button always exists (fallback)
+    // Only run this on detail pages
+    if (!pollInterval) {
+      pollInterval = setInterval(() => {
+        const docInfo = _getCurrentDocInfo()
+        if (docInfo) {
+          const existing = document.querySelector('[data-xt-follow-btn]')
+          if (!existing) {
+            _tryInjectFollowBtn()
+          }
+        }
+      }, 300) // Check every 300ms for faster detection
+    }
+  }
+
+  function cleanupFollowButtonHandlers() {
+    if (pollInterval) {
+      clearInterval(pollInterval)
+      pollInterval = null
+    }
+  }
+
+  // Only initialize if on a detail page
+  if (isOnDetailPage) {
+    setupFollowButtonHandlers()
+  }
 
   // Keyboard shortcut
   document.addEventListener('keydown', (e) => {
@@ -943,7 +993,10 @@ onMounted(() => {
       injectSidebarBtn()
       injectCustomSidebarBtns()
       _tryInjectEventsTab()
-      _tryInjectFollowBtn()
+      // Only inject follow button if on a detail page
+      if (_getCurrentDocInfo()) {
+        _tryInjectFollowBtn()
+      }
     }, 250),
   )
 
@@ -960,8 +1013,10 @@ onMounted(() => {
     }
     // Try to inject events tab whenever DOM changes (tab switches, navigation)
     _tryInjectEventsTab()
-    // Try to inject follow button whenever DOM changes
-    _tryInjectFollowBtn()
+    // Try to inject follow button whenever DOM changes (only on detail pages)
+    if (_getCurrentDocInfo()) {
+      _tryInjectFollowBtn()
+    }
   })
   obs.observe(document.body, { childList: true, subtree: true })
 })
