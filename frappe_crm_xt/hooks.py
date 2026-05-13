@@ -29,6 +29,9 @@ doc_events = {
 		"validate": "frappe_crm_xt.doc_events.gmail_thread.validate",
 		"on_update": "frappe_crm_xt.doc_events.gmail_thread.on_update",
 	},
+	"Project": {
+		"after_insert": "frappe_crm_xt.doc_events.project.after_insert",
+	},
 }
 
 # ─── API overrides ────────────────────────────────────────────────────────────
