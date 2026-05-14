@@ -192,6 +192,15 @@ crm_sidebar = [
 				"default_sort": {"field": "modified", "dir": "desc"},
 				"row_url": "/desk/query-report/{name}",
 			},
+			{
+				"label": "Converted Leads",
+				"type": "list_view",
+				"doctype": "CRM Lead",
+				"icon": "users",
+				"fields": ["name", "lead_name", "company_name", "contact_by", "status", "creation"],
+				"default_filters": {"converted": ["=", "1"]},
+				"row_url": "/crm/leads/{name}",
+			},
 		],
 	},
 ]

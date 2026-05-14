@@ -121,6 +121,7 @@
 
         <ListFilterLocal
           v-model="activeFilters"
+          :doctype="props.doctype"
           :docfields="docfields"
           @update:modelValue="onFilterChange"
         />
@@ -203,49 +204,16 @@
     </ListView>
 
     <!-- ── Footer ────────────────────────────────────────────────────────────── -->
-    <!-- Inline footer avoids sub-component registration issue with ListFooter
-         (it uses <Button> internally which isn't globally registered in our
-         isolated createApp, causing it to render as a raw empty <button>). -->
-    <div class="shrink-0 border-t border-outline-gray-2 px-5 py-2">
-      <div class="flex items-center justify-between gap-2">
-        <!-- Page-size tabs -->
-        <div
-          class="flex h-7 items-center space-x-0.5 rounded-md bg-surface-gray-2 px-[1px] text-sm"
-        >
-          <button
-            v-for="size in [20, 50, 100]"
-            :key="size"
-            class="h-[22px] rounded px-2 text-ink-gray-7 transition-colors"
-            :class="
-              pageLength === size
-                ? 'bg-surface-white shadow-sm font-medium text-ink-gray-9'
-                : 'hover:bg-surface-gray-3'
-            "
-            @click="setPageLength(size)"
-          >
-            {{ size }}
-          </button>
-        </div>
-        <!-- Load More + row count -->
-        <div class="flex items-center">
-          <Button
-            v-if="rows.length > 0 && rows.length < totalCount"
-            label="Load More"
-            @click="onLoadMore"
-          />
-          <div
-            v-if="rows.length > 0 && rows.length < totalCount"
-            class="mx-3 border-l border-outline-gray-2"
-            style="height: 20px"
-          />
-          <div class="flex items-center gap-1 text-base text-ink-gray-5">
-            <span>{{ rows.length || 0 }}</span>
-            <span>of</span>
-            <span>{{ totalCount || 0 }}</span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ListFooter
+      v-if="pageLengthCount"
+      v-model="pageLengthCount"
+      class="border-t sm:px-5 px-3 py-2"
+      :options="{
+        rowCount: rows.length,
+        totalCount: totalCount,
+      }"
+      @loadMore="onLoadMore"
+    />
   </div>
 </template>
 
@@ -257,6 +225,7 @@ import {
   ListHeaderItem,
   ListRows,
   ListEmptyState,
+  ListFooter,
   Button,
   FeatherIcon,
   Dropdown,
@@ -292,6 +261,7 @@ const allAvailableColumns = ref([])
 const activeColumnKeys = ref(new Set())
 const loading = ref(false)
 const pageLength = ref(20)
+const pageLengthCount = ref(20)
 const totalCount = ref(0)
 const activeFilters = ref({})
 const sortField = ref('modified')
@@ -632,10 +602,25 @@ async function loadRows(append = false) {
     const fields = JSON.stringify([...fieldSet])
 
     // Merge: UI filters  +  hidden hook filters  +  quick-search
-    const filterList = [
-      ...Object.entries(activeFilters.value).map(([k, [op, v]]) => [k, op, v]),
-      ...Object.entries(props.hiddenFilters).map(([k, [op, v]]) => [k, op, v]),
-    ]
+    const filterList = []
+
+    // UI filters: { fieldname: [operator, value] }
+    for (const [k, v] of Object.entries(activeFilters.value)) {
+      if (Array.isArray(v) && v.length >= 2) {
+        filterList.push([k, v[0], v[1]])
+      } else {
+        filterList.push([k, '=', v])
+      }
+    }
+
+    // Hidden filters: { fieldname: value } or { fieldname: [op, value] }
+    for (const [k, v] of Object.entries(props.hiddenFilters)) {
+      if (Array.isArray(v) && v.length >= 2) {
+        filterList.push([k, v[0], v[1]])
+      } else {
+        filterList.push([k, '=', v])
+      }
+    }
     if (quickSearch.value.trim()) {
       const sfMeta = searchFieldMeta.value
       const sfName = sfMeta?.fieldname || titleKey.value
@@ -687,10 +672,15 @@ function onLoadMore() {
   loadRows(true)
 }
 function onFilterChange() {
+  try {
+    localStorage.setItem(
+      `xt_filters_${props.doctype}`,
+      JSON.stringify(activeFilters.value),
+    )
+  } catch {
+    /* ignore */
+  }
   reload()
-}
-function setPageLength(size) {
-  pageLength.value = size
 }
 
 // Debounce for free-text search
@@ -700,7 +690,8 @@ function onQuickSearch() {
   _searchTimer = setTimeout(reload, 300)
 }
 
-watch(pageLength, () => {
+watch(pageLengthCount, (val) => {
+  pageLength.value = val
   reload()
 })
 
@@ -714,7 +705,18 @@ watch(
     quickSearch.value = ''
     searchFieldMeta.value = null
     searchLinkOptions.value = []
-    activeFilters.value = { ...props.defaultFilters }
+    // Restore saved filters or use defaults
+    try {
+      const savedFilters = JSON.parse(
+        localStorage.getItem(`xt_filters_${props.doctype}`) || 'null',
+      )
+      activeFilters.value =
+        savedFilters && typeof savedFilters === 'object'
+          ? savedFilters
+          : { ...props.defaultFilters }
+    } catch {
+      activeFilters.value = { ...props.defaultFilters }
+    }
     sortField.value = props.defaultSort?.field || 'modified'
     sortDir.value = props.defaultSort?.dir || 'desc'
     await loadMeta()
@@ -740,3 +742,11 @@ function openNew() {
   )
 }
 </script>
+
+<style>
+/* Make Sort / Columns dropdown bodies scrollable (portal renders to body) */
+[data-slot='content'] {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+</style>

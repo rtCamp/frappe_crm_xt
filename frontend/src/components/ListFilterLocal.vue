@@ -1,56 +1,67 @@
 <!--
-  Drop-in replacement for frappe-ui's ListFilter that uses frappe-ui's own
-  Popover (reka-ui based, works in separate createApp context) instead of
-  ListFilter/NestedPopover (headlessui based, breaks outside the main app).
+  Filter component that mirrors FCRM's Filter.vue behavior and styling.
+  Works in isolated createApp context (no FCRM internal imports).
 
-  API is identical to frappe-ui's ListFilter:
-    v-model  - filter dict  { fieldname: [operator, value] }
-    docfields - array of field meta objects from DocType meta
+  API:
+    v-model  - filter dict  { fieldname: [operator, value] } or { fieldname: value }
+    doctype  - doctype name to fetch filterable fields from API
+    docfields - (optional) pre-loaded field meta array; skips API call if provided
 -->
 <template>
-  <Popover>
-    <template #target="{ togglePopover }">
-      <Button label="Filter" @click="togglePopover()">
-        <template #prefix>
-          <!-- inline filter icon (same SVG as FilterIcon.vue) -->
-          <svg
-            width="16"
-            height="17"
-            viewBox="0 0 16 17"
-            fill="none"
-            class="h-4"
-          >
-            <path
-              d="M2 4.5H14"
-              stroke="currentColor"
-              stroke-miterlimit="10"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M4 8.5H12"
-              stroke="currentColor"
-              stroke-miterlimit="10"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-            <path
-              d="M6.5 12.5H9.5"
-              stroke="currentColor"
-              stroke-miterlimit="10"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-        </template>
-        <template v-if="filters.length" #suffix>
-          <div
-            class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-surface-white pt-px text-xs font-medium text-ink-gray-8 shadow-sm"
-          >
-            {{ filters.length }}
-          </div>
-        </template>
-      </Button>
+  <Popover placement="bottom-end">
+    <template #target="{ togglePopover, close }">
+      <div class="flex items-center">
+        <Button
+          :label="__('Filter')"
+          :class="filterCount ? 'rounded-r-none' : ''"
+          @click="togglePopover()"
+        >
+          <template #prefix>
+            <svg
+              width="16"
+              height="17"
+              viewBox="0 0 16 17"
+              fill="none"
+              class="h-4"
+            >
+              <path
+                d="M2 4.5H14"
+                stroke="currentColor"
+                stroke-miterlimit="10"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M4 8.5H12"
+                stroke="currentColor"
+                stroke-miterlimit="10"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <path
+                d="M6.5 12.5H9.5"
+                stroke="currentColor"
+                stroke-miterlimit="10"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </template>
+          <template v-if="filterCount" #suffix>
+            <div
+              class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-surface-white pt-px text-xs font-medium text-ink-gray-8 shadow-sm"
+            >
+              {{ filterCount }}
+            </div>
+          </template>
+        </Button>
+        <Button
+          v-if="filterCount"
+          class="rounded-l-none border-l"
+          icon="x"
+          @click.stop="clearAllFilters(close)"
+        />
+      </div>
     </template>
     <template #body="{ close }">
       <div
@@ -58,105 +69,107 @@
       >
         <div class="min-w-72 p-2 sm:min-w-[400px]">
           <!-- Active filters -->
-          <div
-            v-for="(filter, i) in filters"
-            :key="i"
-            class="mb-3 sm:mb-3 flex items-center justify-between gap-2"
-          >
-            <div class="flex flex-1 items-center gap-2">
-              <div
-                class="w-13 flex-shrink-0 pl-2 text-end text-base text-ink-gray-5"
-              >
-                {{ i === 0 ? 'Where' : 'And' }}
+          <template v-if="filterList.length">
+            <div
+              v-for="(f, i) in filterList"
+              :key="i"
+              class="mb-3 flex items-center justify-between gap-2"
+            >
+              <div class="flex flex-1 items-center gap-2">
+                <div class="w-13 pl-2 text-end text-base text-ink-gray-5">
+                  {{ i === 0 ? __('Where') : __('And') }}
+                </div>
+                <div class="!min-w-[140px]">
+                  <Autocomplete
+                    :modelValue="f.field.fieldname"
+                    :options="fieldOptionsFor(i)"
+                    :placeholder="__('Filter by...')"
+                    @change="(e) => updateFilterField(e, i)"
+                  />
+                </div>
+                <div>
+                  <FormControl
+                    v-model="f.operator"
+                    type="select"
+                    :options="getOperators(f.field.fieldtype)"
+                    :placeholder="__('Equals')"
+                    @update:modelValue="() => onOperatorChange(f)"
+                  />
+                </div>
+                <div class="!min-w-[140px]">
+                  <!-- Select / Check -->
+                  <FormControl
+                    v-if="f.operator === 'is'"
+                    type="select"
+                    :modelValue="f.value"
+                    :options="[
+                      { label: 'Set', value: 'set' },
+                      { label: 'Not Set', value: 'not set' },
+                    ]"
+                    @update:modelValue="(v) => onValueChange(v, f)"
+                  />
+                  <FormControl
+                    v-else-if="isSelectOrCheck(f.field.fieldtype)"
+                    type="select"
+                    :modelValue="f.value"
+                    :options="getSelectOptions(f.field)"
+                    @update:modelValue="(v) => onValueChange(v, f)"
+                  />
+                  <!-- Number -->
+                  <FormControl
+                    v-else-if="typeNumber.includes(f.field.fieldtype)"
+                    type="number"
+                    :modelValue="f.value"
+                    :placeholder="__('1000')"
+                    @update:modelValue="(v) => onValueChange(v, f)"
+                  />
+                  <!-- Default text -->
+                  <FormControl
+                    v-else
+                    type="text"
+                    :modelValue="f.value"
+                    :placeholder="getPlaceholder(f)"
+                    @update:modelValue="(v) => onValueChange(v, f)"
+                  />
+                </div>
               </div>
-              <div class="min-w-[140px] flex-1">
-                <Autocomplete
-                  :value="filter.fieldname"
-                  :options="fields"
-                  placeholder="Filter by..."
-                  @change="
-                    (opt) =>
-                      updateFilter(i, {
-                        fieldname: opt.value,
-                        field: getField(opt.value),
-                        operator: getDefaultOperator(
-                          getField(opt.value).fieldtype,
-                        ),
-                        value: getDefaultValue(getField(opt.value)),
-                      })
-                  "
-                />
-              </div>
-              <div class="min-w-[140px] flex-shrink-0">
-                <FormControl
-                  type="select"
-                  :modelValue="filter.operator"
-                  :options="getOperators(filter.field?.fieldtype)"
-                  placeholder="Operator"
-                  @update:modelValue="
-                    (v) => updateFilter(i, { operator: v?.value ?? v })
-                  "
-                />
-              </div>
-              <div class="min-w-[140px] flex-1">
-                <component
-                  :is="
-                    getValueSelector(
-                      filter.field?.fieldtype,
-                      filter.field?.options,
-                    )
-                  "
-                  :modelValue="filter.value"
-                  placeholder="Value"
-                  @update:modelValue="(v) => updateFilter(i, { value: v })"
-                />
-              </div>
+              <Button variant="ghost" icon="x" @click="removeFilter(i)" />
             </div>
-            <Button variant="ghost" icon="x" @click="removeFilter(i)" />
-          </div>
+          </template>
 
           <!-- Empty state -->
           <div
-            v-if="!filters.length"
+            v-else
             class="mb-3 flex h-7 items-center px-3 text-sm text-ink-gray-5"
           >
-            Empty — choose a field to filter by
+            {{ __('Empty - Choose a field to filter by') }}
           </div>
 
-          <!-- Footer row: Add filter + Apply + Clear -->
+          <!-- Footer -->
           <div class="flex items-center justify-between gap-2">
             <Autocomplete
-              value=""
-              :options="fields"
-              placeholder="Filter by..."
-              @change="(field) => addFilter(field.value)"
+              :modelValue="null"
+              :options="fieldOptionsFor(-1)"
+              :placeholder="__('Filter by...')"
+              @change="(e) => addFilter(e)"
             >
               <template #target="{ togglePopover }">
                 <Button
                   class="!text-ink-gray-5"
                   variant="ghost"
-                  label="Add Filter"
-                  icon-left="plus"
+                  :label="__('Add Filter')"
+                  iconLeft="plus"
                   @click="togglePopover()"
                 />
               </template>
             </Autocomplete>
-            <div class="flex gap-2">
-              <Button
-                v-if="filters.length"
-                variant="solid"
-                size="sm"
-                label="Apply"
-                @click="applyAndClose(close)"
-              />
-              <Button
-                v-if="filters.length"
-                class="!text-ink-gray-5"
-                variant="ghost"
-                label="Clear All Filters"
-                @click="clearFilters()"
-              />
-            </div>
+            <Button
+              v-if="filterList.length"
+              class="!text-ink-gray-5"
+              variant="ghost"
+              :label="__('Clear All Filters')"
+              @click="clearAllFilters(close)"
+            />
           </div>
         </div>
       </div>
@@ -165,166 +178,369 @@
 </template>
 
 <script setup>
-import { computed, h } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Autocomplete, FormControl, Popover, Button } from 'frappe-ui'
 
+const __ =
+  window.__ ||
+  ((s, r) => (r ? s.replace(/\{(\d+)\}/g, (_, i) => r[i] ?? _) : s))
+
 const typeCheck = ['Check']
-const typeLink = ['Link']
-const typeNumber = ['Float', 'Int']
+const typeLink = ['Link', 'Dynamic Link']
+const typeNumber = ['Float', 'Int', 'Currency', 'Percent']
 const typeSelect = ['Select']
-const typeString = [
-  'Data',
-  'Long Text',
-  'Small Text',
-  'Text Editor',
-  'Text',
-  'JSON',
-  'Code',
-]
+const typeString = ['Data', 'Long Text', 'Small Text', 'Text Editor', 'Text']
+const typeDate = ['Date', 'Datetime']
 
 const emits = defineEmits(['update:modelValue'])
 const props = defineProps({
   modelValue: { type: Object, default: () => ({}) },
   docfields: { type: Array, default: () => [] },
+  doctype: { type: String, default: '' },
 })
 
-const fields = computed(() =>
-  props.docfields
-    .filter(
+// ── Field meta (from props or API) ──────────────────────────────────────────
+const fieldsFromApi = ref([])
+
+const allFields = computed(() => {
+  if (props.docfields.length) return props.docfields
+  return fieldsFromApi.value
+})
+
+onMounted(() => {
+  if (!props.docfields.length && props.doctype) fetchFields()
+})
+
+watch(
+  () => props.doctype,
+  (dt) => {
+    if (dt && !props.docfields.length) fetchFields()
+  },
+)
+
+function csrf() {
+  return (
+    window.csrf_token ||
+    window.frappe?.csrf_token ||
+    window.boot?.csrf_token ||
+    ''
+  )
+}
+
+async function fetchFields() {
+  if (!props.doctype) return
+  try {
+    // Try CRM API first (returns richer field meta)
+    const res = await fetch('/api/method/crm.api.doc.get_filterable_fields', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Frappe-CSRF-Token': csrf(),
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ doctype: props.doctype }),
+    })
+    const data = await res.json()
+    if (Array.isArray(data.message)) {
+      fieldsFromApi.value = data.message
+      return
+    }
+  } catch {
+    /* fallback below */
+  }
+  // Fallback: build from DocType meta
+  try {
+    const res2 = await fetch('/api/method/frappe.client.get', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Frappe-CSRF-Token': csrf(),
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ doctype: 'DocType', name: props.doctype }),
+    })
+    const meta = await res2.json()
+    const fields = (meta.message?.fields || []).filter(
       (f) =>
+        !f.hidden &&
         !f.is_virtual &&
         (typeCheck.includes(f.fieldtype) ||
           typeLink.includes(f.fieldtype) ||
           typeNumber.includes(f.fieldtype) ||
           typeSelect.includes(f.fieldtype) ||
-          typeString.includes(f.fieldtype)),
+          typeString.includes(f.fieldtype) ||
+          typeDate.includes(f.fieldtype)),
     )
-    .map((f) => ({
-      label: f.label,
-      value: f.fieldname,
-      description: f.fieldtype,
-      ...f,
-    })),
+    fieldsFromApi.value = fields
+  } catch {
+    /* silent */
+  }
+}
+
+// ── Filter state ────────────────────────────────────────────────────────────
+const filterList = ref([])
+
+const filterCount = computed(() => filterList.value.length)
+
+// Sync from external modelValue → internal filterList
+watch(
+  () => props.modelValue,
+  (val) => {
+    if (!val || !Object.keys(val).length) {
+      filterList.value = []
+      return
+    }
+    const newList = []
+    for (const [key, rawValue] of Object.entries(val)) {
+      const field = allFields.value.find((f) => f.fieldname === key) || {
+        fieldname: key,
+        fieldtype: 'Data',
+        label: key,
+        options: '',
+      }
+      let operator, value
+      if (Array.isArray(rawValue) && rawValue.length >= 2) {
+        operator = oppositeOperatorMap[rawValue[0]] || rawValue[0]
+        value = rawValue[1]
+      } else {
+        value = rawValue
+        operator = 'equals'
+        if (field.fieldtype === 'Check') {
+          value = rawValue ? 'Yes' : 'No'
+        }
+      }
+      newList.push({ field, fieldname: key, operator, value })
+    }
+    filterList.value = newList
+  },
+  { immediate: true, deep: true },
 )
 
-const filters = computed({
-  get: () => {
-    return Object.entries(props.modelValue).map(
-      ([fieldname, [operator, value]]) => {
-        const field = getField(fieldname)
-        return { fieldname, operator, value, field }
-      },
-    )
-  },
-  set: (value) => emits('update:modelValue', makeFiltersDict(value)),
-})
-
-function getField(fieldname) {
-  return (
-    fields.value.find((f) => f.fieldname === fieldname) || {
-      fieldname,
-      fieldtype: 'Data',
-    }
-  )
+// ── Available fields (excluding already-used) ───────────────────────────────
+function fieldOptionsFor(currentIndex) {
+  // Include the current row's own field so Autocomplete can resolve its label,
+  // but exclude fields used by OTHER rows.
+  const usedNames = new Set()
+  filterList.value.forEach((f, i) => {
+    if (i !== currentIndex) usedNames.add(f.fieldname)
+  })
+  return allFields.value
+    .filter((f) => !usedNames.has(f.fieldname))
+    .map((f) => ({
+      label: f.label || f.fieldname,
+      value: f.fieldname,
+      fieldname: f.fieldname,
+      fieldtype: f.fieldtype,
+      options: f.options,
+    }))
 }
 
-function makeFiltersDict(list) {
-  return list.reduce((acc, f) => {
-    acc[f.fieldname] = [f.operator, f.value]
-    return acc
-  }, {})
-}
-
+// ── Operators (matches FCRM Filter.vue) ─────────────────────────────────────
 function getOperators(fieldtype) {
   const opts = []
-  if (typeString.includes(fieldtype) || typeLink.includes(fieldtype))
+  if (typeString.includes(fieldtype)) {
     opts.push(
-      { label: 'Equals', value: '=' },
-      { label: 'Not Equals', value: '!=' },
-      { label: 'Like', value: 'like' },
-      { label: 'Not Like', value: 'not like' },
+      { label: __('Equals'), value: 'equals' },
+      { label: __('Not equals'), value: 'not equals' },
+      { label: __('Like'), value: 'like' },
+      { label: __('Not like'), value: 'not like' },
+      { label: __('Is'), value: 'is' },
     )
-  if (typeNumber.includes(fieldtype))
+  }
+  if (typeNumber.includes(fieldtype)) {
     opts.push(
-      { label: '<', value: '<' },
-      { label: '>', value: '>' },
-      { label: '<=', value: '<=' },
-      { label: '>=', value: '>=' },
-      { label: 'Equals', value: '=' },
-      { label: 'Not Equals', value: '!=' },
+      { label: __('Equals'), value: 'equals' },
+      { label: __('Not equals'), value: 'not equals' },
+      { label: __('<'), value: '<' },
+      { label: __('>'), value: '>' },
+      { label: __('<='), value: '<=' },
+      { label: __('>='), value: '>=' },
+      { label: __('Is'), value: 'is' },
     )
-  if (typeSelect.includes(fieldtype))
+  }
+  if (typeSelect.includes(fieldtype)) {
     opts.push(
-      { label: 'Equals', value: '=' },
-      { label: 'Not Equals', value: '!=' },
+      { label: __('Equals'), value: 'equals' },
+      { label: __('Not equals'), value: 'not equals' },
+      { label: __('Is'), value: 'is' },
     )
-  if (typeCheck.includes(fieldtype)) opts.push({ label: 'Equals', value: '=' })
-  return opts.length
-    ? opts
-    : [
-        { label: 'Equals', value: '=' },
-        { label: 'Like', value: 'like' },
-      ]
+  }
+  if (typeLink.includes(fieldtype)) {
+    opts.push(
+      { label: __('Equals'), value: 'equals' },
+      { label: __('Not equals'), value: 'not equals' },
+      { label: __('Like'), value: 'like' },
+      { label: __('Not like'), value: 'not like' },
+      { label: __('Is'), value: 'is' },
+    )
+  }
+  if (typeCheck.includes(fieldtype)) {
+    opts.push({ label: __('Equals'), value: 'equals' })
+  }
+  if (typeDate.includes(fieldtype)) {
+    opts.push(
+      { label: __('Equals'), value: 'equals' },
+      { label: __('Not equals'), value: 'not equals' },
+      { label: __('Is'), value: 'is' },
+      { label: __('>'), value: '>' },
+      { label: __('<'), value: '<' },
+    )
+  }
+  if (!opts.length) {
+    opts.push(
+      { label: __('Equals'), value: 'equals' },
+      { label: __('Like'), value: 'like' },
+      { label: __('Is'), value: 'is' },
+    )
+  }
+  return opts
+}
+
+// ── Value helpers ───────────────────────────────────────────────────────────
+function isSelectOrCheck(fieldtype) {
+  return typeSelect.includes(fieldtype) || typeCheck.includes(fieldtype)
+}
+
+function getSelectOptions(field) {
+  if (typeCheck.includes(field.fieldtype)) {
+    return [
+      { label: 'Yes', value: 'Yes' },
+      { label: 'No', value: 'No' },
+    ]
+  }
+  return (field.options || '')
+    .split('\n')
+    .filter(Boolean)
+    .map((v) => ({ label: v, value: v }))
 }
 
 function getDefaultOperator(fieldtype) {
-  if (['Select', 'Link', 'Check', 'Float', 'Int'].includes(fieldtype))
-    return '='
+  if (
+    typeSelect.includes(fieldtype) ||
+    typeCheck.includes(fieldtype) ||
+    typeNumber.includes(fieldtype)
+  )
+    return 'equals'
   return 'like'
-}
-
-function getValueSelector(fieldtype, options) {
-  if (typeSelect.includes(fieldtype) || typeCheck.includes(fieldtype)) {
-    const _options =
-      fieldtype === 'Check' ? ['Yes', 'No'] : (options || '').split('\n')
-    return h(FormControl, { type: 'select', options: _options })
-  }
-  return h(FormControl, { type: 'text' })
 }
 
 function getDefaultValue(field) {
   if (typeSelect.includes(field.fieldtype))
-    return (field.options || '').split('\n')[0] || ''
+    return (field.options || '').split('\n').filter(Boolean)[0] || ''
   if (typeCheck.includes(field.fieldtype)) return 'Yes'
   return ''
 }
 
-function updateFilter(index, changes) {
-  const newList = filters.value.map((f, i) =>
-    i === index ? { ...f, ...changes } : f,
-  )
-  emits('update:modelValue', makeFiltersDict(newList))
+function getPlaceholder(f) {
+  if (['like', 'not like'].includes(f.operator)) return __('%John%')
+  if (typeLink.includes(f.field.fieldtype)) return __('Select a value')
+  return __('Enter value')
 }
 
-function addFilter(fieldname) {
-  const field = getField(fieldname)
-  const newList = [
-    ...filters.value,
-    {
-      fieldname,
-      operator: getDefaultOperator(field.fieldtype),
-      value: getDefaultValue(field),
-      field,
-    },
-  ]
-  emits('update:modelValue', makeFiltersDict(newList))
+// ── Mutations ───────────────────────────────────────────────────────────────
+function addFilter(data) {
+  if (!data?.fieldname) return
+  const field =
+    allFields.value.find((f) => f.fieldname === data.fieldname) || data
+  filterList.value.push({
+    field,
+    fieldname: data.fieldname,
+    operator: getDefaultOperator(field.fieldtype),
+    value: getDefaultValue(field),
+  })
+  apply()
+}
+
+function updateFilterField(data, index) {
+  if (!data?.fieldname) return
+  const field =
+    allFields.value.find((f) => f.fieldname === data.fieldname) || data
+  filterList.value.splice(index, 1, {
+    field,
+    fieldname: data.fieldname,
+    operator: getDefaultOperator(field.fieldtype),
+    value: getDefaultValue(field),
+  })
+  apply()
 }
 
 function removeFilter(index) {
-  const newList = filters.value.filter((_, i) => i !== index)
-  emits('update:modelValue', makeFiltersDict(newList))
+  filterList.value.splice(index, 1)
+  apply()
 }
 
-function applyFilters() {
-  emits('update:modelValue', makeFiltersDict(filters.value))
-}
-
-function applyAndClose(closeFn) {
-  applyFilters()
+function clearAllFilters(closeFn) {
+  filterList.value = []
+  apply()
   closeFn?.()
 }
 
-function clearFilters() {
-  emits('update:modelValue', {})
+function onOperatorChange(f) {
+  f.value = getDefaultValue(f.field)
+  if (f.operator === 'is') f.value = 'set'
+  apply()
+}
+
+function onValueChange(value, f) {
+  f.value = value?.target ? value.target.value : value?.value ?? value
+  apply()
+}
+
+// ── Apply: convert internal state → emit modelValue ─────────────────────────
+// Uses same operatorMap as FCRM's Filter.vue
+const operatorMap = {
+  is: 'is',
+  equals: '=',
+  'not equals': '!=',
+  like: 'LIKE',
+  'not like': 'NOT LIKE',
+  '>': '>',
+  '<': '<',
+  '>=': '>=',
+  '<=': '<=',
+  in: 'in',
+  'not in': 'not in',
+  between: 'between',
+  timespan: 'timespan',
+}
+
+const oppositeOperatorMap = {
+  is: 'is',
+  '=': 'equals',
+  '!=': 'not equals',
+  LIKE: 'like',
+  'NOT LIKE': 'not like',
+  '>': '>',
+  '<': '<',
+  '>=': '>=',
+  '<=': '<=',
+  in: 'in',
+  'not in': 'not in',
+  between: 'between',
+  timespan: 'timespan',
+}
+
+function apply() {
+  const obj = {}
+  for (const f of filterList.value) {
+    // Transform like values to include %
+    let value = f.value
+    if (
+      (f.operator === 'like' || f.operator === 'not like') &&
+      typeof value === 'string' &&
+      !value.includes('%')
+    ) {
+      value = `%${value}%`
+    }
+
+    if (['equals', '='].includes(f.operator)) {
+      obj[f.fieldname] = value === 'Yes' ? true : value === 'No' ? false : value
+    } else {
+      obj[f.fieldname] = [operatorMap[f.operator] || f.operator, value]
+    }
+  }
+  emits('update:modelValue', obj)
 }
 </script>
