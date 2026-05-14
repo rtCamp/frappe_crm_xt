@@ -126,41 +126,195 @@
           @update:modelValue="onFilterChange"
         />
 
-        <Dropdown :options="sortDropdownOptions">
-          <Button>
-            <template #prefix>
-              <FeatherIcon
-                :name="sortDir === 'asc' ? 'arrow-up' : 'arrow-down'"
-                class="h-4 w-4"
-              />
-            </template>
-            <span>Sort</span>
-            <template v-if="sortField !== 'modified'" #suffix>
-              <span class="text-xs text-ink-gray-5">{{
-                columnLabel(sortField)
-              }}</span>
-            </template>
-          </Button>
-        </Dropdown>
+        <Popover
+          placement="bottom-end"
+          :show="showSortPopover"
+          @update:show="(v) => (showSortPopover = v)"
+        >
+          <template #target>
+            <Button @click.stop="showSortPopover = !showSortPopover">
+              <template #prefix>
+                <FeatherIcon
+                  :name="sortDir === 'asc' ? 'arrow-up' : 'arrow-down'"
+                  class="h-4 w-4"
+                />
+              </template>
+              <span>Sort</span>
+              <template v-if="sortValues.length" #suffix>
+                <div
+                  class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-surface-white pt-px text-xs font-medium text-ink-gray-8 shadow-sm"
+                >
+                  {{ sortValues.length }}
+                </div>
+              </template>
+            </Button>
+          </template>
+          <template #body="{ close }">
+            <div
+              class="my-2 min-w-72 rounded-lg bg-surface-modal shadow-2xl ring-black ring-opacity-5 focus:outline-none"
+            >
+              <div class="p-2">
+                <div v-if="sortValues.length" class="mb-3 flex flex-col gap-2">
+                  <div
+                    v-for="(s, i) in sortValues"
+                    :key="`${s.fieldname}-${i}`"
+                    class="flex items-center gap-1"
+                    @dragover.prevent
+                    @drop="(e) => onSortDrop(e, i)"
+                  >
+                    <div
+                      class="flex h-7 w-7 items-center justify-center"
+                      draggable="true"
+                      @dragstart="(e) => onSortDragStart(e, i)"
+                    >
+                      <FeatherIcon
+                        name="menu"
+                        class="h-4 w-4 cursor-grab text-ink-gray-5"
+                      />
+                    </div>
+                    <Button
+                      class="rounded-r-none border-r"
+                      :icon="s.direction === 'asc' ? 'arrow-up' : 'arrow-down'"
+                      @click="toggleSortDirection(i)"
+                    />
+                    <Autocomplete
+                      class="[&>_div]:w-full"
+                      :modelValue="s.fieldname"
+                      :options="sortOptionsFor(i)"
+                      :placeholder="__('First Name')"
+                      @change="(e) => updateSortField(e, i)"
+                    />
+                    <Button variant="ghost" icon="x" @click="removeSort(i)" />
+                  </div>
+                </div>
+                <div
+                  v-else
+                  class="mb-3 flex h-7 items-center px-3 text-sm text-ink-gray-5"
+                >
+                  {{ __('Empty - Choose a field to sort by') }}
+                </div>
 
-        <Dropdown :options="columnDropdownOptions">
-          <Button>
-            <template #prefix>
-              <svg
-                class="h-4 w-4"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-              >
-                <rect x="3" y="3" width="18" height="18" rx="2" />
-                <line x1="9" y1="3" x2="9" y2="21" />
-                <line x1="15" y1="3" x2="15" y2="21" />
-              </svg>
-            </template>
-            Columns
-          </Button>
-        </Dropdown>
+                <div
+                  class="flex items-center justify-between gap-2 border-t border-outline-gray-1 pt-2"
+                >
+                  <Autocomplete
+                    :modelValue="null"
+                    :options="availableSortOptions"
+                    :placeholder="__('First Name')"
+                    @change="(e) => addSort(e)"
+                  >
+                    <template #target="{ togglePopover }">
+                      <Button
+                        class="!text-ink-gray-5"
+                        variant="ghost"
+                        :label="__('Add Sort')"
+                        iconLeft="plus"
+                        @click="togglePopover()"
+                      />
+                    </template>
+                  </Autocomplete>
+                  <Button
+                    v-if="sortValues.length"
+                    class="!text-ink-gray-5"
+                    variant="ghost"
+                    :label="__('Clear Sort')"
+                    @click="clearSort(close)"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+        </Popover>
+
+        <Popover
+          placement="bottom-end"
+          :show="showColumnsPopover"
+          @update:show="(v) => (showColumnsPopover = v)"
+        >
+          <template #target>
+            <Button @click.stop="showColumnsPopover = !showColumnsPopover">
+              <template #prefix>
+                <svg
+                  class="h-4 w-4"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <line x1="9" y1="3" x2="9" y2="21" />
+                  <line x1="15" y1="3" x2="15" y2="21" />
+                </svg>
+              </template>
+              Columns
+            </Button>
+          </template>
+          <template #body="{ close }">
+            <div
+              class="my-2 min-w-72 rounded-lg bg-surface-modal shadow-2xl ring-black ring-opacity-5 focus:outline-none"
+            >
+              <div class="p-2">
+                <div class="mb-2 max-h-64 overflow-y-auto">
+                  <div
+                    v-for="(c, i) in visibleColumns"
+                    :key="c.key"
+                    class="flex items-center justify-between gap-4 rounded px-2 py-1.5 text-base text-ink-gray-8 hover:bg-surface-gray-2"
+                    @dragover.prevent
+                    @drop="(e) => onColumnDrop(e, i)"
+                  >
+                    <div
+                      class="flex items-center gap-2 cursor-grab"
+                      draggable="true"
+                      @dragstart="(e) => onColumnDragStart(e, i)"
+                    >
+                      <FeatherIcon
+                        name="menu"
+                        class="h-4 w-4 text-ink-gray-5"
+                      />
+                      <div>{{ c.label }}</div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      class="!h-5 w-5 !p-1"
+                      @click="removeColumn(c.key)"
+                    >
+                      <template #icon>
+                        <FeatherIcon name="x" class="h-3.5" />
+                      </template>
+                    </Button>
+                  </div>
+                </div>
+
+                <div
+                  class="flex items-center justify-between gap-2 border-t border-outline-gray-1 pt-2"
+                >
+                  <Autocomplete
+                    :modelValue="null"
+                    :options="availableColumnOptions"
+                    :placeholder="__('Add column')"
+                    @change="(e) => addColumn(e)"
+                  >
+                    <template #target="{ togglePopover }">
+                      <Button
+                        class="!text-ink-gray-5"
+                        variant="ghost"
+                        :label="__('Add Column')"
+                        iconLeft="plus"
+                        @click="togglePopover()"
+                      />
+                    </template>
+                  </Autocomplete>
+                  <Button
+                    class="!text-ink-gray-5"
+                    variant="ghost"
+                    :label="__('Reset')"
+                    @click="resetColumns(close)"
+                  />
+                </div>
+              </div>
+            </div>
+          </template>
+        </Popover>
       </div>
     </div>
 
@@ -199,7 +353,19 @@
           </template>
         </ListHeaderItem>
       </ListHeader>
-      <ListRows class="mx-3 sm:mx-5" />
+      <ExtListRows
+        v-slot="{ column, item }"
+        :rows="rows"
+        :doctype="props.doctype"
+      >
+        <ListRowItem :item="item" :align="column.align" class="overflow-hidden">
+          <template #default="{ label }">
+            <div class="truncate text-base">
+              {{ label ?? item }}
+            </div>
+          </template>
+        </ListRowItem>
+      </ExtListRows>
       <ListEmptyState v-if="!loading && !rows.length" />
     </ListView>
 
@@ -223,16 +389,19 @@ import {
   ListView,
   ListHeader,
   ListHeaderItem,
-  ListRows,
+  ListRowItem,
   ListEmptyState,
   ListFooter,
+  Popover,
   Button,
   FeatherIcon,
-  Dropdown,
   FormControl,
   Autocomplete,
 } from 'frappe-ui'
 import ListFilterLocal from './ListFilterLocal.vue'
+import ExtListRows from './ExtListRows.vue'
+
+const __ = typeof window.__ === 'function' ? window.__ : (s) => s
 
 const props = defineProps({
   doctype: { type: String, required: true },
@@ -266,10 +435,16 @@ const totalCount = ref(0)
 const activeFilters = ref({})
 const sortField = ref('modified')
 const sortDir = ref('desc')
+const sortValues = ref([])
 const quickSearch = ref('')
 const titleKey = ref('name')
 const searchFieldMeta = ref(null) // field meta for the quick-search input
 const searchLinkOptions = ref([]) // options for Link-type search
+const defaultColumnKeys = ref([])
+const sortDragIndex = ref(-1)
+const columnDragIndex = ref(-1)
+const showSortPopover = ref(false)
+const showColumnsPopover = ref(false)
 let offset = 0
 
 // ── CSRF / fetch ──────────────────────────────────────────────────────────────
@@ -311,10 +486,6 @@ function timeAgo(dateStr) {
   if (h > 0) return h === 1 ? '1 hour ago' : `${h} hours ago`
   if (m > 0) return m === 1 ? '1 min ago' : `${m} mins ago`
   return 'just now'
-}
-
-function columnLabel(key) {
-  return allAvailableColumns.value.find((c) => c.key === key)?.label || key
 }
 
 // ── Search field helpers ──────────────────────────────────────────────────────
@@ -372,16 +543,30 @@ async function fetchSearchLinkOptions(query) {
 // ── Column setup ──────────────────────────────────────────────────────────────
 const ALLOWED = new Set([
   'Data',
+  'Read Only',
+  'Text Editor',
+  'Long Text',
+  'Small Text',
+  'Text',
+  'Email',
+  'Phone',
+  'Password',
+  'Code',
+  'JSON',
   'Link',
+  'Dynamic Link',
   'Select',
+  'MultiSelect',
   'Date',
   'Datetime',
+  'Time',
   'Int',
   'Float',
   'Currency',
-  'Small Text',
+  'Percent',
+  'Duration',
   'Check',
-  'Text',
+  'Rating',
 ])
 const SYSTEM_SKIP = new Set([
   'name',
@@ -440,30 +625,54 @@ async function loadMeta() {
     }
 
     // ALL valid fields for the column picker
-    allAvailableColumns.value = [
-      primary,
-      ...metaFields
-        .filter(
-          (f) =>
-            !f.hidden &&
-            ALLOWED.has(f.fieldtype) &&
-            f.fieldname !== titleKey.value &&
-            !SYSTEM_SKIP.has(f.fieldname),
-        )
-        .map((f) => ({ label: f.label, key: f.fieldname, width: 1 })),
-      modifiedCol,
-    ]
+    const metaColumns = metaFields
+      .filter(
+        (f) =>
+          !f.hidden &&
+          ALLOWED.has(f.fieldtype) &&
+          f.fieldname !== titleKey.value &&
+          !SYSTEM_SKIP.has(f.fieldname),
+      )
+      .map((f) => ({ label: f.label, key: f.fieldname, width: 1 }))
+
+    const systemColumnMap = {
+      name: { label: 'Name', key: 'name', width: 1 },
+      creation: {
+        label: 'Created',
+        key: 'creation',
+        width: 1,
+        getLabel: ({ row }) => timeAgo(row.creation),
+      },
+      modified: modifiedCol,
+    }
+
+    const hookColumns = (props.fields || [])
+      .map((fn) => {
+        if (fn === titleKey.value) return primary
+        if (systemColumnMap[fn]) return systemColumnMap[fn]
+        const mf = fieldMap[fn]
+        if (mf && !mf.hidden && ALLOWED.has(mf.fieldtype)) {
+          return { label: mf.label, key: mf.fieldname, width: 1 }
+        }
+        return null
+      })
+      .filter(Boolean)
+
+    const uniqueColumns = []
+    const seenColumnKeys = new Set()
+    ;[primary, ...metaColumns, modifiedCol, ...hookColumns].forEach((col) => {
+      if (!col || seenColumnKeys.has(col.key)) return
+      seenColumnKeys.add(col.key)
+      uniqueColumns.push(col)
+    })
+    allAvailableColumns.value = uniqueColumns
 
     // Default visible columns (hook fields override or in_list_view)
     let defaultKeys
     if (props.fields.length) {
-      defaultKeys = [
-        titleKey.value,
-        ...props.fields.filter(
-          (fn) => fn !== titleKey.value && fn !== 'modified' && fieldMap[fn],
-        ),
-        'modified',
-      ]
+      const validKeys = new Set(allAvailableColumns.value.map((c) => c.key))
+      defaultKeys = props.fields.filter((fn) => validKeys.has(fn))
+      if (!defaultKeys.length) defaultKeys = [titleKey.value, 'modified']
     } else {
       let listFields = metaFields
         .filter(
@@ -498,6 +707,7 @@ async function loadMeta() {
         'modified',
       ]
     }
+    defaultColumnKeys.value = [...defaultKeys]
 
     // Restore saved column selection
     try {
@@ -505,7 +715,11 @@ async function loadMeta() {
         localStorage.getItem(`xt_cols_${props.doctype}`) || 'null',
       )
       const validKeys = new Set(allAvailableColumns.value.map((c) => c.key))
-      if (
+      // If hook fields are configured, honor hook ordering strictly.
+      // This keeps list-view behavior consistent with hook configuration.
+      if (props.fields.length) {
+        activeColumnKeys.value = new Set(defaultKeys)
+      } else if (
         Array.isArray(saved) &&
         saved.length &&
         saved.every((k) => validKeys.has(k))
@@ -534,61 +748,177 @@ async function loadMeta() {
         getLabel: ({ row }) => timeAgo(row.modified),
       },
     ]
+    defaultColumnKeys.value = ['name', 'modified']
     activeColumnKeys.value = new Set(['name', 'modified'])
   }
 }
 
 // ── Computed columns / dropdowns ──────────────────────────────────────────────
-const visibleColumns = computed(() =>
-  allAvailableColumns.value.filter((c) => activeColumnKeys.value.has(c.key)),
-)
+const visibleColumns = computed(() => {
+  const map = new Map(allAvailableColumns.value.map((c) => [c.key, c]))
+  return [...activeColumnKeys.value].map((k) => map.get(k)).filter(Boolean)
+})
 
-const sortDropdownOptions = computed(() =>
-  allAvailableColumns.value.flatMap((c) => [
-    {
-      label: `${c.label} ↑`,
-      onClick: () => {
-        sortField.value = c.key
-        sortDir.value = 'asc'
-        reload()
-      },
-    },
-    {
-      label: `${c.label} ↓`,
-      onClick: () => {
-        sortField.value = c.key
-        sortDir.value = 'desc'
-        reload()
-      },
-    },
-  ]),
-)
-
-const columnDropdownOptions = computed(() =>
+const sortFieldOptions = computed(() =>
   allAvailableColumns.value.map((c) => ({
     label: c.label,
-    icon: activeColumnKeys.value.has(c.key) ? 'check' : '',
-    onClick: () => {
-      const next = new Set(activeColumnKeys.value)
-      if (next.has(c.key)) next.delete(c.key)
-      else next.add(c.key)
-      if (next.size === 0) return
-      activeColumnKeys.value = next
-      localStorage.setItem(
-        `xt_cols_${props.doctype}`,
-        JSON.stringify([...next]),
-      )
-    },
+    value: c.key,
+    fieldname: c.key,
   })),
 )
 
-function applySort(key) {
-  if (sortField.value === key) {
-    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc'
+const availableSortOptions = computed(() => {
+  const used = new Set(sortValues.value.map((s) => s.fieldname))
+  return sortFieldOptions.value.filter((o) => !used.has(o.fieldname))
+})
+
+const availableColumnOptions = computed(() => {
+  return allAvailableColumns.value
+    .filter((c) => !activeColumnKeys.value.has(c.key))
+    .map((c) => ({
+      label: c.label,
+      value: c.key,
+      fieldname: c.key,
+    }))
+})
+
+function sortOptionsFor(index) {
+  const used = new Set()
+  sortValues.value.forEach((s, i) => {
+    if (i !== index) used.add(s.fieldname)
+  })
+  return sortFieldOptions.value.filter((o) => !used.has(o.fieldname))
+}
+
+function addSort(data) {
+  const fieldname = data?.fieldname || data?.value
+  if (!fieldname) return
+  if (sortValues.value.some((s) => s.fieldname === fieldname)) return
+  sortValues.value.push({ fieldname, direction: 'asc' })
+  syncPrimarySortFromList()
+  reload()
+}
+
+function updateSortField(data, index) {
+  const fieldname = data?.fieldname || data?.value
+  if (!fieldname || !sortValues.value[index]) return
+  if (sortValues.value.some((s, i) => i !== index && s.fieldname === fieldname))
+    return
+  sortValues.value[index].fieldname = fieldname
+  syncPrimarySortFromList()
+  reload()
+}
+
+function toggleSortDirection(index) {
+  if (!sortValues.value[index]) return
+  sortValues.value[index].direction =
+    sortValues.value[index].direction === 'asc' ? 'desc' : 'asc'
+  syncPrimarySortFromList()
+  reload()
+}
+
+function removeSort(index) {
+  sortValues.value.splice(index, 1)
+  syncPrimarySortFromList()
+  reload()
+}
+
+function clearSort(close) {
+  sortValues.value = []
+  syncPrimarySortFromList()
+  reload()
+  showSortPopover.value = false
+  close?.()
+}
+
+function onSortDragStart(e, index) {
+  e?.dataTransfer?.setData('text/plain', String(index))
+  if (e?.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  sortDragIndex.value = index
+}
+
+function onSortDrop(e, index) {
+  const fromData = Number(e?.dataTransfer?.getData('text/plain'))
+  const from = Number.isInteger(fromData) ? fromData : sortDragIndex.value
+  if (from < 0 || from === index) return
+  const next = [...sortValues.value]
+  const [moved] = next.splice(from, 1)
+  next.splice(index, 0, moved)
+  sortValues.value = next
+  sortDragIndex.value = -1
+  syncPrimarySortFromList()
+  reload()
+}
+
+function addColumn(data) {
+  const key = data?.fieldname || data?.value
+  if (!key || activeColumnKeys.value.has(key)) return
+  const next = [...activeColumnKeys.value, key]
+  activeColumnKeys.value = new Set(next)
+  persistColumns()
+  reload()
+}
+
+function removeColumn(key) {
+  const next = [...activeColumnKeys.value].filter((k) => k !== key)
+  if (!next.length) return
+  activeColumnKeys.value = new Set(next)
+  persistColumns()
+  reload()
+}
+
+function resetColumns(close) {
+  activeColumnKeys.value = new Set(defaultColumnKeys.value)
+  persistColumns()
+  reload()
+  showColumnsPopover.value = false
+  close?.()
+}
+
+function onColumnDragStart(e, index) {
+  e?.dataTransfer?.setData('text/plain', String(index))
+  if (e?.dataTransfer) e.dataTransfer.effectAllowed = 'move'
+  columnDragIndex.value = index
+}
+
+function onColumnDrop(e, index) {
+  const fromData = Number(e?.dataTransfer?.getData('text/plain'))
+  const from = Number.isInteger(fromData) ? fromData : columnDragIndex.value
+  if (from < 0 || from === index) return
+  const keys = [...activeColumnKeys.value]
+  const [moved] = keys.splice(from, 1)
+  keys.splice(index, 0, moved)
+  activeColumnKeys.value = new Set(keys)
+  columnDragIndex.value = -1
+  persistColumns()
+  reload()
+}
+
+function persistColumns() {
+  localStorage.setItem(
+    `xt_cols_${props.doctype}`,
+    JSON.stringify([...activeColumnKeys.value]),
+  )
+}
+
+function syncPrimarySortFromList() {
+  if (sortValues.value.length) {
+    sortField.value = sortValues.value[0].fieldname
+    sortDir.value = sortValues.value[0].direction
   } else {
-    sortField.value = key
-    sortDir.value = 'asc'
+    sortField.value = props.defaultSort?.field || 'modified'
+    sortDir.value = props.defaultSort?.dir || 'desc'
   }
+}
+
+function applySort(key) {
+  const first = sortValues.value[0]
+  if (first?.fieldname === key) {
+    first.direction = first.direction === 'asc' ? 'desc' : 'asc'
+  } else {
+    sortValues.value = [{ fieldname: key, direction: 'asc' }]
+  }
+  syncPrimarySortFromList()
   reload()
 }
 
@@ -634,7 +964,9 @@ async function loadRows(append = false) {
     }
 
     const filters = JSON.stringify(filterList)
-    const orderBy = `${sortField.value} ${sortDir.value}`
+    const orderBy = sortValues.value.length
+      ? sortValues.value.map((s) => `${s.fieldname} ${s.direction}`).join(', ')
+      : `${sortField.value} ${sortDir.value}`
 
     // NOTE: use limit_start / limit_page_length — the frappe.client.get_list proxy
     // maps its function params by these names; sending `start`/`limit` would be silently
@@ -712,13 +1044,16 @@ watch(
       )
       activeFilters.value =
         savedFilters && typeof savedFilters === 'object'
-          ? savedFilters
+          ? { ...props.defaultFilters, ...savedFilters }
           : { ...props.defaultFilters }
     } catch {
       activeFilters.value = { ...props.defaultFilters }
     }
     sortField.value = props.defaultSort?.field || 'modified'
     sortDir.value = props.defaultSort?.dir || 'desc'
+    sortValues.value = [
+      { fieldname: sortField.value, direction: sortDir.value },
+    ]
     await loadMeta()
     await loadRows(false)
   },

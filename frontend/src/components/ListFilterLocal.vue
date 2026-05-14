@@ -302,7 +302,22 @@ watch(
       }
       let operator, value
       if (Array.isArray(rawValue) && rawValue.length >= 2) {
-        operator = oppositeOperatorMap[rawValue[0]] || rawValue[0]
+        const reverseMap = {
+          is: 'is',
+          '=': 'equals',
+          '!=': 'not equals',
+          LIKE: 'like',
+          'NOT LIKE': 'not like',
+          '>': '>',
+          '<': '<',
+          '>=': '>=',
+          '<=': '<=',
+          in: 'in',
+          'not in': 'not in',
+          between: 'between',
+          timespan: 'timespan',
+        }
+        operator = reverseMap[rawValue[0]] || rawValue[0]
         value = rawValue[1]
       } else {
         value = rawValue

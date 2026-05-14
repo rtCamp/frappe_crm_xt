@@ -93,18 +93,19 @@
 
           <div class="border-t border-outline-gray-1" />
 
-          <div class="flex items-center">
+          <div class="flex items-center justify-between">
             <div class="text-base text-ink-gray-7 w-3/12">
               {{ __('Date & Time') }}
             </div>
-            <div class="flex gap-2 w-9/12">
+            <div class="flex gap-2 w-9/12 justify-end">
               <DatePicker
-                :class="[_event.isFullDay ? 'w-full' : 'w-[158px]']"
+                class="w-[158px]"
                 variant="outline"
                 :value="_event.fromDate"
                 :format="'MMM D, YYYY'"
                 :placeholder="__('May 1, 2025')"
                 :clearable="false"
+                placement="bottom-end"
                 @update:modelValue="(d) => updateDate(d)"
               >
                 <template #suffix="{ togglePopover }">
@@ -121,6 +122,7 @@
                 variant="outline"
                 :modelValue="_event.fromTime"
                 :placeholder="__('Start Time')"
+                placement="bottom-end"
                 @update:modelValue="(t) => updateTime(t, true)"
               />
               <TimePicker
