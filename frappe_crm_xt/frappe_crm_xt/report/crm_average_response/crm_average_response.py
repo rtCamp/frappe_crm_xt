@@ -1,10 +1,9 @@
-# Copyright (c) 2025, rtCamp and contributors
+# Copyright (c) 2026, rtCamp and contributors
 # For license information, please see license.txt
 
-from frappe import _, qb
-from frappe.query_builder.functions import Avg, Count, Max, Min, Round, Sum
+import frappe
+from frappe import _
 from frappe.utils import add_days, getdate
-from pypika import Case
 
 
 def execute(filters=None):
@@ -14,35 +13,30 @@ def execute(filters=None):
 
 
 def get_data(filters=None):
-	Deal = qb.DocType("CRM Deal")
-	User = qb.DocType("User")
-
 	today = getdate()
 	weekday = today.weekday()
 
 	last_monday = add_days(today, -(weekday + 7))
 	last_sunday = add_days(today, -(weekday + 1))
 
-	query = (
-		qb.from_(Deal)
-		.join(User)
-		.on(Deal.custom_sales_manager == User.name)
-		.select(
-			User.full_name.as_("sales_person"),
-			Avg(Deal.custom_first_response_time).as_("avg_first_response"),
-			Avg(Deal.custom_last_response_time).as_("avg_followup_time"),
-			Round(
-				Sum(Case().when(Deal.sla_status == "Fulfilled", 1).else_(0)) * 100.0 / Count(Deal.name),
-				2,
-			).as_("sla_met"),
-			Min(Deal.custom_first_response_time).as_("fastest_response"),
-			Max(Deal.custom_first_response_time).as_("slowest_response"),
-		)
-		.where(Deal.modified[last_monday:last_sunday])
-		.groupby(Deal.custom_sales_manager)
-	)
+	query = """
+	SELECT
+		COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t._assign, '$[0]')), ''), t.deal_owner) AS sales_person,
+		AVG(t.first_response_time) AS avg_first_response,
+		AVG(t.custom_last_response_time) AS avg_followup_time,
+        ROUND(
+            SUM(CASE WHEN t.sla_status = 'Fulfilled' THEN 1 ELSE 0 END) * 100.0 / COUNT(t.name),
+            2
+        ) AS sla_met,
+        MIN(t.first_response_time) AS fastest_response,
+        MAX(t.first_response_time) AS slowest_response
+	FROM `tabCRM Deal` t
+	LEFT JOIN `tabUser` u ON u.name = COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t._assign, '$[0]')), ''), t.deal_owner)
+	WHERE t.modified BETWEEN %s AND %s
+	GROUP BY COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t._assign, '$[0]')), ''), t.deal_owner)
+    """
 
-	return query.run(as_dict=True)
+	return frappe.db.sql(query, (last_monday, last_sunday), as_dict=True)
 
 
 def get_columns():
