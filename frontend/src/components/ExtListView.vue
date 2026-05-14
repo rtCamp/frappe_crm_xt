@@ -370,16 +370,50 @@
     </ListView>
 
     <!-- ── Footer ────────────────────────────────────────────────────────────── -->
-    <ListFooter
-      v-if="pageLengthCount"
-      v-model="pageLengthCount"
-      class="border-t sm:px-5 px-3 py-2"
-      :options="{
-        rowCount: rows.length,
-        totalCount: totalCount,
-      }"
-      @loadMore="onLoadMore"
-    />
+    <div
+      v-if="rows.length || totalCount"
+      data-xt-footer
+      class="flex items-center justify-between border-t sm:px-5 px-3 py-2"
+    >
+      <!-- Page size tabs (FCRM parity) -->
+      <div
+        class="flex space-x-0.5 rounded-md bg-surface-gray-2 h-7 items-center px-[1px] text-sm"
+      >
+        <button
+          v-for="size in [20, 50, 100]"
+          :key="size"
+          class="!h-6.5 inline-flex items-center justify-center gap-2 transition-colors focus:outline-none shrink-0 text-ink-gray-8 bg-surface-gray-2 hover:bg-surface-gray-3 active:bg-surface-gray-4 focus-visible:ring focus-visible:ring-outline-gray-3 h-7 text-base px-2 rounded"
+          :class="
+            pageLengthCount === size
+              ? '!bg-surface-white text-ink-gray-8 shadow'
+              : '!text-ink-gray-5'
+          "
+          type="button"
+          @click="setPageLength(size)"
+        >
+          <span class="truncate"
+            ><span class="flex h-4 items-center">{{ size }}</span></span
+          >
+        </button>
+      </div>
+      <!-- Right: Load More + count -->
+      <div class="flex items-center">
+        <Button
+          v-if="rows.length < totalCount"
+          label="Load More"
+          @click="onLoadMore"
+        />
+        <div
+          v-if="rows.length < totalCount"
+          class="mx-3 h-5 border-l border-outline-gray-2"
+        />
+        <div class="flex items-center gap-1 text-base text-ink-gray-5">
+          <span>{{ rows.length }}</span>
+          <span>of</span>
+          <span>{{ totalCount }}</span>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -391,7 +425,6 @@ import {
   ListHeaderItem,
   ListRowItem,
   ListEmptyState,
-  ListFooter,
   Popover,
   Button,
   FeatherIcon,
@@ -982,16 +1015,37 @@ async function loadRows(append = false) {
       }),
       append
         ? Promise.resolve(totalCount.value)
-        : call('frappe.client.get_count', { doctype: props.doctype, filters }),
+        : call('frappe.client.get_count', {
+            doctype: props.doctype,
+            filters: filterList,
+          }),
     ])
 
-    if (!append) totalCount.value = typeof count === 'number' ? count : 0
+    if (!append) {
+      const n = Number(count)
+      // get_count returns a number; fall back to at least the number of rows fetched
+      totalCount.value = Number.isFinite(n) && n > 0 ? n : data?.length ?? 0
+      console.debug(
+        '[xt-list] count:',
+        count,
+        '→ totalCount:',
+        totalCount.value,
+        'rows:',
+        data?.length,
+      )
+    }
     rows.value = append ? [...rows.value, ...data] : data
   } catch {
     if (!append) rows.value = []
   } finally {
     loading.value = false
   }
+}
+
+function setPageLength(size) {
+  pageLengthCount.value = size
+  pageLength.value = size
+  reload()
 }
 
 function reload() {
@@ -1021,11 +1075,6 @@ function onQuickSearch() {
   clearTimeout(_searchTimer)
   _searchTimer = setTimeout(reload, 300)
 }
-
-watch(pageLengthCount, (val) => {
-  pageLength.value = val
-  reload()
-})
 
 watch(
   () => props.doctype,
