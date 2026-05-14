@@ -1,6 +1,7 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 
+import frappe
 from erpnext.accounts.utils import get_fiscal_year
 from frappe import _, qb
 from frappe.query_builder.functions import Count, Round, Sum
@@ -19,48 +20,48 @@ def get_data(filters):
 
 	month = int(filters.get("month", "0"))
 
-	Month = CustomFunction("MONTH", ["month"])
-	Year = CustomFunction("YEAR", ["year"])
+	start_date = fiscal_year.year_start_date
+	end_date = fiscal_year.year_end_date
 
-	Deal = qb.DocType("CRM Deal")
-	Lead = qb.DocType("CRM Lead")
-	User = qb.DocType("User")
+	# sales_person: use `deal_owner` field on CRM Deal
+	assignee_expr = "d.deal_owner"
 
-	sub_query_where_conditions = [
-		Lead.custom_assigned_to == Deal.custom_sales_manager,
-		Lead.creation[fiscal_year.year_start_date : fiscal_year.year_end_date],
-	]
+	subquery_month_cond = ""
+	main_month_cond = ""
 	if month:
-		sub_query_where_conditions.append(Month(Lead.creation) == month)
+		subquery_month_cond = f" AND MONTH(l.creation) = {int(month)}"
+		main_month_cond = " AND MONTH(d.creation) = %s"
 
-	query_where_conditions = [
-		Deal.custom_sales_manager.isnotnull(),
-		Deal.creation[fiscal_year.year_start_date : fiscal_year.year_end_date],
-	]
+	query = f"""
+	SELECT
+		{assignee_expr} AS sales_person,
+		(
+			SELECT COUNT(*)
+			FROM `tabCRM Lead` l
+			WHERE l.lead_owner = {assignee_expr}
+			AND l.creation BETWEEN %s AND %s
+			{subquery_month_cond}
+		) AS leads_assigned,
+		COUNT(d.name) AS deals_created,
+		SUM(CASE WHEN d.status = 'Won' THEN 1 ELSE 0 END) AS deals_won,
+		ROUND(SUM(CASE WHEN d.status = 'Won' THEN 1 ELSE 0 END) * 100.0 / COUNT(d.name), 2) AS conversion_rate,
+		d.creation AS period
+	FROM `tabCRM Deal` d
+		LEFT JOIN `tabUser` u ON u.name = {assignee_expr}
+		WHERE {assignee_expr} IS NOT NULL
+	  AND d.creation BETWEEN %s AND %s
+	  {main_month_cond}
+		GROUP BY {assignee_expr}, YEAR(d.creation), MONTH(d.creation)
+	"""
+
+	# params for main query: if month provided, params already include month at end
 	if month:
-		query_where_conditions.append(Month(Deal.creation) == month)
+		# params currently [start_date, end_date, month] -> we need start,end for subquery and start,end,month for main
+		sql_params = [start_date, end_date, start_date, end_date, month]
+	else:
+		sql_params = [start_date, end_date, start_date, end_date]
 
-	query = (
-		qb.from_(Deal)
-		.join(User)
-		.on(Deal.custom_sales_manager == User.name)
-		.select(
-			User.full_name.as_("sales_person"),
-			(qb.from_(Lead).select(Count("*")).where(Criterion.all(sub_query_where_conditions))).as_(
-				"leads_assigned"
-			),
-			Count(Deal.name).as_("deals_created"),
-			Sum(Case().when(Deal.status == "Won", 1).else_(0)).as_("deals_won"),
-			Round(
-				Sum(Case().when(Deal.status == "Won", 1).else_(0)) * 100.0 / Count(Deal.name),
-				2,
-			).as_("conversion_rate"),
-			Deal.creation.as_("period"),
-		)
-		.where(Criterion.all(query_where_conditions))
-		.groupby(Deal.custom_sales_manager, Year(Deal.creation), Month(Deal.creation))
-	)
-	result = query.run(as_dict=True)
+	result = frappe.db.sql(query, tuple(sql_params), as_dict=True)
 	for row in result:
 		row["period"] = getdate(row["period"]).strftime("%B, %Y")
 

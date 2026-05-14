@@ -23,7 +23,7 @@ def get_data(filters=None):
 		.select(
 			Deal.status.as_("stage"),
 			Count(Deal.name).as_("deal_count"),
-			Sum(Deal.value).as_("total_value"),
+			Sum(Deal.annual_revenue).as_("total_value"),
 		)
 		.groupby(Deal.status)
 	)

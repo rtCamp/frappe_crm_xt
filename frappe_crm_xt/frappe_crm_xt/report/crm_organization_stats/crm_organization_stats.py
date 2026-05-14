@@ -18,10 +18,8 @@ def get_data(filters=None):
 
 	query = qb.from_(Organization).select(
 		Organization.name,
-		Organization.title,
-		Organization.custom_org_type.as_("org_type"),
-		Organization.custom_account_manager,
-		Organization.custom_label,
+		Organization.organization_name.as_("title"),
+		Organization.annual_revenue,
 	)
 
 	# Add filters if provided
@@ -32,8 +30,8 @@ def get_data(filters=None):
 
 	# Add related deals and leads count
 	for org in result:
-		deals_count = qb.from_(Deal).select(Count("*")).where(Deal.org == org.get("name")).run()
-		leads_count = qb.from_(Lead).select(Count("*")).where(Lead.org == org.get("name")).run()
+		deals_count = qb.from_(Deal).select(Count("*")).where(Deal.organization == org.get("name")).run()
+		leads_count = qb.from_(Lead).select(Count("*")).where(Lead.organization == org.get("name")).run()
 
 		org["deals_count"] = deals_count[0][0] if deals_count else 0
 		org["leads_count"] = leads_count[0][0] if leads_count else 0
@@ -57,23 +55,10 @@ def get_columns():
 			"width": 200,
 		},
 		{
-			"label": _("Organization Type"),
-			"fieldname": "org_type",
-			"fieldtype": "Data",
+			"label": _("Annual Revenue"),
+			"fieldname": "annual_revenue",
+			"fieldtype": "Currency",
 			"width": 150,
-		},
-		{
-			"label": _("Account Manager"),
-			"fieldname": "custom_account_manager",
-			"fieldtype": "Link",
-			"options": "User",
-			"width": 200,
-		},
-		{
-			"label": _("Label"),
-			"fieldname": "custom_label",
-			"fieldtype": "Data",
-			"width": 100,
 		},
 		{
 			"label": _("Deals Count"),

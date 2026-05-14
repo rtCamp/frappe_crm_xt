@@ -21,7 +21,7 @@ def get_data(filters=None):
 
 	query = """
 	SELECT
-		COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t._assign, '$[0]')), ''), t.deal_owner) AS sales_person,
+		t.deal_owner AS sales_person,
 		AVG(t.first_response_time) AS avg_first_response,
 		AVG(t.custom_last_response_time) AS avg_followup_time,
         ROUND(
@@ -31,9 +31,9 @@ def get_data(filters=None):
         MIN(t.first_response_time) AS fastest_response,
         MAX(t.first_response_time) AS slowest_response
 	FROM `tabCRM Deal` t
-	LEFT JOIN `tabUser` u ON u.name = COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t._assign, '$[0]')), ''), t.deal_owner)
+	LEFT JOIN `tabUser` u ON u.name = t.deal_owner
 	WHERE t.modified BETWEEN %s AND %s
-	GROUP BY COALESCE(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(t._assign, '$[0]')), ''), t.deal_owner)
+	GROUP BY t.deal_owner
     """
 
 	return frappe.db.sql(query, (last_monday, last_sunday), as_dict=True)
