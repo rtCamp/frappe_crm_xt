@@ -64,10 +64,10 @@
             <div class="flex gap-1 w-9/12">
               <Dropdown :options="colors">
                 <div
-                  class="flex items-center justify-center size-7 shrink-0 border border-outline-gray-2 bg-surface-white hover:border-outline-gray-3 hover:shadow-sm rounded cursor-pointer"
+                  class="flex items-center justify-center size-7 shrink-0 border border-outline-gray-2 hover:border-outline-gray-3 hover:shadow-sm rounded cursor-pointer"
                 >
                   <div
-                    class="size-2.5 rounded-full"
+                    class="size-4 rounded-full"
                     :style="{ backgroundColor: _event.color || '#30A66D' }"
                   />
                 </div>

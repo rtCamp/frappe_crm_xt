@@ -5,7 +5,7 @@ from frappe.utils import get_link_to_form
 
 def after_insert(doc, method=None):
 	"""Add cross-comments when project is linked to a won deal"""
-	if not doc.custom_deal:
+	if not doc.get("custom_deal", None):
 		return
 
 	try:
