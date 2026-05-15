@@ -1,6 +1,13 @@
 {
   "CRM Deal": [
     {
+      "fieldname": "custom_priority",
+      "fieldtype": "Select",
+      "label": "Priority",
+      "options": "\nHigh\nMedium\nLow",
+      "insert_after": "status"
+    },
+    {
       "fieldname": "sales_stage",
       "fieldtype": "Link",
       "label": "Sales Stage",
