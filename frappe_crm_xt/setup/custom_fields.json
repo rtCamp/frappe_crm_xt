@@ -1,6 +1,13 @@
 {
   "CRM Deal": [
     {
+      "fieldname": "sales_stage",
+      "fieldtype": "Link",
+      "label": "Sales Stage",
+      "options": "Sales Stage",
+      "insert_after": "status"
+    },
+    {
       "fieldname": "custom__project_size",
       "fieldtype": "Select",
       "label": " Project Size",
