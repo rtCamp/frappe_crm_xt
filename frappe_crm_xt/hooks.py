@@ -16,6 +16,7 @@ fixtures = [
 		],
 	},
 	{"dt": "Custom Field", "filters": [["dt", "=", "CRM Deal Status"]]},
+	{"dt": "CRM Form Script", "filters": [["is_standard", "=", 0]]},
 ]
 
 # ─── Doc events ───────────────────────────────────────────────────────────────
