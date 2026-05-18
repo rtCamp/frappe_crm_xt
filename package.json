@@ -1,0 +1,16 @@
+{
+  "private": true,
+  "name": "frappe_crm_xt",
+  "description": "Frappe CRM XT — extensible sidebar list views, global search, and ERPNext bridge hooks.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rtCamp/frappe-crm-xt.git"
+  },
+  "license": "AGPL-3.0",
+  "packageManager": "pnpm@10.13.1",
+  "scripts": {
+    "postinstall": "cd frontend && pnpm install --frozen-lockfile",
+    "dev": "cd frontend && pnpm dev",
+    "build": "cd frontend && pnpm build"
+  }
+}
