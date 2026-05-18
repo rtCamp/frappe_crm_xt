@@ -1,6 +1,57 @@
 {
   "CRM Deal": [
     {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Title",
+      "insert_after": "transaction_date"
+    },
+    {
+      "fieldname": "company",
+      "fieldtype": "Link",
+      "label": "Internal Company",
+      "options": "Company",
+      "insert_after": "title"
+    },
+    {
+      "fieldname": "country",
+      "fieldtype": "Link",
+      "label": "Country",
+      "options": "Country",
+      "insert_after": "company"
+    },
+    {
+      "fieldname": "city",
+      "fieldtype": "Data",
+      "label": "City",
+      "insert_after": "country"
+    },
+    {
+      "fieldname": "state",
+      "fieldtype": "Data",
+      "label": "State / Province",
+      "insert_after": "city"
+    },
+    {
+      "fieldname": "customer_address",
+      "fieldtype": "Link",
+      "label": "Customer Address",
+      "options": "Address",
+      "insert_after": "state"
+    },
+    {
+      "fieldname": "address_display",
+      "fieldtype": "Text Editor",
+      "label": "Address",
+      "insert_after": "customer_address"
+    },
+    {
+      "fieldname": "transaction_date",
+      "fieldtype": "Date",
+      "label": "Opportunity Date",
+      "insert_after": "expected_closure_date"
+    },
+    {
       "fieldname": "custom_priority",
       "fieldtype": "Select",
       "label": "Priority",
@@ -600,9 +651,9 @@
       "options": "1-10\n11-50\n51-200\n201-500\n501-1000\n1000+"
     },
     {
-      "fieldname":"custom_crm_organization",
-      "fieldtype":"Data",
-      "label":"CRM Organization"
+      "fieldname": "custom_crm_organization",
+      "fieldtype": "Data",
+      "label": "CRM Organization"
     }
   ],
   "FCRM Note": [
@@ -617,6 +668,14 @@
       "fieldtype": "Link",
       "label": "Parent Note",
       "options": "CRM Note"
+    }
+  ],
+  "Sales Stage": [
+    {
+      "fieldname": "custom_checklist",
+      "fieldtype": "Table",
+      "label": "Checklist",
+      "options": "CRM Deal Status Checklist"
     }
   ]
 }

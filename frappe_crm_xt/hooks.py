@@ -27,8 +27,8 @@ fixtures = [
 
 doc_events = {
 	"CRM Deal": {
-		"before_save": "frappe_crm_xt.api.deal.before_save",
-		"after_insert": "frappe_crm_xt.api.deal.after_insert",
+		"before_save": "frappe_crm_xt.doc_events.deal.before_save",
+		"after_insert": "frappe_crm_xt.doc_events.deal.after_insert",
 	},
 	"Gmail Thread": {
 		"validate": "frappe_crm_xt.doc_events.gmail_thread.validate",
