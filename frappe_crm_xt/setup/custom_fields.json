@@ -15,7 +15,7 @@
       "insert_after": "status"
     },
     {
-      "fieldname": "custom__project_size",
+      "fieldname": "custom_project_size",
       "fieldtype": "Select",
       "label": " Project Size",
       "options": "\nSmall (< $50K)\nMedium ($50K - $100K)\nLarge ($100K+)"
@@ -586,6 +586,11 @@
       "fieldtype": "Select",
       "label": "No. of Employees",
       "options": "1-10\n11-50\n51-200\n201-500\n501-1000\n1000+"
+    },
+    {
+      "fieldname":"custom_crm_organization",
+      "fieldtype":"Data",
+      "label":"CRM Organization"
     }
   ],
   "FCRM Note": [

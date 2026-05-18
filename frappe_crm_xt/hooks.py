@@ -171,7 +171,13 @@ scheduler_events = {
 crm_sidebar = [
 	{"type": "separator"},
 	{
-		"label": "Frappe CRM XT",
+		"label": "Calendar",
+		"type": "route",
+		"url": "/desk/event/view/calendar/default?status=Open",
+		"icon": "calendar",
+	},
+	{
+		"label": "List Views",
 		"type": "group",
 		"icon": "layout-grid",
 		"items": [
