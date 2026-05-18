@@ -388,6 +388,18 @@
       "fieldname": "custom_contact_html",
       "fieldtype": "HTML",
       "label": "Contacts"
+    },
+    {
+      "fieldname": "country",
+      "fieldtype": "Link",
+      "label": "Country",
+      "options": "Country"
+    },
+    {
+      "fieldname": "company",
+      "fieldtype": "Link",
+      "label": "Company",
+      "options": "Company"
     }
   ],
   "CRM Organization": [
