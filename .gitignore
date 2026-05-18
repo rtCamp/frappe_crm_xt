@@ -9,10 +9,11 @@ node_modules
 build
 frontend/coverage
 
-# pnpm is the only supported package manager for this app (see package.json
-# "packageManager"). Block accidental commits from npm/yarn.
+# yarn (classic) is the only supported package manager for this app — bench's
+# build pipeline calls `yarn`, matching Frappe CRM's convention. Block
+# accidental commits from npm/pnpm.
 frontend/package-lock.json
-frontend/yarn.lock
+frontend/pnpm-lock.yaml
 
 .vscode
 

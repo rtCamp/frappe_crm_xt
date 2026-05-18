@@ -97,7 +97,7 @@
             <div class="text-base text-ink-gray-7 w-3/12">
               {{ __('Date & Time') }}
             </div>
-            <div class="flex gap-2 w-9/12 justify-end fcrm-xt-datetime-row">
+            <div class="flex gap-2 w-9/12 justify-start fcrm-xt-datetime-row">
               <DatePicker
                 class="w-[158px]"
                 variant="outline"

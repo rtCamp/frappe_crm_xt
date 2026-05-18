@@ -7,10 +7,10 @@
     "url": "git+https://github.com/rtCamp/frappe-crm-xt.git"
   },
   "license": "AGPL-3.0",
-  "packageManager": "pnpm@10.13.1",
+  "packageManager": "yarn@1.22.22",
   "scripts": {
-    "postinstall": "cd frontend && pnpm install --frozen-lockfile",
-    "dev": "cd frontend && pnpm dev",
-    "build": "cd frontend && pnpm build"
+    "postinstall": "cd frontend && yarn install --check-files",
+    "dev": "cd frontend && yarn dev",
+    "build": "cd frontend && yarn build"
   }
 }
