@@ -47,7 +47,7 @@
 <script setup>
 import { useStorage } from '@vueuse/core'
 import { ListRows, ListRow, ListGroupHeader, ListGroupRows } from 'frappe-ui'
-import { ref, computed, watch, onBeforeUnmount, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 
 const props = defineProps({
   rows: { type: Array, required: true },
@@ -68,24 +68,22 @@ const showGroupedRows = computed(() => {
   )
 })
 
+// Persist scroll offset across navigations, keyed by doctype.
 const scrollPosition = useStorage(`scrollPosition${props.doctype}`, 0)
 const scrollContainer = ref(null)
 
+// Bound via @scroll in the template — no need to attach/detach a manual
+// listener. (The previous implementation did both, double-firing this on
+// every scroll event.)
 const handleScroll = () => {
   if (scrollContainer.value) {
     scrollPosition.value = scrollContainer.value.$el.scrollTop
   }
 }
 
-onBeforeUnmount(() => {
-  if (scrollContainer.value) {
-    scrollContainer.value.$el.removeEventListener('scroll', handleScroll)
-  }
-})
-
 onMounted(() => {
+  // Restore the last scroll offset for this doctype.
   if (scrollContainer.value) {
-    scrollContainer.value.$el.addEventListener('scroll', handleScroll)
     scrollContainer.value.$el.scrollTop = scrollPosition.value
   }
 })

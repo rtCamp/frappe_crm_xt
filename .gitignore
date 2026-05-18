@@ -9,11 +9,20 @@ node_modules
 build
 frontend/coverage
 
+# pnpm is the only supported package manager for this app (see package.json
+# "packageManager"). Block accidental commits from npm/yarn.
+frontend/package-lock.json
+frontend/yarn.lock
+
 .vscode
 
 CLAUDE.md
 AGENTS.md
 .claude
 .pi
-frappe_crm_xt/public/js/crm_xt_app.js
-frappe_crm_xt/public/js/frappe-crm-xt-frontend.css
+
+# NOTE: frappe_crm_xt/public/js/crm_xt_app.js and frappe-crm-xt-frontend.css
+# are build outputs from `frontend/` (Vite), but they are committed because
+# `bench get-app` does not run a Node build on the target site. Run
+# `pnpm --filter frappe-crm-xt-frontend build` (or `cd frontend && pnpm build`)
+# before committing changes that touch frontend/src/.

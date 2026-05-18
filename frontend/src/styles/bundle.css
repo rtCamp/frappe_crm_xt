@@ -1,0 +1,41 @@
+/*
+ * Global styles for the frappe_crm_xt bundle.
+ *
+ * Imported by src/index.js; Vite inlines this into the build CSS so it ships
+ * with the rest of the app (no separate runtime style-tag injection needed).
+ * Keep this file small — per-component styles belong in <style scoped> blocks
+ * inside their .vue components.
+ */
+
+/* Dialog fade transition */
+.crm-xt-fade-enter-active,
+.crm-xt-fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.crm-xt-fade-enter-from,
+.crm-xt-fade-leave-to {
+  opacity: 0;
+}
+
+/* frappe-ui Dialog overlay color (defined in CRM theme but needed by our
+ * secondary app which doesn't have access to those design tokens). */
+.bg-black-overlay-200 {
+  background-color: #00000045;
+}
+.dark\:bg-black-overlay-700 {
+  background-color: #000000b8;
+}
+
+/* Mark/highlight in search excerpts. */
+#crm-xt-app mark {
+  background: #fef08a;
+  color: inherit;
+  border-radius: 2px;
+  padding: 0 1px;
+}
+
+/* When the CRM sidebar is collapsed (52px wide), hide the text label on the
+ * custom search button — only its icon remains visible. */
+.w-\[52px\] #crm-xt-search-btn span:not(.grid) {
+  display: none;
+}

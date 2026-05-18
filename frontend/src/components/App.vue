@@ -22,7 +22,10 @@ function onNavigate(route) {
   try {
     window.history.pushState({}, '', route.path)
     window.dispatchEvent(new PopStateEvent('popstate'))
-  } catch {
+  } catch (err) {
+    // SPA push failed (e.g. SecurityError on cross-origin URL); fall back to a
+    // full page load so the user still gets to the requested route.
+    console.warn('[crm-xt] SPA navigation failed, doing full reload:', err)
     window.location.href = route.path
   }
 }
@@ -54,8 +57,11 @@ async function loadSidebarItems() {
     sidebarItems.value = Array.isArray(items) ? items : []
     injectFCRMRoute()
     injectCustomSidebarBtns()
-  } catch {
-    /* silent */
+  } catch (err) {
+    // Sidebar is non-essential; if the API call fails the rest of the app
+    // should keep working. Log so the failure is visible in devtools/Sentry
+    // instead of silently disappearing.
+    console.error('[crm-xt] Failed to load sidebar items:', err)
   }
 }
 
@@ -768,8 +774,11 @@ async function _toggleFollow(btn, doctype, docname) {
         const first = Array.isArray(raw) ? raw[0] : raw
         const parsed = typeof first === 'string' ? JSON.parse(first) : first
         statusMsg = parsed.message
-      } catch {
-        /* ignore */
+      } catch (err) {
+        // _server_messages shape is unpredictable across Frappe versions; the
+        // fallback below picks up `data.message`. Log at debug level — not an
+        // app-breaking failure but useful when triaging unexpected payloads.
+        console.debug('[crm-xt] _server_messages parse fallback:', err)
       }
     }
 
@@ -890,8 +899,10 @@ function _tryInjectFollowBtn() {
     .then((isFollowing) => {
       _updateFollowBtnIcon(btn, isFollowing)
     })
-    .catch(() => {
-      // Silently handle error
+    .catch((err) => {
+      // Follow state lookup failed (network/perms). UI keeps the optimistic
+      // "not following" icon. Log so the failure is visible.
+      console.warn('[crm-xt] Failed to load follow state:', err)
     })
 
   // Click handler
