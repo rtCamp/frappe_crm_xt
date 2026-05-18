@@ -78,11 +78,19 @@ def create_checklist(doc, field=None, value=None):
 	if existing:
 		return
 
+	# Build a TipTap task-list (the format CRM's editor uses for checklists).
+	# Each task item must include the empty <label><input><span></label> markup
+	# so the rendered editor shows the checkbox, and wrap the text in <div><p>.
 	items_html = "".join(
-		f'<li data-list="unchecked">{frappe.utils.escape_html(item)}</li>'
+		(
+			'<li data-checked="false" data-type="taskItem">'
+			'<label><input type="checkbox"><span></span></label>'
+			f"<div><p>{frappe.utils.escape_html(item)}</p></div>"
+			"</li>"
+		)
 		for item in checklist_items
 	)
-	description = f'<div class="ql-editor read-mode"><ol>{items_html}</ol></div>'
+	description = f'<ul data-type="taskList">{items_html}</ul>'
 
 	frappe.get_doc(
 		{
