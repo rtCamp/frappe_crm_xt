@@ -1,5 +1,5 @@
 <template>
-  <div class="flex flex-col gap-2 truncate">
+  <div class="flex flex-col gap-2 truncate fcrm-xt-notif-host">
     <div
       class="inline-flex items-center cursor-pointer transition-colors focus:outline-none shrink-0 text-ink-gray-8 bg-surface-white border border-outline-gray-2 hover:border-outline-gray-3 active:border-outline-gray-3 active:bg-surface-gray-4 focus-visible:ring focus-visible:ring-outline-gray-3 h-7 text-base px-2 rounded"
       @click="addShowNotifications"
@@ -269,3 +269,52 @@ function formatTime(time) {
     .padStart(2, '0')} ${period}`
 }
 </script>
+
+<style scoped>
+/*
+ * Add a chevron-down icon to every FormControl type="select" trigger inside
+ * this notifications component (Notification/Email picker, interval picker).
+ *
+ * FormControl with type="select" renders a Reka-UI <button role="combobox"
+ * data-slot="trigger"> without any visible chevron in this build, so users
+ * can't tell it's a dropdown. The selector below is precise:
+ *   - scoped to this component via `[data-v-...]` (Vue auto-adds it)
+ *   - limited to the `.fcrm-xt-notif-host` wrapper we just added
+ *   - matches only Reka-UI select triggers, not regular buttons
+ * So the Cancel/X/Add Notification buttons are untouched.
+ */
+.fcrm-xt-notif-host :deep(button[role='combobox'][data-slot='trigger']) {
+  justify-content: space-between;
+}
+.fcrm-xt-notif-host :deep(button[role='combobox'][data-slot='trigger'])::after {
+  content: '';
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23687076' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  transition: transform 0.15s ease;
+}
+.fcrm-xt-notif-host
+  :deep(
+    button[role='combobox'][data-slot='trigger'][data-state='open']
+  )::after {
+  transform: rotate(180deg);
+}
+
+/*
+ * TimePicker (e.g. all-day "at <time>" picker) hits the same Tailwind
+ * logical-property bug as the date/time row in the parent modal — the chevron
+ * wrapper has `end-0`/`pe-2` classes that don't get compiled, so it falls back
+ * to the left edge of the input. Fix it within this component only.
+ */
+.fcrm-xt-notif-host :deep(.relative > .absolute.end-0) {
+  right: 0;
+  left: auto;
+  inset-inline-end: 0;
+  inset-inline-start: auto;
+  padding-inline-end: 0.5rem; /* matches pe-2 (8px) */
+}
+</style>

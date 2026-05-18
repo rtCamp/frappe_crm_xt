@@ -54,6 +54,10 @@ importers:
       vue-eslint-parser:
         specifier: ^10.4.0
         version: 10.4.0(eslint@9.39.4)
+    optionalDependencies:
+      '@rollup/rollup-darwin-arm64':
+        specifier: ^4.60.3
+        version: 4.60.3
 
 packages:
 

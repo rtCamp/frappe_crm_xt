@@ -97,7 +97,7 @@
             <div class="text-base text-ink-gray-7 w-3/12">
               {{ __('Date & Time') }}
             </div>
-            <div class="flex gap-2 w-9/12 justify-end">
+            <div class="flex gap-2 w-9/12 justify-end fcrm-xt-datetime-row">
               <DatePicker
                 class="w-[158px]"
                 variant="outline"
@@ -157,7 +157,7 @@
             <div class="text-base text-ink-gray-7 mt-1.5 w-3/12">
               {{ __('Visibility') }}
             </div>
-            <div class="w-9/12">
+            <div class="w-9/12 fcrm-xt-visibility-select">
               <FormControl
                 v-model="_event.eventType"
                 class="w-full"
@@ -626,3 +626,51 @@ async function apiFetch(method, params = {}) {
   return data.message
 }
 </script>
+
+<style scoped>
+/*
+ * Fix: in this build, Tailwind's logical-property classes (`end-0`, `pe-2`) on the
+ * DatePicker/TimePicker suffix-icon container don't get compiled into the bundle,
+ * so the absolutely-positioned chevron wrapper falls back to its in-flow location
+ * (the LEFT edge of the input) instead of the right edge.
+ *
+ * We narrowly target the suffix-wrapper inside frappe-ui's Date/Time pickers
+ * within this row only — `:deep()` pierces the scoped boundary, and the
+ * `.fcrm-xt-datetime-row` class limits the rule to this component.
+ */
+.fcrm-xt-datetime-row :deep(.relative > .absolute.end-0) {
+  right: 0;
+  left: auto;
+  inset-inline-end: 0;
+  inset-inline-start: auto;
+  padding-inline-end: 0.5rem; /* matches pe-2 (8px) */
+}
+
+/*
+ * Visibility select trigger: FormControl renders a Reka-UI <button> with no
+ * chevron icon at all in this build. Inject one via ::after on the trigger
+ * inside our marker wrapper so users can see it's a dropdown.
+ */
+.fcrm-xt-visibility-select :deep(button[role='combobox'][data-slot='trigger']) {
+  width: 100%;
+  justify-content: space-between;
+}
+.fcrm-xt-visibility-select
+  :deep(button[role='combobox'][data-slot='trigger'])::after {
+  content: '';
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23687076' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  transition: transform 0.15s ease;
+}
+.fcrm-xt-visibility-select
+  :deep(
+    button[role='combobox'][data-slot='trigger'][data-state='open']
+  )::after {
+  transform: rotate(180deg);
+}
+</style>
