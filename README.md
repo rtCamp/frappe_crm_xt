@@ -7,6 +7,9 @@ Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features wit
 - **Events tab** — calendar events tab injected into every Lead and Deal page; create, edit, and delete Frappe `Event` records linked to the record.
 - **Event notifications** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
 - **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [frappe_gmail_thread](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
+- **Address management** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel.
+- **Project creation on Won** — when a Deal is marked Won, dialogs guide the user through updating MSA & Insurance details on the linked Customer and creating an ERPNext `Project` pre-filled from the deal.
+
 
 ---
 
@@ -57,6 +60,43 @@ Per-event notification rules can be configured in the `Event Notifications` chil
 | `all_day_event_notifications` | Rules for all-day events |
 
 Each rule specifies: `type` (Notification / Email), `before` (number), `interval` (minutes / hours / days / weeks), and optionally `time` (for all-day events).
+
+---
+
+### Address Management
+
+Every Lead and Deal form gains a custom **Addresses** HTML panel. It renders all `Address` records linked to the current record via `Dynamic Link`.
+
+**Capabilities:**
+
+- **List** all linked addresses with collapsible full-address detail.
+- **Create** a new address (title, type, lines, city, state, pincode, country) and automatically link it to the record.
+- **Link** an existing `Address` record by searching and selecting it.
+- **Unlink** an address from the record (removes the Dynamic Link entry; does not delete the Address document).
+- **Edit** — each card has a direct link to the address's Frappe Desk form.
+
+---
+
+### Project Creation on Won Deal
+
+When a CRM Deal's status is set to **Won**, two sequential dialogs are shown automatically:
+
+1. **MSA & Insurance Details** — pre-filled from the linked ERPNext `Customer`; saves MSA start/end date, document link, insurance requested flag, insurance start/end date, and insurance document link back to the Customer.
+2. **Create Project** — collects Project Manager, Territory, Billing Type, Customer, Currency, Estimated Hours, Service Type, Opportunity Amount, and Project Type; creates an ERPNext `Project` with the deal name embedded and opens it in a new tab.
+
+If a project matching the deal already exists, the creation dialog is skipped and an **Open Project** action is added to the Deal's action menu instead.
+
+**Customer custom fields required** (shipped as fixtures in `custom_field.json`):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `custom_msa_start_date` | Date | MSA start date |
+| `custom_msa_end_date` | Date | MSA end date |
+| `custom_msa_document_link` | Data | Link or path to MSA document |
+| `custom_insurance_requested` | Check | Whether insurance was requested |
+| `custom_insurance_start_date` | Date | Insurance start date |
+| `custom_insurance_end_date` | Date | Insurance end date |
+| `custom_insurance_document_link` | Data | Link or path to insurance document |
 
 ---
 
@@ -185,6 +225,7 @@ The built-in list view rendered for every `"list_view"` sidebar item includes:
 | `crm` (Frappe CRM) | ✅ |
 | `frappe_search` | Optional — enables the Cmd/Ctrl+K global search bar |
 | `frappe_gmail_thread` | Optional — enables Gmail thread activity entries on Lead/Deal records |
+| `erpnext` | Optional — required for Project creation on Won Deal and Customer MSA/Insurance fields |
 
 ## Installation
 

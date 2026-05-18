@@ -274,18 +274,6 @@
       "options": "Contact"
     },
     {
-      "fieldname": "custom_last_response_by",
-      "fieldtype": "Datetime",
-      "label": "Last Response By",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_responded_on",
-      "fieldtype": "Datetime",
-      "label": "Last Responded On",
-      "read_only": 1
-    },
-    {
       "fieldname": "custom_addresses_html",
       "fieldtype": "HTML",
       "label": "Addresses"
@@ -390,18 +378,6 @@
       "fieldtype": "Data",
       "label": "Service Type",
       "translatable": 1
-    },
-    {
-      "fieldname": "custom_last_response_by",
-      "fieldtype": "Datetime",
-      "label": "Last Response By",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_responded_on",
-      "fieldtype": "Datetime",
-      "label": "Last Responded On",
-      "read_only": 1
     },
     {
       "fieldname": "custom_addresses_html",
