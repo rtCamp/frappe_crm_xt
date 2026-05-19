@@ -451,6 +451,23 @@
       "fieldtype": "Link",
       "label": "Company",
       "options": "Company"
+    },
+    {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Title"
+    },
+    {
+      "fieldname": "request_type",
+      "fieldtype": "Select",
+      "label": "Request Type",
+      "options": "\nProduct Enquiry\nRequest for Information\nSuggestions\nOther"
+    },
+    {
+      "fieldname": "type",
+      "fieldtype": "Select",
+      "label": "Lead Type",
+      "options": "\nClient\nChannel Partner\nConsultant"
     }
   ],
   "CRM Organization": [
