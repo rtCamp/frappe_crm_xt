@@ -1,4 +1,7 @@
 [
+	{"doctype": "Property Setter", "name": "CRM Lead-main-title_field", "doctype_or_field": "DocType", "doc_type": "CRM Lead", "property": "title_field", "value": "title", "property_type": "Data"},
+	{"doctype": "Property Setter", "name": "CRM Deal-main-title_field", "doctype_or_field": "DocType", "doc_type": "CRM Deal", "property": "title_field", "value": "title", "property_type": "Data"},
+
 	{"doctype": "Property Setter", "name": "CRM Lead-lead_name-in_global_search", "doctype_or_field": "DocField", "doc_type": "CRM Lead", "field_name": "lead_name", "property": "in_global_search", "value": "1", "property_type": "Check"},
 	{"doctype": "Property Setter", "name": "CRM Lead-email-in_global_search", "doctype_or_field": "DocField", "doc_type": "CRM Lead", "field_name": "email", "property": "in_global_search", "value": "1", "property_type": "Check"},
 	{"doctype": "Property Setter", "name": "CRM Lead-mobile_no-in_global_search", "doctype_or_field": "DocField", "doc_type": "CRM Lead", "field_name": "mobile_no", "property": "in_global_search", "value": "1", "property_type": "Check"},
