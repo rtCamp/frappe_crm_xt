@@ -49,6 +49,15 @@ override_whitelisted_methods = {
 	"crm.api.activities.get_activities": "frappe_crm_xt.api.activity.get_activities",
 }
 
+# ─── Doctype JS ──────────────────────────────────────────────────────────────
+#
+# Auto-populate Quotation items from a CRM Deal when the form opens via the
+# CRM "Create Quotation" link. See api/quotation.py for the server helper.
+#
+doctype_js = {
+	"Quotation": "public/js/quotation_auto_items.js",
+}
+
 # ─── Scheduler ────────────────────────────────────────────────────────────────
 #
 # Event notification scheduler — sends in-browser realtime alerts (and
