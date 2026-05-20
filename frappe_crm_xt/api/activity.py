@@ -12,7 +12,7 @@ Response shape expected by FCRM's Activities.vue:
 from __future__ import annotations
 
 import frappe
-from crm.api.activities import crm_get_attachments
+from crm.api.activities import get_attachments as crm_get_attachments
 from crm.api.activities import get_linked_notes as crm_get_linked_notes
 from crm.api.activities import get_linked_tasks as crm_get_linked_tasks
 from frappe.utils import get_datetime
