@@ -332,142 +332,192 @@
   ],
   "CRM Lead": [
     {
+      "fieldname": "title",
+      "fieldtype": "Data",
+      "label": "Title",
+      "insert_after": "mobile_no"
+    },
+    {
+      "fieldname": "custom_contact_html",
+      "fieldtype": "HTML",
+      "label": "Contacts",
+      "insert_after": "title"
+    },
+    {
+      "fieldname": "custom_addresses_html",
+      "fieldtype": "HTML",
+      "label": "Addresses",
+      "insert_after": "custom_contact_html"
+    },
+    {
+      "fieldname": "country",
+      "fieldtype": "Link",
+      "label": "Country",
+      "options": "Country",
+      "insert_after": "territory"
+    },
+    {
+      "fieldname": "company",
+      "fieldtype": "Link",
+      "label": "Company",
+      "options": "Company",
+      "insert_after": "country"
+    },
+    {
+      "fieldname": "custom_column_break_org_1",
+      "fieldtype": "Column Break",
+      "label": "",
+      "insert_after": "company"
+    },
+    {
+      "fieldname": "type",
+      "fieldtype": "Select",
+      "label": "Lead Type",
+      "options": "\nClient\nChannel Partner\nConsultant",
+      "insert_after": "source"
+    },
+    {
+      "fieldname": "request_type",
+      "fieldtype": "Select",
+      "label": "Request Type",
+      "options": "\nProduct Enquiry\nRequest for Information\nSuggestions\nOther",
+      "insert_after": "type"
+    },
+    {
+      "fieldname": "custom_other_request_type",
+      "fieldtype": "Data",
+      "label": "Other Request Type",
+      "insert_after": "request_type",
+      "depends_on": "eval:doc.request_type == 'Other'",
+      "mandatory_depends_on": "eval:doc.request_type == 'Other'"
+    },
+    {
+      "fieldname": "custom_column_break_ss",
+      "fieldtype": "Column Break",
+      "label": "",
+      "insert_after": "custom_other_request_type"
+    },
+    {
       "fieldname": "custom_account_manager",
       "fieldtype": "Link",
       "label": "Account Manager",
-      "options": "User"
+      "options": "User",
+      "insert_after": "lead_owner"
     },
     {
-      "fieldname": "custom_column_break_v0dhr",
-      "fieldtype": "Column Break",
-      "label": ""
-    },
-    {
-      "fieldname": "custom_communication_response_details",
+      "fieldname": "custom_section_break_uqt4s",
       "fieldtype": "Section Break",
-      "label": "Communication Response Details"
+      "label": "Project Details",
+      "insert_after": "custom_account_manager"
     },
     {
-      "fieldname": "custom_complexity_level",
-      "fieldtype": "Select",
-      "label": "Complexity Level",
-      "options": "\nC1\nC2\nC3",
-      "translatable": 1
+      "fieldname": "custom_description",
+      "fieldtype": "Long Text",
+      "label": "Description",
+      "insert_after": "custom_section_break_uqt4s"
     },
     {
-      "fieldname": "custom_current_cmsplatforms_in_use",
+      "fieldname": "custom_service_type",
       "fieldtype": "Data",
-      "label": "Current CMS/Platforms in use",
+      "label": "Service Type",
+      "insert_after": "custom_description",
       "translatable": 1
     },
     {
       "fieldname": "custom_deal_type",
       "fieldtype": "Data",
       "label": "Deal Type",
-      "translatable": 1
-    },
-    {
-      "fieldname": "custom_description",
-      "fieldtype": "Long Text",
-      "label": "Description"
-    },
-    {
-      "fieldname": "custom_duration",
-      "fieldtype": "Data",
-      "label": "Duration",
-      "translatable": 1
-    },
-    {
-      "fieldname": "custom_how_soon_do_you_want_to_start",
-      "fieldtype": "Data",
-      "label": "How soon do you want to start?",
-      "translatable": 1
-    },
-    {
-      "fieldname": "custom_is_archived",
-      "fieldtype": "Check",
-      "label": "Is archived"
-    },
-    {
-      "fieldname": "custom_last_incoming_email_time",
-      "fieldtype": "Datetime",
-      "label": "Last Incoming Email Time",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_response_time",
-      "fieldtype": "Duration",
-      "label": "Last Response Time",
-      "read_only": 1
-    },
-    {
-      "depends_on": "eval:doc.request_type == 'Other'",
-      "fieldname": "custom_other_request_type",
-      "fieldtype": "Data",
-      "label": "Other Request Type",
-      "mandatory_depends_on": "eval:doc.request_type == 'Other'"
-    },
-    {
-      "fieldname": "custom_pipedrive_lead_id",
-      "fieldtype": "Data",
-      "label": "Pipedrive Lead ID",
+      "insert_after": "custom_service_type",
       "translatable": 1
     },
     {
       "fieldname": "custom_project_budget",
       "fieldtype": "Data",
       "label": "Project Budget",
+      "insert_after": "custom_deal_type",
       "translatable": 1
     },
     {
-      "fieldname": "custom_section_break_uqt4s",
+      "fieldname": "custom_column_break_v0dhr",
+      "fieldtype": "Column Break",
+      "label": "",
+      "insert_after": "custom_project_budget"
+    },
+    {
+      "fieldname": "custom_duration",
+      "fieldtype": "Data",
+      "label": "Duration",
+      "insert_after": "custom_column_break_v0dhr",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_how_soon_do_you_want_to_start",
+      "fieldtype": "Data",
+      "label": "How soon do you want to start?",
+      "insert_after": "custom_duration",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_current_cmsplatforms_in_use",
+      "fieldtype": "Data",
+      "label": "Current CMS/Platforms in use",
+      "insert_after": "custom_how_soon_do_you_want_to_start",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_complexity_level",
+      "fieldtype": "Select",
+      "label": "Complexity Level",
+      "options": "\nC1\nC2\nC3",
+      "insert_after": "custom_current_cmsplatforms_in_use",
+      "translatable": 1
+    },
+    {
+      "fieldname": "custom_is_archived",
+      "fieldtype": "Check",
+      "label": "Is archived",
+      "insert_after": "converted"
+    },
+    {
+      "fieldname": "custom_communication_response_details",
       "fieldtype": "Section Break",
-      "label": ""
+      "label": "Communication Response Details",
+      "insert_after": "rolling_responses"
     },
     {
-      "fieldname": "custom_service_type",
+      "fieldname": "custom_last_incoming_email_time",
+      "fieldtype": "Datetime",
+      "label": "Last Incoming Email Time",
+      "insert_after": "custom_communication_response_details",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_response_time",
+      "fieldtype": "Duration",
+      "label": "Last Response Time",
+      "insert_after": "custom_last_incoming_email_time",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_responded_on",
+      "fieldtype": "Datetime",
+      "label": "Last Responded On",
+      "insert_after": "custom_last_response_time",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_last_response_by",
+      "fieldtype": "Datetime",
+      "label": "Last Response By",
+      "insert_after": "custom_last_responded_on",
+      "read_only": 1
+    },
+    {
+      "fieldname": "custom_pipedrive_lead_id",
       "fieldtype": "Data",
-      "label": "Service Type",
+      "label": "Pipedrive Lead ID",
+      "insert_after": "facebook_form_id",
       "translatable": 1
-    },
-    {
-      "fieldname": "custom_addresses_html",
-      "fieldtype": "HTML",
-      "label": "Addresses"
-    },
-    {
-      "fieldname": "custom_contact_html",
-      "fieldtype": "HTML",
-      "label": "Contacts"
-    },
-    {
-      "fieldname": "country",
-      "fieldtype": "Link",
-      "label": "Country",
-      "options": "Country"
-    },
-    {
-      "fieldname": "company",
-      "fieldtype": "Link",
-      "label": "Company",
-      "options": "Company"
-    },
-    {
-      "fieldname": "title",
-      "fieldtype": "Data",
-      "label": "Title"
-    },
-    {
-      "fieldname": "request_type",
-      "fieldtype": "Select",
-      "label": "Request Type",
-      "options": "\nProduct Enquiry\nRequest for Information\nSuggestions\nOther"
-    },
-    {
-      "fieldname": "type",
-      "fieldtype": "Select",
-      "label": "Lead Type",
-      "options": "\nClient\nChannel Partner\nConsultant"
     }
   ],
   "CRM Organization": [
