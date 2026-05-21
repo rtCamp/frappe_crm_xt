@@ -109,7 +109,7 @@ def get_linked_leads(contact: str) -> list[dict]:
 
 
 @frappe.whitelist()
-def get_linked_opportunities(contact: str) -> list[dict]:
+def get_linked_deals(contact: str) -> list[dict]:
 	"""Return CRM Deals linked to the given Contact (mapped to the legacy
 	`opportunity_*` shape so the add-on renders them unchanged)."""
 	if not contact:

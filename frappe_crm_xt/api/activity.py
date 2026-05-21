@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import frappe
 from crm.api.activities import get_attachments as crm_get_attachments
-from crm.api.activities import get_linked_notes as crm_get_linked_notes
-from crm.api.activities import get_linked_tasks as crm_get_linked_tasks
 from frappe.utils import get_datetime
 
 LINKED_DTS = ("CRM Lead", "CRM Deal")
@@ -137,150 +135,179 @@ def get_latest_activity(name: str) -> dict | None:
 	    { "type": "Note" | "Task" | "Email" | "Event",
 	      "timestamp": <datetime>,
 	      "data": { ... } }
-
-	Note: the legacy add-on used `"ToDo"` for the task type — we emit
-	`"Task"` since the FCRM doctype is `CRM Task` and the UI now uses
-	"Tasks" everywhere. Update the add-on's `CardsActivity.js` switch to
-	match.
 	"""
 	if not name:
 		return None
 
-	# `name` is a docname (e.g. "CRM-DEAL-2026-00009"). Look up which doctype
-	# it belongs to — Lead or Deal — so we can scope the activity queries
-	# correctly. The previous version assigned `doctype = name`, which made
-	# every downstream `Communication.reference_doctype` and `Event` filter
-	# match nothing.
 	doctype = _resolve_reference_doctype(name)
 	if not doctype:
 		return None
 
-	bucket: list[dict] = []
-	bucket += _latest_notes(name)
-	bucket += _latest_tasks(name)
-	bucket += _latest_emails(doctype, name)
-	bucket += _latest_events(doctype, name)
+	# Cheap pre-flight: query the most-recent single row from each source
+	# (4 indexed lookups), pick the winner, then fully hydrate ONLY that one.
+	# Avoids the previous "fetch all notes/tasks + N+1 attachment loads".
+	candidates: list[tuple] = []
 
-	if not bucket:
-		return None
+	note = frappe.db.get_value(
+		"FCRM Note",
+		{"reference_docname": name},
+		["name", "modified", "creation"],
+		order_by="modified desc",
+		as_dict=True,
+	)
+	if note:
+		candidates.append((get_datetime(note.modified or note.creation), "Note", note.name))
 
-	bucket.sort(key=lambda a: a["timestamp"], reverse=True)
-	return bucket[0]
+	task = frappe.db.get_value(
+		"CRM Task",
+		{"reference_docname": name},
+		["name", "modified"],
+		order_by="modified desc",
+		as_dict=True,
+	)
+	if task:
+		candidates.append((get_datetime(task.modified), "Task", task.name))
 
-
-# ─── Per-type collectors (reuse upstream helpers where they exist) ───────────
-
-
-def _latest_notes(name: str) -> list[dict]:
-	"""Wrap `crm.api.activities.get_linked_notes` into the add-on shape."""
-	results = []
-	for note in crm_get_linked_notes(name)[:5]:
-		row = dict(note)
-		row["custom_title"] = row.pop("title", "")
-		row["note"] = row.pop("content", "")
-		row["added_on"] = row.get("modified") or row.get("creation")
-		row["attachments"] = crm_get_attachments("FCRM Note", row["name"])
-		results.append(
-			{
-				"type": "Note",
-				"timestamp": get_datetime(row["added_on"]),
-				"data": row,
-			}
-		)
-	return results
-
-
-def _latest_tasks(name: str) -> list[dict]:
-	"""Wrap `crm.api.activities.get_linked_tasks` into the add-on shape."""
-	results = []
-	for task in crm_get_linked_tasks(name)[:5]:
-		row = dict(task)
-		row["custom_title"] = row.pop("title", "")
-		row["allocated_to"] = row.pop("assigned_to", "")
-		row["date"] = row.pop("due_date", "")
-		results.append(
-			{
-				"type": "Task",  # was "ToDo" in legacy add-on
-				"timestamp": get_datetime(row["modified"]),
-				"data": row,
-			}
-		)
-	return results
-
-
-def _latest_emails(doctype: str, name: str) -> list[dict]:
-	rows = frappe.get_all(
+	email = frappe.db.get_value(
 		"Communication",
-		filters={
+		{
 			"reference_doctype": doctype,
 			"reference_name": name,
 			"communication_medium": "Email",
 		},
-		fields=[
-			"name",
-			"subject",
-			"sender",
-			"content",
-			"recipients",
-			"cc",
-			"bcc",
-			"read_by_recipient as read_status",
-			"delivery_status",
-			"creation",
-		],
+		["name", "creation"],
 		order_by="creation desc",
-		limit=5,
+		as_dict=True,
 	)
-	return [
-		{
-			"type": "Email",
-			"timestamp": get_datetime(row["creation"]),
-			"data": row,
-		}
-		for row in rows
-	]
+	if email:
+		candidates.append((get_datetime(email.creation), "Email", email.name))
+
+	event_name = _latest_event_name(doctype, name)
+	if event_name:
+		ev_meta = frappe.db.get_value("Event", event_name, ["starts_on", "modified"], as_dict=True)
+		ev_ts = get_datetime(ev_meta.starts_on or ev_meta.modified)
+		candidates.append((ev_ts, "Event", event_name))
+
+	if not candidates:
+		return None
+
+	candidates.sort(key=lambda c: c[0], reverse=True)
+	ts, kind, docname = candidates[0]
+	return {"type": kind, "timestamp": ts, "data": _hydrate(kind, docname)}
 
 
-def _latest_events(doctype: str, name: str) -> list[dict]:
-	# Reuse the feed collector for the same Lead/Deal linkage logic.
-	event_rows = _collect_linked_events(doctype, name)
-	if not event_rows:
-		return []
-
-	full = frappe.get_all(
-		"Event",
-		filters={"name": ["in", [r["name"] for r in event_rows]]},
-		fields=[
-			"name",
-			"subject",
-			"owner as sender",
-			"description as content",
-			"starts_on",
-			"ends_on",
-			"event_category",
-			"event_type",
-			"modified",
-		],
-		order_by="starts_on desc",
-		limit=5,
-	)
-	results = []
-	for row in full:
-		# The legacy add-on reuses its Email `commData` model for Events, so
-		# backfill the email-shaped fields with sensible defaults.
-		row["recipients"] = _event_participant_emails(row["name"])
-		row["cc"] = ""
-		row["bcc"] = ""
-		row["read_status"] = 0
-		row["delivery_status"] = ""
-		results.append(
-			{
-				"type": "Event",
-				"timestamp": get_datetime(row.get("starts_on") or row["modified"]),
-				"data": row,
-			}
+def _hydrate(kind: str, docname: str) -> dict:
+	if kind == "Note":
+		row = (
+			frappe.db.get_value(
+				"FCRM Note",
+				docname,
+				["name", "title", "content", "owner", "modified", "creation"],
+				as_dict=True,
+			)
+			or {}
 		)
-	return results
+		row["custom_title"] = row.pop("title", "")
+		row["note"] = row.pop("content", "")
+		row["added_on"] = row.get("modified") or row.get("creation")
+		row["attachments"] = crm_get_attachments("FCRM Note", docname)
+		return row
+	if kind == "Task":
+		row = (
+			frappe.db.get_value(
+				"CRM Task",
+				docname,
+				[
+					"name",
+					"title",
+					"description",
+					"assigned_to",
+					"due_date",
+					"priority",
+					"status",
+					"modified",
+					"creation",
+				],
+				as_dict=True,
+			)
+			or {}
+		)
+		row["custom_title"] = row.pop("title", "")
+		row["allocated_to"] = row.pop("assigned_to", "")
+		row["date"] = row.pop("due_date", "")
+		return row
+	if kind == "Email":
+		return (
+			frappe.db.get_value(
+				"Communication",
+				docname,
+				[
+					"name",
+					"subject",
+					"sender",
+					"content",
+					"recipients",
+					"cc",
+					"bcc",
+					"read_by_recipient as read_status",
+					"delivery_status",
+					"creation",
+				],
+				as_dict=True,
+			)
+			or {}
+		)
+	# Event
+	row = (
+		frappe.db.get_value(
+			"Event",
+			docname,
+			[
+				"name",
+				"subject",
+				"owner as sender",
+				"description as content",
+				"starts_on",
+				"ends_on",
+				"event_category",
+				"event_type",
+				"modified",
+			],
+			as_dict=True,
+		)
+		or {}
+	)
+	row["recipients"] = _event_participant_emails(docname)
+	row["cc"] = ""
+	row["bcc"] = ""
+	row["read_status"] = 0
+	row["delivery_status"] = ""
+	return row
+
+
+def _latest_event_name(doctype: str, name: str) -> str | None:
+	"""Most recent Event linked to this Lead/Deal via reference or participant."""
+	direct = frappe.db.get_value(
+		"Event",
+		{"reference_doctype": doctype, "reference_docname": name},
+		["name", "modified"],
+		order_by="modified desc",
+		as_dict=True,
+	)
+	via = frappe.db.get_value(
+		"Event Participants",
+		{
+			"parenttype": "Event",
+			"reference_doctype": doctype,
+			"reference_docname": name,
+		},
+		["parent as name", "modified"],
+		order_by="modified desc",
+		as_dict=True,
+	)
+	if direct and via:
+		return direct.name if direct.modified >= via.modified else via.name
+	return (direct or via).name if (direct or via) else None
 
 
 # ─── Shared helpers ──────────────────────────────────────────────────────────
