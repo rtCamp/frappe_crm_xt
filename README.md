@@ -8,6 +8,11 @@ Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features wit
 - **Event notifications** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
 - **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [frappe_gmail_thread](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
 - **Address management (Deal only)** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel. Not enabled on CRM Lead.
+- **Follow button (eye icon)** — injected into the Lead/Deal header icon row. Toggles `Document Follow` for the current user; filled eye = following, outline eye = not following. Auto-enables `track_changes` on the doctype if needed.
+- **Quotation auto-items** — opening a `Quotation` from a CRM Deal's "Create Quotation" link auto-populates items, customer, currency, and missing values from the source Deal.
+- **Public Lead intake API** — guest-allowed `POST` endpoints for creating CRM Leads (`api/crm_lead.create`) and uploading files against them (`api/crm_lead.upload_lead_file`); intended for website / external form integrations.
+- **Gmail Add-on backend** — whitelisted endpoints under `api/contact.*` and `api/activity.get_latest_activity` powering the Gmail sidebar Add-on (contact lookup by email, linked Leads / Deals, latest activity).
+- **Bundled fixtures** — Lead & Deal field layouts (tabs / sections / columns), Property Setters, Custom Fields, CRM Form Scripts, and a curated set of CRM View Settings (saved list & kanban views) ship as fixtures and install automatically.
 - **Project creation on Won** — when a Deal is marked Won, dialogs guide the user through updating MSA & Insurance details on the linked Customer and creating an ERPNext `Project` pre-filled from the deal.
 
 
@@ -74,6 +79,72 @@ Every CRM Deal form gains a custom **Addresses** HTML panel (CRM Lead is intenti
 - **Link** an existing `Address` record by searching and selecting it.
 - **Unlink** an address from the record (removes the Dynamic Link entry; does not delete the Address document).
 - **Edit** — each card has a direct link to the address's Frappe Desk form.
+
+---
+
+### Follow Button (eye icon)
+
+An **eye icon** is injected into the icon row at the top of every Lead and Deal page (next to the existing email / link / paperclip / delete buttons).
+
+- **Outline eye** — current user is not following this record.
+- **Filled eye** — current user is following; updates from the record's standard "Notify by Email" + "Document Follow" flow will be delivered.
+
+Clicking the icon toggles the follow state for the current user via `frappe_crm_xt.api.follow.update_follow`. If the doctype does not yet have `track_changes` enabled, it is enabled automatically the first time someone follows a record of that type. State is loaded per-record via `is_document_followed`.
+
+The button is added by a `MutationObserver` in `App.vue` — no FCRM source files are modified.
+
+---
+
+### Quotation Auto-fill from Deal
+
+When a Quotation is opened with `?source_doctype=CRM Deal&source_name=<deal>` (the link surfaced by FCRM's "Create Quotation" action), `doctype_js` for `Quotation` calls `frappe_crm_xt.api.quotation.update_missing_values`, which:
+
+- Loads items, customer / party, currency, conversion rate, taxes, and contact info from the source Deal.
+- Fills in any fields left empty on the new Quotation (existing user input is preserved).
+
+This eliminates the manual re-keying step that the stock FCRM ↔ ERPNext bridge leaves behind.
+
+---
+
+### Public Lead Intake API
+
+Two guest-allowed `POST` endpoints power external form / website Lead capture:
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `POST` | `/api/method/frappe_crm_xt.api.crm_lead.create` | Create a CRM Lead from form data |
+| `POST` | `/api/method/frappe_crm_xt.api.crm_lead.upload_lead_file` | Attach a file to a Lead (e.g. RFP, brief) |
+
+Both endpoints validate input server-side and rely on Frappe's standard rate limiting / origin checks. Use them for hCaptcha-gated website forms rather than exposing the generic `/api/resource/CRM Lead`.
+
+---
+
+### Gmail Add-on Backend
+
+The companion **Gmail Workspace Add-on** (`gmail-addon-next-crm/` in this repo) calls the following whitelisted endpoints to render contact, lead, deal, and activity cards inside Gmail:
+
+| Endpoint | Returns |
+|----------|---------|
+| `api/contact.get_contact_by_email` | Contact details for an email address |
+| `api/contact.get_linked_leads` | CRM Leads linked to a contact |
+| `api/contact.get_linked_deals` | CRM Deals linked to a contact |
+| `api/activity.get_latest_activity` | Most recent Note / Task / Email / Event for a Lead/Deal (optimised to 4 indexed lookups + 1 hydration query) |
+
+Field shapes mirror the legacy `next_crm.*` responses so the add-on UI renders unchanged after a one-line endpoint swap.
+
+---
+
+### Bundled Fixtures
+
+Installing the app loads the following fixtures (re-exportable via `bench export-fixtures --app frappe_crm_xt`):
+
+| Fixture | Scope |
+|---------|-------|
+| `custom_field.json` | Customer MSA / Insurance fields + Deal Status custom fields |
+| `property_setter.json` | `in_global_search` flags on CRM Lead / Deal / Organization / FCRM Note / CRM Task |
+| `crm_form_script.json` | All non-standard CRM Form Scripts (`is_standard = 0`) |
+| `crm_fields_layout.json` | CRM Lead and CRM Deal data-field layouts (tabs / sections / columns shown in the form) |
+| `crm_view_settings.json` | Curated saved list & kanban views (e.g. *EasyEngine Deals - KanBan*, *WP Open Deals - KanBan*, *All Open Deals - List*, per-user "Overdue Todo's" Task views) |
 
 ---
 
