@@ -21,6 +21,16 @@ fixtures = [
 		"dt": "CRM Fields Layout",
 		"filters": [["name", "in", ["CRM Lead-Data Fields", "CRM Deal-Data Fields"]]],
 	},
+	{
+		"dt": "CRM View Settings",
+		"filters": [
+			[
+				"name",
+				"in",
+				["164", "163", "162", "160", "159", "158", "153", "140", "139", "63", "57", "18"],
+			]
+		],
+	},
 ]
 
 # ─── Doc events ───────────────────────────────────────────────────────────────
