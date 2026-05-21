@@ -7,7 +7,7 @@ Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features wit
 - **Events tab** — calendar events tab injected into every Lead and Deal page; create, edit, and delete Frappe `Event` records linked to the record.
 - **Event notifications** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
 - **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [frappe_gmail_thread](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
-- **Address management** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel.
+- **Address management (Deal only)** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel. Not enabled on CRM Lead.
 - **Project creation on Won** — when a Deal is marked Won, dialogs guide the user through updating MSA & Insurance details on the linked Customer and creating an ERPNext `Project` pre-filled from the deal.
 
 
@@ -65,7 +65,7 @@ Each rule specifies: `type` (Notification / Email), `before` (number), `interval
 
 ### Address Management
 
-Every Lead and Deal form gains a custom **Addresses** HTML panel. It renders all `Address` records linked to the current record via `Dynamic Link`.
+Every CRM Deal form gains a custom **Addresses** HTML panel (CRM Lead is intentionally excluded). It renders all `Address` records linked to the current Deal via `Dynamic Link`.
 
 **Capabilities:**
 
