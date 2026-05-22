@@ -137,13 +137,12 @@ def get_linked_deals(contact: str) -> list[dict]:
 		filters={"name": ["in", deal_names]},
 		fields=[
 			"name",
-			"organization as title",
+			"title",
 			"custom_description",
 			"sales_stage",
-			"deal_owner as opportunity_owner",
-			# Legacy add-on shows "opportunity_amount" — prefer expected over
-			# closed-value so in-flight deals still display a number.
-			"expected_deal_value as opportunity_amount",
+			"deal_owner",
+			"expected_deal_value",
+			"deal_value",
 			"currency",
 			"modified",
 		],
