@@ -130,7 +130,14 @@ The companion **Gmail Workspace Add-on** (`gmail-addon-next-crm/` in this repo) 
 | `api/contact.get_linked_deals` | CRM Deals linked to a contact |
 | `api/activity.get_latest_activity` | Most recent Note / Task / Email / Event for a Lead/Deal (optimised to 4 indexed lookups + 1 hydration query) |
 
-Field shapes mirror the legacy `next_crm.*` responses so the add-on UI renders unchanged after a one-line endpoint swap.
+Field shapes returned by `get_latest_activity` (one record, fully hydrated):
+
+| Type | Key fields in `data` |
+|------|----------------------|
+| `Note` | `custom_title`, `note`, `owner`, `added_on`, `attachments[]` |
+| `Task` | `custom_title`, `description`, `allocated_to`, `date`, `priority`, `status` |
+| `Email` | `subject`, `sender`, `recipients`, `cc`, `bcc`, `content`, `read_status`, `delivery_status` |
+| `Event` | `subject`, `sender` (owner), `starts_on`, `ends_on`, `content` (description), `event_category`, `event_type`, `recipients` |
 
 ---
 

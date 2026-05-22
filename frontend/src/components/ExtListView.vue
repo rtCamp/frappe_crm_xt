@@ -498,6 +498,8 @@ async function call(method, args) {
   })
   const data = await res.json()
   if (data.exc) throw new Error(data.exc)
+  if (data.exc_type)
+    throw new Error(data.exc_type + ': ' + (data._server_messages || ''))
   return data.message
 }
 
@@ -564,7 +566,7 @@ async function fetchSearchLinkOptions(query) {
       limit_page_length: 20,
       limit_start: 0,
     })
-    searchLinkOptions.value = (data || []).map((r) => ({
+    searchLinkOptions.value = (Array.isArray(data) ? data : []).map((r) => ({
       label: r.name,
       value: r.name,
     }))
@@ -1024,17 +1026,19 @@ async function loadRows(append = false) {
     if (!append) {
       const n = Number(count)
       // get_count returns a number; fall back to at least the number of rows fetched
-      totalCount.value = Number.isFinite(n) && n > 0 ? n : data?.length ?? 0
+      const dataLen = Array.isArray(data) ? data.length : 0
+      totalCount.value = Number.isFinite(n) && n > 0 ? n : dataLen
       console.debug(
         '[xt-list] count:',
         count,
         '→ totalCount:',
         totalCount.value,
         'rows:',
-        data?.length,
+        dataLen,
       )
     }
-    rows.value = append ? [...rows.value, ...data] : data
+    const safeData = Array.isArray(data) ? data : []
+    rows.value = append ? [...rows.value, ...safeData] : safeData
   } catch {
     if (!append) rows.value = []
   } finally {
