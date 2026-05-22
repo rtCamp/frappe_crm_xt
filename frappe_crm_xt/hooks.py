@@ -8,32 +8,19 @@ app_license = "agpl-3"
 required_apps = ["crm"]
 
 fixtures = [
-	{
-		"dt": "Property Setter",
-		"filters": [
-			["property", "=", "in_global_search"],
-			["doc_type", "in", ["CRM Lead", "CRM Deal", "CRM Organization", "FCRM Note", "CRM Task"]],
-		],
-	},
-	{"dt": "Custom Field", "filters": [["dt", "=", "CRM Deal Status"]]},
 	{"dt": "CRM Form Script", "filters": [["is_standard", "=", 0]]},
 	{
 		"dt": "CRM Fields Layout",
-		"filters": [["name", "in", ["CRM Lead-Data Fields", "CRM Deal-Data Fields"]]],
-	},
-	{
-		"dt": "CRM View Settings",
 		"filters": [
 			[
 				"name",
 				"in",
-				["164", "163", "162", "160", "159", "158", "153", "140", "139", "63", "57", "18"],
+				["CRM Lead-Data Fields", "CRM Deal-Data Fields", "FCRM Note-Quick Entry"],
 			]
 		],
 	},
 ]
 
-# ─── Doc events ───────────────────────────────────────────────────────────────
 
 doc_events = {
 	"CRM Deal": {
@@ -47,32 +34,23 @@ doc_events = {
 	"Project": {
 		"after_insert": "frappe_crm_xt.doc_events.project.after_insert",
 	},
+	"FCRM Note": {
+		"validate": "frappe_crm_xt.doc_events.fcrm_note.validate",
+	},
 }
 
-# ─── API overrides ────────────────────────────────────────────────────────────
-#
-# Intercept FCRM's get_activities so we can append frappe_gmail_thread entries.
-# frappe_crm_xt must be listed after crm in apps.txt for the override to win.
-#
+
 override_whitelisted_methods = {
 	# Append frappe_gmail_thread activity entries to FCRM's activity feed.
 	"crm.api.activities.get_activities": "frappe_crm_xt.api.activity.get_activities",
 }
 
-# ─── Doctype JS ──────────────────────────────────────────────────────────────
-#
-# Auto-populate Quotation items from a CRM Deal when the form opens via the
-# CRM "Create Quotation" link. See api/quotation.py for the server helper.
-#
+
 doctype_js = {
 	"Quotation": "public/js/quotation_auto_items.js",
 }
 
-# ─── Scheduler ────────────────────────────────────────────────────────────────
-#
-# Event notification scheduler — sends in-browser realtime alerts (and
-# optionally emails) to event owners and participants ahead of their events.
-#
+
 scheduler_events = {
 	"all": ["frappe_crm_xt.api.event.trigger_offset_event_notifications"],
 	"hourly": ["frappe_crm_xt.api.event.trigger_hourly_event_notifications"],
@@ -244,5 +222,5 @@ crm_sidebar = [
 # create_custom_fields(..., update=True) is idempotent — safe to call on every
 # migrate.
 
-after_install = "frappe_crm_xt.setup.install_custom_fields"
-after_migrate = "frappe_crm_xt.setup.install_custom_fields"
+after_install = "frappe_crm_xt.setup.install"
+after_migrate = "frappe_crm_xt.setup.install"

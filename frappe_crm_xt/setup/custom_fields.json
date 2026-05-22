@@ -398,6 +398,15 @@
       "read_only": 1
     }
   ],
+  "CRM Deal Status": [
+    {
+      "fieldname": "checklist",
+      "fieldtype": "Table",
+      "label": "Checklist",
+      "options": "CRM Deal Status Checklist",
+      "insert_after": "color"
+    }
+  ],
   "CRM Lead": [
     {
       "fieldname": "title",
@@ -803,6 +812,13 @@
       "fieldtype": "Link",
       "label": "Parent Note",
       "options": "CRM Note"
+    },
+    {
+      "fieldname": "posting_datetime",
+      "fieldtype": "Datetime",
+      "label": "Posting Datetime",
+      "default": "Now",
+      "insert_after": "title"
     }
   ],
   "Sales Stage": [
