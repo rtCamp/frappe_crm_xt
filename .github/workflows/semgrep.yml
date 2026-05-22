@@ -2,10 +2,6 @@ name: Semgrep
 
 on:
   pull_request:
-  push:
-    branches:
-      - develop
-      - main
 
 jobs:
   semgrep:
@@ -14,6 +10,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -26,5 +24,7 @@ jobs:
       - name: Clone Frappe Semgrep rules
         run: git clone --depth 1 https://github.com/frappe/semgrep-rules.git frappe-semgrep-rules
 
-      - name: Run Semgrep
+      - name: Run Semgrep against PR diff
+        env:
+          SEMGREP_BASELINE_REF: ${{ github.event.pull_request.base.sha }}
         run: semgrep ci --config ./frappe-semgrep-rules/rules --config r/python.lang.correctness
