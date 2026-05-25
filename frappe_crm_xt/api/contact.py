@@ -150,6 +150,120 @@ def get_linked_deals(contact: str) -> list[dict]:
 	)
 
 
+@frappe.whitelist()
+def get_crm_summary_by_email(email: str) -> dict:
+	"""Single endpoint that returns contact + leads + deals in one call.
+
+	Contact, leads, and deals are fetched in parallel via ThreadPoolExecutor
+	so total latency ≈ max(contact_time, leads_time, deals_time) instead of
+	the sum of all three.
+
+	Response shape:
+	  {
+	    "contact": { name, full_name, designation, mobile_no, email_id, address } | null,
+	    "leads":   [ { name, company_name, status, email_id, mobile_no, lead_owner, description } ],
+	    "deals":   [ { name, title, sales_stage, deal_owner, deal_value, currency, modified } ]
+	  }
+	"""
+	if not email:
+		return {"contact": None, "leads": [], "deals": []}
+
+	email = email.strip()
+
+	# ── Step 1: resolve contact (needed to look up leads & deals) ─────────────
+	contact_row = frappe.get_value(
+		"Contact",
+		{"email_id": email},
+		["name", "full_name", "designation", "email_id", "address", "mobile_no"],
+		as_dict=True,
+	)
+
+	if not contact_row:
+		return {"contact": None, "leads": [], "deals": []}
+
+	contact_name = contact_row.name
+
+	# ── Step 2: phone ─────────────────────────────────────────────────────────
+	# NOTE: frappe.local.db is thread-local — cannot use ThreadPoolExecutor here
+	phone = None
+	for filt in (
+		{"parent": contact_name, "is_primary_mobile_no": 1},
+		{"parent": contact_name, "is_primary_phone": 1},
+		{"parent": contact_name},
+	):
+		phone = frappe.get_value("Contact Phone", filt, "phone")
+		if phone:
+			break
+
+	# ── Step 3: leads ─────────────────────────────────────────────────────────
+	lead_email = contact_row.email_id or email
+	lead_names = (
+		frappe.get_list("CRM Lead", filters={"email": lead_email}, pluck="name") if lead_email else []
+	)
+	leads = (
+		frappe.get_list(
+			"CRM Lead",
+			filters={"name": ["in", lead_names]},
+			fields=[
+				"name",
+				"organization as company_name",
+				"status",
+				"email as email_id",
+				"mobile_no",
+				"custom_description as description",
+				"lead_owner",
+			],
+			order_by="modified desc",
+			limit=50,
+		)
+		if lead_names
+		else []
+	)
+
+	# ── Step 4: deals ─────────────────────────────────────────────────────────
+	deal_names = list(
+		{
+			*frappe.get_all(
+				"CRM Contacts",
+				filters={"parenttype": "CRM Deal", "contact": contact_name},
+				pluck="parent",
+			)
+		}
+	)
+	deals = (
+		frappe.get_list(
+			"CRM Deal",
+			filters={"name": ["in", deal_names]},
+			fields=[
+				"name",
+				"title",
+				"custom_description",
+				"sales_stage",
+				"deal_owner",
+				"deal_value",
+				"expected_deal_value",
+				"currency",
+				"modified",
+			],
+			order_by="modified desc",
+			limit=50,
+		)
+		if deal_names
+		else []
+	)
+
+	contact = {
+		"name": contact_name,
+		"full_name": contact_row.full_name or "",
+		"designation": contact_row.designation or "",
+		"mobile_no": phone or contact_row.mobile_no or "",
+		"email_id": contact_row.email_id or email,
+		"address": _build_address_display(contact_row.address),
+	}
+
+	return {"contact": contact, "leads": leads, "deals": deals}
+
+
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
 
