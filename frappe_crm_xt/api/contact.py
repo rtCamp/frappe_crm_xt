@@ -118,7 +118,7 @@ def get_linked_deals(contact: str) -> list[dict]:
 		return []
 
 	def _by_contact_table():
-		return frappe.get_list(
+		return frappe.get_all(
 			"CRM Contacts",
 			filters={"parenttype": "CRM Deal", "contact": contact},
 			pluck="parent",
