@@ -811,7 +811,7 @@
       "fieldname": "custom_parent_note",
       "fieldtype": "Link",
       "label": "Parent Note",
-      "options": "CRM Note"
+      "options": "FCRM Note"
     },
     {
       "fieldname": "posting_datetime",
