@@ -216,7 +216,7 @@ def get_crm_summary_by_email(email: str) -> dict:
 		# Deals via CRM Contacts child table
 		deal_names = list(
 			{
-				*frappe.get_list(
+				*frappe.get_all(
 					"CRM Contacts",
 					filters={"parenttype": "CRM Deal", "contact": contact_name},
 					pluck="parent",
