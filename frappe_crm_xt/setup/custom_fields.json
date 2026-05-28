@@ -362,40 +362,6 @@
       "label": "Source Origin",
       "insert_after": "custom_source_channel_id",
       "translatable": 1
-    },
-    {
-      "fieldname": "custom_communication_response_details",
-      "fieldtype": "Section Break",
-      "label": "Communication Response Details",
-      "insert_after": "rolling_responses"
-    },
-    {
-      "fieldname": "custom_last_incoming_email_time",
-      "fieldtype": "Datetime",
-      "label": "Last Incoming Email Time",
-      "insert_after": "custom_communication_response_details",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_responded_on",
-      "fieldtype": "Datetime",
-      "label": "Last Responded On",
-      "read_only": 1,
-      "insert_after": "custom_last_response_time"
-    },
-    {
-      "fieldname": "custom_last_response_by",
-      "fieldtype": "Datetime",
-      "label": "Last Response By",
-      "read_only": 1,
-      "insert_after": "custom_last_responded_on"
-    },
-    {
-      "fieldname": "custom_last_response_time",
-      "fieldtype": "Duration",
-      "label": "Last Response Time",
-      "insert_after": "custom_last_incoming_email_time",
-      "read_only": 1
     }
   ],
   "CRM Deal Status": [
@@ -554,40 +520,6 @@
       "fieldtype": "Check",
       "label": "Is archived",
       "insert_after": "converted"
-    },
-    {
-      "fieldname": "custom_communication_response_details",
-      "fieldtype": "Section Break",
-      "label": "Communication Response Details",
-      "insert_after": "rolling_responses"
-    },
-    {
-      "fieldname": "custom_last_incoming_email_time",
-      "fieldtype": "Datetime",
-      "label": "Last Incoming Email Time",
-      "insert_after": "custom_communication_response_details",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_response_time",
-      "fieldtype": "Duration",
-      "label": "Last Response Time",
-      "insert_after": "custom_last_incoming_email_time",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_responded_on",
-      "fieldtype": "Datetime",
-      "label": "Last Responded On",
-      "insert_after": "custom_last_response_time",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_response_by",
-      "fieldtype": "Datetime",
-      "label": "Last Response By",
-      "insert_after": "custom_last_responded_on",
-      "read_only": 1
     },
     {
       "fieldname": "custom_pipedrive_lead_id",
@@ -819,6 +751,16 @@
       "label": "Posting Datetime",
       "default": "Now",
       "insert_after": "title"
+    }
+  ],
+  "Project": [
+    {
+      "fieldname": "custom_deal",
+      "fieldtype": "Link",
+      "label": "CRM Deal",
+      "options": "CRM Deal",
+      "insert_after": "project_name",
+      "read_only": 1
     }
   ],
   "Sales Stage": [

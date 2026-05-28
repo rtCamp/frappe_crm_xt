@@ -4,3 +4,4 @@
 frappe_crm_xt.patches.v1_0.migrate_opportunity_status_checklist
 frappe_crm_xt.patches.v1_0.rewrite_gmail_thread_reference_doctype
 frappe_crm_xt.patches.v1_0.backfill_fcrm_note_posting_datetime
+frappe_crm_xt.patches.v1_0.add_crm_deal_link_to_project
