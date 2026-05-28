@@ -1,7 +1,6 @@
-"""Backfill Project.crm_deal from legacy Project.custom_opportunity (and the
-ad-hoc Project.custom_deal field used by an earlier iteration of the
-deal→project hook). Also reverse-link CRM Deal.project for every project
-that ends up with a crm_deal set.
+"""Backfill Project.custom_deal from the legacy Project.custom_opportunity
+field (and any earlier ad-hoc `crm_deal` column from a previous iteration
+of the deal→project hook).
 
 Safe to run multiple times. Missing source columns are tolerated so the
 patch works on sites that never had the legacy rtcamp_opportunities app.
@@ -15,8 +14,10 @@ def execute():
 		# Custom field hasn't been synced yet — bail; will run on the next migrate.
 		return
 
-	# 1. Copy legacy custom_opportunity → crm_deal where target is empty.
-	for source in ("custom_opportunity", "custom_deal"):
+	# Copy legacy custom_opportunity (and any prior `crm_deal` column) into
+	# custom_deal where the target is empty and the source points at a real
+	# CRM Deal.
+	for source in ("custom_opportunity", "crm_deal"):
 		if not frappe.db.has_column("Project", source):
 			continue
 		frappe.db.sql(

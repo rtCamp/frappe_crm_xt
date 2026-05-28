@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
+from frappe.utils import get_link_to_form
 
 
 def before_save(doc, method=None):
@@ -24,6 +25,7 @@ def before_save(doc, method=None):
 
 	if doc.status != current_status:
 		create_checklist(doc, field="status", value=doc.status)
+		_auto_create_project_on_won(doc)
 	if doc.sales_stage != current_stage:
 		create_checklist(doc, field="sales_stage", value=doc.sales_stage)
 
@@ -103,3 +105,76 @@ def create_checklist(doc, field=None, value=None):
 			"status": "Todo",
 		}
 	).insert(ignore_permissions=True)
+
+
+DEAL_TO_PROJECT_FIELD_MAP: dict[str, str] = {
+	"erpnext_customer": "customer",
+	"company": "company",
+	"industry": "custom_industry",
+	"territory": "custom_territory",
+	"currency": "custom_currency",
+	"custom_estimatedpurchased_hours": "custom_total_hours_purchased",
+	"custom_project_manager": "custom_project_manager",
+	"contact": "custom_client_point_of_contact",
+	"custom_service_type": "custom_service_type",
+	"custom_project_type": "project_type",
+	"custom__project_size": "custom_project_size",
+	"custom_complexity_level": "custom_complexity",
+	"custom_duration": "custom_duration",
+	"custom_billing_type": "custom_billing_type",
+	"custom_timezone": "custom_timezone",
+	"custom_previous_cms": "custom_previous_cms",
+	"custom_current_host": "custom_host",
+	"custom_deal_type": "custom_deal_type",
+	"custom_restricted_under_nda": "custom_restricted_under_nda",
+	"custom_description": "notes",
+}
+
+REQUIRED_DEAL_FIELDS_FOR_PROJECT: tuple[str, ...] = (
+	"erpnext_customer",
+	"company",
+	"industry",
+	"territory",
+	"currency",
+	"custom_estimatedpurchased_hours",
+	"custom_project_manager",
+	"custom_service_type",
+	"custom_project_type",
+	"custom__project_size",
+	"custom_complexity_level",
+	"custom_duration",
+	"custom_billing_type",
+	"custom_timezone",
+	"custom_previous_cms",
+	"custom_current_host",
+	"custom_deal_type",
+	"custom_description",
+)
+
+
+def _auto_create_project_on_won(doc):
+	if doc.status != "Won":
+		return
+	if frappe.db.exists("Project", {"custom_deal": doc.name}):
+		return
+	if any(not doc.get(f) for f in REQUIRED_DEAL_FIELDS_FOR_PROJECT):
+		return
+	_create_project(doc)
+
+
+def _create_project(deal) -> str:
+	values = {"doctype": "Project", "status": "Open", "custom_deal": deal.name}
+	for deal_field, project_field in DEAL_TO_PROJECT_FIELD_MAP.items():
+		values[project_field] = deal.get(deal_field)
+
+	base_name = deal.get("organization_name") or deal.name
+	values["project_name"] = f"{base_name} - {deal.name}"
+	values["estimated_costing"] = deal.get("expected_deal_value") or deal.get("deal_value") or 0
+
+	project = frappe.get_doc(values).insert(ignore_permissions=True)
+	frappe.msgprint(
+		_("Project {0} created.").format(get_link_to_form("Project", project.name)),
+		alert=True,
+		indicator="green",
+	)
+	return project.name
