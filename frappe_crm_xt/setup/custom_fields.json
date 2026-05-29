@@ -377,24 +377,10 @@
       "read_only": 1
     },
     {
-      "fieldname": "custom_last_response_time",
-      "fieldtype": "Duration",
-      "label": "Last Response Time",
-      "insert_after": "custom_last_incoming_email_time",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_responded_on",
-      "fieldtype": "Datetime",
-      "label": "Last Responded On",
-      "insert_after": "custom_last_response_time",
-      "read_only": 1
-    },
-    {
       "fieldname": "custom_last_response_by",
       "fieldtype": "Datetime",
       "label": "Last Response By",
-      "insert_after": "custom_last_responded_on",
+      "insert_after": "custom_last_incoming_email_time",
       "read_only": 1
     }
   ],
@@ -576,24 +562,10 @@
       "read_only": 1
     },
     {
-      "fieldname": "custom_last_response_time",
-      "fieldtype": "Duration",
-      "label": "Last Response Time",
-      "insert_after": "custom_last_incoming_email_time",
-      "read_only": 1
-    },
-    {
-      "fieldname": "custom_last_responded_on",
-      "fieldtype": "Datetime",
-      "label": "Last Responded On",
-      "insert_after": "custom_last_response_time",
-      "read_only": 1
-    },
-    {
       "fieldname": "custom_last_response_by",
       "fieldtype": "Datetime",
       "label": "Last Response By",
-      "insert_after": "custom_last_responded_on",
+      "insert_after": "custom_last_incoming_email_time",
       "read_only": 1
     }
   ],

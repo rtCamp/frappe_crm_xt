@@ -1,7 +1,6 @@
 import frappe
-from frappe.core.doctype.communication.communication import update_first_response_time
 from frappe.core.utils import get_parent_doc
-from frappe.utils import get_datetime, time_diff_in_seconds
+from frappe.utils import get_datetime
 
 
 def validate(doc, method):
@@ -61,9 +60,7 @@ def on_update(doc, method):
 				return update_last_incoming_email_time(parent, last_relevant_received_email)
 			last_sent_email = get_last_sent_email(doc)
 			if last_sent_email:
-				last_sent_email.creation = last_sent_email.date_and_time
-				last_sent_email.communication_type = "Communication"
-				return update_first_response_time(parent, last_sent_email)
+				return update_last_response_time(parent, doc, last_sent_email)
 
 		doc_before_save = doc.get_doc_before_save()
 		if not doc_before_save:
@@ -141,25 +138,28 @@ def get_last_sent_email(doc):
 
 
 def update_last_response_time(parent, gmail_thread, email):
-	if parent.meta.has_field("custom_last_response_time"):
-		email.creation = email.date_and_time
-		email.communication_type = "Communication"
-		update_first_response_time(parent, email)
+	"""A sales user replied. Pre-seed core SLA timestamps with the email's real
+	send time (SLA's `set_first_responded_on` uses `value or now_datetime()`,
+	so our value wins), then flip `communication_status` to a responded
+	priority. `CRM Service Level Agreement.apply()` — invoked from CRM
+	Lead/Deal `before_save` — computes `first_response_time`,
+	`last_response_time` and appends to `rolling_responses` from there.
+	"""
+	if not parent.meta.has_field("last_response_time"):
+		return
 
-		last_responded_on = email.date_and_time
-		last_incoming_email_time = parent.custom_last_incoming_email_time
-		if not last_incoming_email_time:
-			return
-		last_response_time = round(time_diff_in_seconds(last_responded_on, last_incoming_email_time), 2)
-		parent.custom_last_response_time = last_response_time
-		parent.custom_last_responded_on = last_responded_on
-		parent.communication_status = "Replied"
-		parent.save(ignore_permissions=True)
+	last_responded_on = email.date_and_time
+
+	if parent.meta.has_field("first_responded_on") and not parent.get("first_responded_on"):
+		parent.first_responded_on = last_responded_on
+	if parent.meta.has_field("last_responded_on"):
+		parent.last_responded_on = last_responded_on
+	parent.communication_status = "Replied"
+	parent.save(ignore_permissions=True)
 
 
 def update_last_incoming_email_time(parent, email):
 	if parent.meta.has_field("custom_last_incoming_email_time"):
 		parent.communication_status = "Open"
 		parent.custom_last_incoming_email_time = email.date_and_time
-		parent.custom_last_responded_on = None
 		parent.save(ignore_permissions=True)
