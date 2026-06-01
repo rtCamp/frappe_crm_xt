@@ -15,6 +15,10 @@ import frappe
 from frappe import _
 from frappe.utils import get_link_to_form
 
+from frappe_crm_xt.frappe_crm_xt.doctype.crm_stage_change_log.crm_stage_change_log import (
+	add_stage_change_log,
+)
+
 
 def before_save(doc, method=None):
 	current_status = frappe.db.get_value("CRM Deal", doc.name, "status")
@@ -28,6 +32,7 @@ def before_save(doc, method=None):
 		_auto_create_project_on_won(doc)
 	if doc.sales_stage != current_stage:
 		create_checklist(doc, field="sales_stage", value=doc.sales_stage)
+		add_stage_change_log(doc)
 
 
 def after_insert(doc, method=None):

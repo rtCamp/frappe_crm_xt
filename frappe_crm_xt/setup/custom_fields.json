@@ -382,6 +382,13 @@
       "label": "Last Response By",
       "insert_after": "custom_last_incoming_email_time",
       "read_only": 1
+    },
+    {
+      "fieldname": "custom_stage_change_log",
+      "fieldtype": "Table",
+      "label": "Stage Change Log",
+      "options": "CRM Stage Change Log",
+      "insert_after": "status_change_log"
     }
   ],
   "CRM Deal Status": [

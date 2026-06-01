@@ -1,0 +1,81 @@
+{
+  "actions": [],
+  "allow_rename": 1,
+  "creation": "2025-04-24 11:26:56.634856",
+  "doctype": "DocType",
+  "editable_grid": 1,
+  "engine": "InnoDB",
+  "field_order": [
+    "from",
+    "to",
+    "column_break_ouru",
+    "from_date",
+    "to_date",
+    "section_break_slqt",
+    "duration",
+    "column_break_rrsy",
+    "log_owner"
+  ],
+  "fields": [
+    {
+      "fieldname": "from",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "From"
+    },
+    {
+      "fieldname": "to",
+      "fieldtype": "Data",
+      "in_list_view": 1,
+      "label": "To"
+    },
+    {
+      "fieldname": "column_break_ouru",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "from_date",
+      "fieldtype": "Datetime",
+      "in_list_view": 1,
+      "label": "From Date"
+    },
+    {
+      "fieldname": "to_date",
+      "fieldtype": "Datetime",
+      "in_list_view": 1,
+      "label": "To Date"
+    },
+    {
+      "fieldname": "section_break_slqt",
+      "fieldtype": "Section Break"
+    },
+    {
+      "fieldname": "duration",
+      "fieldtype": "Duration",
+      "in_list_view": 1,
+      "label": "Duration"
+    },
+    {
+      "fieldname": "column_break_rrsy",
+      "fieldtype": "Column Break"
+    },
+    {
+      "fieldname": "log_owner",
+      "fieldtype": "Link",
+      "label": "Owner",
+      "options": "User"
+    }
+  ],
+  "index_web_pages_for_search": 1,
+  "istable": 1,
+  "links": [],
+  "modified": "2026-06-01 00:00:00.000000",
+  "modified_by": "Administrator",
+  "module": "Frappe Crm Xt",
+  "name": "CRM Stage Change Log",
+  "owner": "Administrator",
+  "permissions": [],
+  "sort_field": "modified",
+  "sort_order": "DESC",
+  "states": []
+}
