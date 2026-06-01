@@ -1,5 +1,3 @@
-from datetime import timedelta
-
 import frappe
 from frappe.core.utils import get_parent_doc
 from frappe.utils import get_datetime
@@ -96,27 +94,41 @@ def _email_ts(email):
 def backfill_parent_from_thread(parent, doc):
 	"""Backfill the parent's SLA fields from the full thread history.
 
-	Called when the thread is (re-)linked or its status flips, where we have a
-	whole historical conversation to stamp at once. We pick:
+	Called when the thread is (re-)linked or its status flips. We pick:
 	  - earliest Sent  → `first_responded_on`  (drives `first_response_time`)
 	  - latest Sent    → `last_responded_on`   (drives rolling-response window)
 	  - latest Received → `custom_last_incoming_email_time`
 	  - latest email   → `communication_status` ("Replied" if Sent, else "Open")
 
-	One `parent.save()` triggers `CRM Service Level Agreement.apply()`, then we
-	walk the thread chronologically and ensure one rolling row per Sent email.
+	Gated on the parent having an SLA attached — without one, we only stamp
+	the latest received-email timestamp (xt's own field) and skip every
+	SLA-touching field for safety.
 	"""
 	if not doc.emails:
 		return
 	if not parent.meta.has_field("last_response_time"):
-		# Parent doesn't have SLA columns — bail (matches old behaviour).
+		return
+
+	sorted_emails = sorted(doc.emails, key=_email_ts)
+	latest_received = next((e for e in reversed(sorted_emails) if e.sent_or_received == "Received"), None)
+
+	# Always-safe write: the latest customer-email timestamp. Independent of SLA.
+	if latest_received and parent.meta.has_field("custom_last_incoming_email_time"):
+		parent.db_set(
+			"custom_last_incoming_email_time",
+			latest_received.date_and_time,
+			update_modified=False,
+		)
+
+	if not parent.get("sla"):
+		# No SLA → skip every SLA-related write to avoid unrelated validation
+		# or computation errors. The custom_last_incoming_email_time above is
+		# already persisted via db_set.
 		return
 
 	from frappe.utils import time_diff_in_seconds
 
-	sorted_emails = sorted(doc.emails, key=_email_ts)
 	sent_emails = [e for e in sorted_emails if e.sent_or_received == "Sent"]
-	latest_received = next((e for e in reversed(sorted_emails) if e.sent_or_received == "Received"), None)
 	latest_email = sorted_emails[-1]
 	earliest_sent = sent_emails[0] if sent_emails else None
 	latest_sent = sent_emails[-1] if sent_emails else None
@@ -181,31 +193,21 @@ def backfill_parent_from_thread(parent, doc):
 
 	if parent.meta.has_field("last_responded_on"):
 		parent.db_set("last_responded_on", latest_sent.date_and_time, update_modified=False)
-
-	# ── 5. response_by deadline ────────────────────────────────────────────
-	# If the thread currently ends with a customer email (Open), set the
-	# expected response deadline to that email + default window. If we've
-	# already responded (latest is Sent), leave response_by alone — the
-	# deadline for any prior incoming was met when we replied.
-	if parent.meta.has_field("response_by") and latest_email.sent_or_received == "Received":
-		deadline = get_datetime(latest_email.date_and_time) + timedelta(hours=DEFAULT_RESPONSE_WINDOW_HOURS)
-		parent.db_set("response_by", deadline, update_modified=False)
+	# `response_by` is owned by FCRM SLA's `set_response_by` when an SLA is
+	# attached — we don't override it here.
 
 
 def update_last_response_time(parent, gmail_thread, email):
-	"""A sales user replied. Pre-seed `first_responded_on` with the email's
-	real send time (SLA's `set_first_responded_on` uses `value or
-	now_datetime()`, so our value wins) and flip `communication_status` to a
-	responded priority. `CRM Service Level Agreement.apply()` — invoked from
-	CRM Lead/Deal `before_save` — fills `first_response_time`,
-	`last_response_time`, `last_responded_on` and appends to
-	`rolling_responses` from there.
+	"""A sales user replied. Pre-seed `first_responded_on` and flip
+	`communication_status` to "Replied" so `CRM Service Level Agreement.apply()`
+	fills the rest on save.
 
-	We deliberately don't write `last_responded_on` ourselves: on subsequent
-	replies SLA's rolling-response branch overwrites it with `now()` anyway,
-	and pre-seeding it would only confuse that calculation.
+	Gated on the parent having an SLA attached — when no SLA is configured we
+	skip all SLA-related writes (including rolling_responses) for safety.
 	"""
 	if not parent.meta.has_field("last_response_time"):
+		return
+	if not parent.get("sla"):
 		return
 
 	if parent.meta.has_field("first_responded_on") and not parent.get("first_responded_on"):
@@ -213,21 +215,22 @@ def update_last_response_time(parent, gmail_thread, email):
 	parent.communication_status = "Replied"
 	parent.save(ignore_permissions=True)
 
-	# Fallback so the SLA tab fills regardless of whether an SLA is attached.
-	# Mirrors Frappe core's update_first_response_time but driven by Single
-	# Email CT, plus appends rolling rows using the customer's last incoming
-	# email as the anchor — giving the true "how long did the customer wait"
-	# semantic instead of save-time lag.
+	# Supplement SLA's writes: rolling row + response-time metrics anchored on
+	# the customer's most recent incoming email (true "how long did the
+	# customer wait" semantic, not save-time lag).
 	_stamp_response_time_fallback(parent, email, gmail_thread)
 
 
 def _stamp_response_time_fallback(parent, email, gmail_thread=None):
-	"""Ensure response-time metrics and the rolling_responses table fill on
-	every Sent email, with timings anchored on the customer's most recent
-	incoming message — i.e. "how long did the customer wait for this reply".
+	"""Stamp response-time metrics and append a rolling_responses row for a
+	Sent email, with timings anchored on the customer's most recent incoming
+	message — "how long did the customer wait for this reply".
 
 	Falls back to `parent.creation` when no prior Received email exists on the
 	thread (cold outreach: the first email of all is our Sent).
+
+	Gated on the parent having an SLA attached — no SLA, no rolling/metric
+	writes.
 
 	Fields written:
 	  - `first_response_time` (only when empty / stale 0)
@@ -235,6 +238,8 @@ def _stamp_response_time_fallback(parent, email, gmail_thread=None):
 	  - one `rolling_responses` child row per reply
 	"""
 	if not parent.meta.has_field("first_response_time"):
+		return
+	if not parent.get("sla"):
 		return
 
 	from frappe.utils import time_diff_in_seconds
@@ -337,22 +342,20 @@ def _append_rolling_response_row(parent, responded_on, response_time):
 
 
 def update_last_incoming_email_time(parent, email):
-	"""Customer wrote in. Mark the deal Open, remember when the email landed,
-	and stamp a `response_by` deadline so the SLA tab shows when we owe a
-	reply by — even on deals without a CRM Service Level Agreement attached.
+	"""Customer wrote in. Always remember when the email landed in our own
+	field. The SLA-related side effects (communication_status flip, parent
+	save that fires SLA.apply) only run when an SLA is actually attached —
+	without one, we leave the SLA tab fields untouched for safety.
 	"""
 	if not parent.meta.has_field("custom_last_incoming_email_time"):
 		return
 
+	if not parent.get("sla"):
+		# No SLA → just record the timestamp directly. Don't touch
+		# communication_status, response_by, or trigger parent.save().
+		parent.db_set("custom_last_incoming_email_time", email.date_and_time, update_modified=False)
+		return
+
 	parent.communication_status = "Open"
 	parent.custom_last_incoming_email_time = email.date_and_time
-
-	# Default deadline when no SLA is configured to compute it from priorities.
-	# Skip if SLA is already in charge (sla field set) — SLA's set_response_by
-	# will compute it from the priority's first_response_time goal.
-	if parent.meta.has_field("response_by") and not parent.get("sla"):
-		parent.response_by = get_datetime(email.date_and_time) + timedelta(
-			hours=DEFAULT_RESPONSE_WINDOW_HOURS
-		)
-
 	parent.save(ignore_permissions=True)
