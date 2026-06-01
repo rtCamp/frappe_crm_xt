@@ -43,6 +43,9 @@ doc_events = {
 override_whitelisted_methods = {
 	# Append frappe_gmail_thread activity entries to FCRM's activity feed.
 	"crm.api.activities.get_activities": "frappe_crm_xt.api.activity.get_activities",
+	# Temp fix until frappe/crm#2187 is merged: SQL-level CRM-role filter
+	# replaces 173k-iteration per-user loop in crm.api.session.get_users.
+	"crm.api.session.get_users": "frappe_crm_xt.api.session.get_users",
 }
 
 
