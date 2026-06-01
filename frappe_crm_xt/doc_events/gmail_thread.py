@@ -2,10 +2,6 @@ import frappe
 from frappe.core.utils import get_parent_doc
 from frappe.utils import get_datetime
 
-# Default response-deadline window used when no SLA is attached to compute
-# `response_by` from priorities. Applies to incoming emails only.
-DEFAULT_RESPONSE_WINDOW_HOURS = 24
-
 
 def validate(doc, method):
 	update_sales_user_in_thread(doc)
@@ -170,25 +166,23 @@ def backfill_parent_from_thread(parent, doc):
 		sent_dt = _email_ts(sent)
 		prior_received = _find_prior_received(sent, sorted_emails)
 		anchor = _email_ts(prior_received) if prior_received else get_datetime(parent.creation)
-		response_time = round(time_diff_in_seconds(sent_dt, anchor), 2)
-		if response_time <= 0:
-			continue
+		# Clamp to zero so historical threads (sent_dt < parent.creation) still
+		# get a rolling row stamped, just with 0s response time.
+		response_time = max(round(time_diff_in_seconds(sent_dt, anchor), 2), 0)
 		last_response_seconds = response_time
 		if sent_dt in existing_responded_on:
 			continue
 		_append_rolling_response_row(parent, sent_dt, response_time)
 
 	# ── 4. correct first_response_time / last_response_time / last_responded_on
-	# first_response_time = time between earliest sent and its prior received
-	# (or parent.creation). Overwrites any 0 SLA wrote when the email predated
-	# sla_creation.
+	# Clamp to zero so historical-thread links don't leave the metric blank.
 	first_anchor_email = _find_prior_received(earliest_sent, sorted_emails)
 	first_anchor = _email_ts(first_anchor_email) if first_anchor_email else get_datetime(parent.creation)
-	first_delta = round(time_diff_in_seconds(_email_ts(earliest_sent), first_anchor), 2)
-	if first_delta > 0 and parent.meta.has_field("first_response_time"):
+	first_delta = max(round(time_diff_in_seconds(_email_ts(earliest_sent), first_anchor), 2), 0)
+	if parent.meta.has_field("first_response_time"):
 		parent.db_set("first_response_time", first_delta, update_modified=False)
 
-	if last_response_seconds and parent.meta.has_field("last_response_time"):
+	if last_response_seconds is not None and parent.meta.has_field("last_response_time"):
 		parent.db_set("last_response_time", last_response_seconds, update_modified=False)
 
 	if parent.meta.has_field("last_responded_on"):
@@ -251,11 +245,10 @@ def _stamp_response_time_fallback(parent, email, gmail_thread=None):
 	prior_received = _find_prior_received(email, gmail_thread.emails) if gmail_thread else None
 	anchor = _email_ts(prior_received) if prior_received else get_datetime(parent.creation)
 
-	response_time = round(time_diff_in_seconds(email_dt, anchor), 2)
-	if response_time <= 0:
-		# Out-of-order / historical email older than its anchor — nothing
-		# meaningful to write.
-		return
+	# Clamp to zero so historical-thread links (email_dt < parent.creation) and
+	# out-of-order syncs still get a rolling row — better than silently
+	# dropping the data.
+	response_time = max(round(time_diff_in_seconds(email_dt, anchor), 2), 0)
 
 	# Already represented in rolling_responses (e.g. SLA appended for this
 	# exact email during the preceding parent.save()). Update parent metrics
