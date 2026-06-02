@@ -704,7 +704,7 @@
       "fieldname": "custom_source",
       "fieldtype": "Link",
       "label": "Source",
-      "options": "Lead Source"
+      "options": "CRM Lead Source"
     }
   ],
   "Customer": [

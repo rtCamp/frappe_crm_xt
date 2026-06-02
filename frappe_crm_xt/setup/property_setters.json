@@ -1,6 +1,6 @@
 [
-  { "doctype": "CRM Lead", "fieldname": null, "property": "title_field", "value": "title", "property_type": "Data" },
-  { "doctype": "CRM Deal", "fieldname": null, "property": "title_field", "value": "title", "property_type": "Data" },
+  { "doctype": "CRM Lead", "fieldname": null, "property": "title_field", "value": "title", "property_type": "Data", "for_doctype": true},
+  { "doctype": "CRM Deal", "fieldname": null, "property": "title_field", "value": "title", "property_type": "Data", "for_doctype": true},
 
   { "doctype": "CRM Lead", "fieldname": "lead_name", "property": "in_global_search", "value": "1", "property_type": "Check" },
   { "doctype": "CRM Lead", "fieldname": "email", "property": "in_global_search", "value": "1", "property_type": "Check" },

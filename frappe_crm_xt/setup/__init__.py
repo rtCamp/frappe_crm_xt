@@ -30,6 +30,7 @@ def install_property_setters():
 			value=ps["value"],
 			property_type=ps["property_type"],
 			validate_fields_for_doctype=False,
+			for_doctype=ps.get("for_doctype", False),
 		)
 
 
