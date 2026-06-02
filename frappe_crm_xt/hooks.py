@@ -9,16 +9,6 @@ required_apps = ["crm"]
 
 fixtures = [
 	{"dt": "CRM Form Script", "filters": [["is_standard", "=", 0]]},
-	{
-		"dt": "CRM Fields Layout",
-		"filters": [
-			[
-				"name",
-				"in",
-				["CRM Lead-Data Fields", "CRM Deal-Data Fields", "FCRM Note-Quick Entry"],
-			]
-		],
-	},
 ]
 
 
@@ -225,5 +215,5 @@ crm_sidebar = [
 # create_custom_fields(..., update=True) is idempotent — safe to call on every
 # migrate.
 
-after_install = "frappe_crm_xt.setup.install"
+after_install = "frappe_crm_xt.setup.after_install"
 after_migrate = "frappe_crm_xt.setup.install"

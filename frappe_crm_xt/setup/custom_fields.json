@@ -393,11 +393,17 @@
   ],
   "CRM Deal Status": [
     {
+      "fieldname": "custom_section_break_fvk1s",
+      "fieldtype": "Section Break",
+      "label": "",
+      "insert_after": "color"
+    },
+    {
       "fieldname": "checklist",
       "fieldtype": "Table",
       "label": "Checklist",
       "options": "CRM Deal Status Checklist",
-      "insert_after": "color"
+      "insert_after": "custom_section_break_fvk1s"
     }
   ],
   "CRM Lead": [

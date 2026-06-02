@@ -1,12 +1,19 @@
 import json
 from pathlib import Path
 
+import frappe
 from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 
 
+def after_install():
+	"""Apply customisations and seed default field layouts (install only)."""
+	install()
+	install_fields_layout()
+
+
 def install():
-	"""Apply all rtcamp-side CRM customisations."""
+	"""Apply all rtcamp-side CRM customisations (idempotent; runs on migrate)."""
 	install_custom_fields()
 	install_property_setters()
 
@@ -30,3 +37,22 @@ def install_property_setters():
 			validate_fields_for_doctype=False,
 			for_doctype=ps.get("for_doctype", False),
 		)
+
+
+def install_fields_layout():
+	"""Seed/refresh default CRM field layouts, overwriting existing ones (install only)."""
+	data_file = Path(__file__).parent / "crm_fields_layout.json"
+	for entry in json.loads(data_file.read_text()):
+		if frappe.db.exists("CRM Fields Layout", entry["name"]):
+			doc = frappe.get_doc("CRM Fields Layout", entry["name"])
+			doc.layout = entry["layout"]
+			doc.save(ignore_permissions=True)
+		else:
+			frappe.get_doc(
+				{
+					"doctype": "CRM Fields Layout",
+					"dt": entry["dt"],
+					"type": entry["type"],
+					"layout": entry["layout"],
+				}
+			).insert(ignore_permissions=True)
