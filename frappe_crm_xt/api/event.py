@@ -41,7 +41,7 @@ def search_emails(txt: str = ""):
 
 
 @frappe.whitelist()
-def get_doc_events(doctype, docname):
+def get_doc_events(doctype: str, docname: str | int):
 	"""Fetch events linked to a document with their participants and notifications."""
 	event = frappe.qb.DocType("Event")
 	event_participant = frappe.qb.DocType("Event Participants")
