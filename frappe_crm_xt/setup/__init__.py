@@ -6,11 +6,16 @@ from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.custom.doctype.property_setter.property_setter import make_property_setter
 
 
+def after_install():
+	"""Apply customisations and seed default field layouts (install only)."""
+	install()
+	install_fields_layout()
+
+
 def install():
-	"""Apply all rtcamp-side CRM customisations."""
+	"""Apply all rtcamp-side CRM customisations (idempotent; runs on migrate)."""
 	install_custom_fields()
 	install_property_setters()
-	install_crm_view_settings()
 
 
 def install_custom_fields():
@@ -30,27 +35,24 @@ def install_property_setters():
 			value=ps["value"],
 			property_type=ps["property_type"],
 			validate_fields_for_doctype=False,
+			for_doctype=ps.get("for_doctype", False),
 		)
 
 
-def install_crm_view_settings():
-	"""Upsert CRM View Settings by (dt, type, label, public); naive insert would dup on autoincrement names."""
-	data_file = Path(__file__).parent / "crm_view_settings.json"
+def install_fields_layout():
+	"""Seed/refresh default CRM field layouts, overwriting existing ones (install only)."""
+	data_file = Path(__file__).parent / "crm_fields_layout.json"
 	for entry in json.loads(data_file.read_text()):
-		existing = frappe.db.get_value(
-			"CRM View Settings",
-			{
-				"dt": entry["dt"],
-				"type": entry["type"],
-				"label": entry["label"],
-				"public": entry.get("public", 0),
-			},
-			"name",
-		)
-		if existing:
-			doc = frappe.get_doc("CRM View Settings", existing)
-			doc.update(entry)
+		if frappe.db.exists("CRM Fields Layout", entry["name"]):
+			doc = frappe.get_doc("CRM Fields Layout", entry["name"])
+			doc.layout = entry["layout"]
 			doc.save(ignore_permissions=True)
 		else:
-			doc = frappe.get_doc({"doctype": "CRM View Settings", **entry})
-			doc.insert(ignore_permissions=True)
+			frappe.get_doc(
+				{
+					"doctype": "CRM Fields Layout",
+					"dt": entry["dt"],
+					"type": entry["type"],
+					"layout": entry["layout"],
+				}
+			).insert(ignore_permissions=True)

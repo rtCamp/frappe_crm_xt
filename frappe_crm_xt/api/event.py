@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 import frappe
 from frappe.utils import add_to_date, now_datetime
+from pypika import Order
 
 
 @frappe.whitelist()
@@ -40,29 +41,39 @@ def search_emails(txt: str = ""):
 
 
 @frappe.whitelist()
-def get_doc_events(doctype, docname):
+def get_doc_events(doctype: str, docname: str | int):
 	"""Fetch events linked to a document with their participants and notifications."""
-	events = frappe.get_all(
-		"Event",
-		filters={"reference_doctype": doctype, "reference_docname": docname},
-		fields=[
-			"name",
-			"subject",
-			"description",
-			"starts_on",
-			"ends_on",
-			"all_day",
-			"event_type",
-			"location",
-			"color",
-			"owner",
-			"reference_doctype",
-			"reference_docname",
-			"creation",
-		],
-		order_by="creation desc",
-		limit=50,
-	)
+	event = frappe.qb.DocType("Event")
+	event_participant = frappe.qb.DocType("Event Participants")
+
+	events = (
+		frappe.qb.from_(event)
+		.left_join(event_participant)
+		.on(event_participant.parent == event.name)
+		.select(
+			event.name,
+			event.subject,
+			event.description,
+			event.starts_on,
+			event.ends_on,
+			event.all_day,
+			event.event_type,
+			event.location,
+			event.color,
+			event.owner,
+			event.creation,
+		)
+		.where(
+			((event.reference_doctype == doctype) & (event.reference_docname == docname))
+			| (
+				(event_participant.reference_doctype == doctype)
+				& (event_participant.reference_docname == docname)
+			)
+		)
+		.distinct()
+		.orderby(event.creation, order=Order.desc)
+		.limit(50)
+	).run(as_dict=True)
 
 	if not events:
 		return []

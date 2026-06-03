@@ -485,7 +485,7 @@ function csrf() {
   return window.csrf_token || window.boot?.csrf_token || ''
 }
 
-async function call(method, args) {
+async function callRaw(method, args) {
   const res = await fetch(`/api/method/${method}`, {
     method: 'POST',
     credentials: 'same-origin',
@@ -500,7 +500,11 @@ async function call(method, args) {
   if (data.exc) throw new Error(data.exc)
   if (data.exc_type)
     throw new Error(data.exc_type + ': ' + (data._server_messages || ''))
-  return data.message
+  return data
+}
+
+async function call(method, args) {
+  return (await callRaw(method, args)).message
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -616,11 +620,17 @@ const SYSTEM_SKIP = new Set([
 
 async function loadMeta() {
   try {
-    const meta = await call('frappe.client.get', {
-      doctype: 'DocType',
-      name: props.doctype,
+    // Single meta call, matching crm's getMeta store (stores/meta.js).
+    // frappe.desk.form.load.getdoctype returns the full doctype meta bundle with
+    // Custom Fields merged in, and is readable by normal users — unlike reading
+    // the DocType document, which is System Manager-only and omits custom fields.
+    // It writes to the top-level response (docs/user_settings), not `message`.
+    const res = await callRaw('frappe.desk.form.load.getdoctype', {
+      doctype: props.doctype,
+      with_parent: 1,
     })
-    const metaFields = meta?.fields || []
+    const dtMeta = (res?.docs || []).find((d) => d.name === props.doctype) || {}
+    const metaFields = dtMeta.fields || []
 
     docfields.value = metaFields.filter(
       (f) =>
@@ -630,7 +640,7 @@ async function loadMeta() {
     )
 
     const fieldMap = Object.fromEntries(metaFields.map((f) => [f.fieldname, f]))
-    titleKey.value = meta?.title_field || 'name'
+    titleKey.value = dtMeta.title_field || 'name'
     const titleMeta = fieldMap[titleKey.value]
 
     // Resolve search field meta (default to title field)

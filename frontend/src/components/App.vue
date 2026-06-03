@@ -19,14 +19,25 @@ const sidebarItems = ref([])
 // ── SPA navigation helper ───────────────────────────────────────────────────
 function onNavigate(route) {
   showSearch.value = false
+  const path = route.path || ''
+  // The CRM SPA is mounted under /crm/* and owns those routes. Anything else
+  // (e.g. /app/lead/<name> for ERP Lead, or any Frappe Desk doctype URL) lives
+  // outside the SPA — we must do a real page load. history.pushState only
+  // updates the URL while leaving the SPA mounted, and the SPA router then
+  // can't resolve the external path, so navigation looks broken (e.g. ERP
+  // Lead search results were ending up at /crm/desk/Lead).
+  if (!path.startsWith('/crm/')) {
+    window.location.href = path
+    return
+  }
   try {
-    window.history.pushState({}, '', route.path)
+    window.history.pushState({}, '', path)
     window.dispatchEvent(new PopStateEvent('popstate'))
   } catch (err) {
     // SPA push failed (e.g. SecurityError on cross-origin URL); fall back to a
     // full page load so the user still gets to the requested route.
     console.warn('[crm-xt] SPA navigation failed, doing full reload:', err)
-    window.location.href = route.path
+    window.location.href = path
   }
 }
 
