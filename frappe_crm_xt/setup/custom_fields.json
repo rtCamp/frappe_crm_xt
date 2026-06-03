@@ -271,13 +271,13 @@
       "label": "Project Manager",
       "options": "User",
       "insert_after": "custom_project_type",
-      "link_filters": "[[\"User\",\"user_type\",\"=\",\"System User\"]]"
+      "link_filters": "{\"user_type\":[\"=\",\"System User\"]}"
     },
     {
       "fieldname": "custom_deal_type",
       "fieldtype": "Select",
       "label": "Deal Type",
-      "options": "Old-Old\nOld-New\nNew-New",
+      "options": "New-New\nOld-New\nOld-Old",
       "insert_after": "custom_project_manager"
     },
     {
