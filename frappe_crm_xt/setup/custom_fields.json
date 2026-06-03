@@ -173,7 +173,8 @@
       "fieldname": "custom_original_hourly_rate_amount",
       "fieldtype": "Currency",
       "label": "Original Hourly Rate",
-      "insert_after": "custom_section_break_dhz4k"
+      "insert_after": "custom_section_break_dhz4k",
+      "options": "custom_original_hourly_rate_currency"
     },
     {
       "fieldname": "custom_original_hourly_rate_currency",
@@ -204,7 +205,8 @@
       "fieldname": "custom_effective_hourly_rate",
       "fieldtype": "Currency",
       "label": "Effective Hourly Rate (Project Completion)",
-      "insert_after": "custom_column_break_9qcv8"
+      "insert_after": "custom_column_break_9qcv8",
+      "options": "custom_effective_hourly_rate_currency_"
     },
     {
       "fieldname": "custom_effective_hourly_rate_currency_",
@@ -271,13 +273,13 @@
       "label": "Project Manager",
       "options": "User",
       "insert_after": "custom_project_type",
-      "link_filters": "[[\"User\",\"user_type\",\"=\",\"System User\"]]"
+      "link_filters": "{\"user_type\":[\"=\",\"System User\"]}"
     },
     {
       "fieldname": "custom_deal_type",
       "fieldtype": "Select",
       "label": "Deal Type",
-      "options": "Old-Old\nOld-New\nNew-New",
+      "options": "New-New\nOld-New\nOld-Old",
       "insert_after": "custom_project_manager"
     },
     {
