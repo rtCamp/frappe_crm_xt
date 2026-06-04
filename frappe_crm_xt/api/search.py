@@ -13,7 +13,6 @@ def get_search_results(text: str, start: int = 0, limit: int = 10):
 		"CRM Organization",
 		"FCRM Note",
 		"CRM Task",
-		"Event",
 		"Contact",
 	]
 
