@@ -79,6 +79,7 @@
       "fieldname": "title",
       "fieldtype": "Data",
       "label": "Title",
+      "in_global_search": 1,
       "insert_after": "transaction_date"
     },
     {
@@ -174,7 +175,7 @@
       "fieldtype": "Currency",
       "label": "Original Hourly Rate",
       "insert_after": "custom_section_break_dhz4k",
-      "options": "custom_original_hourly_rate_currency"
+      "options": "currency"
     },
     {
       "fieldname": "custom_original_hourly_rate_currency",
@@ -206,7 +207,7 @@
       "fieldtype": "Currency",
       "label": "Effective Hourly Rate (Project Completion)",
       "insert_after": "custom_column_break_9qcv8",
-      "options": "custom_effective_hourly_rate_currency_"
+      "options": "currency"
     },
     {
       "fieldname": "custom_effective_hourly_rate_currency_",

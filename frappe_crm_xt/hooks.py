@@ -36,6 +36,10 @@ override_whitelisted_methods = {
 	# Temp fix until frappe/crm#2187 is merged: SQL-level CRM-role filter
 	# replaces 173k-iteration per-user loop in crm.api.session.get_users.
 	"crm.api.session.get_users": "frappe_crm_xt.api.session.get_users",
+	# TODO: Removing linked doc and deleting as api does not have the connected Lead/Deal
+	# "crm.api.doc.remove_linked_doc_reference": "frappe_crm_xt.api.doc.remove_linked_doc_reference",
+	# Bump Link dropdown default page_length 10 → 20 (frontend sends none).
+	"frappe.desk.search.search_link": "frappe_crm_xt.api.search.search_link",
 }
 
 
@@ -165,25 +169,10 @@ scheduler_events = {
 crm_sidebar = [
 	{"type": "separator"},
 	{
-		"label": "Calendar",
-		"type": "route",
-		"url": "/desk/event/view/calendar/default?status=Open",
-		"icon": "calendar",
-	},
-	{
 		"label": "List Views",
 		"type": "group",
 		"icon": "layout-grid",
 		"items": [
-			{
-				"label": "Events",
-				"type": "list_view",
-				"doctype": "Event",
-				"icon": "calendar",
-				"fields": ["subject", "starts_on", "ends_on", "event_type", "status"],
-				"default_sort": {"field": "starts_on", "dir": "desc"},
-				"row_url": "/app/event/{name}",
-			},
 			{
 				"label": "Reports",
 				"type": "list_view",

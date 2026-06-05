@@ -68,6 +68,14 @@ def get_activities(name: str):
 			activities.append(_event_to_activity(ev, is_lead))
 
 	activities.sort(key=lambda x: x.get("creation", "") or "", reverse=True)
+
+	note_list = [n.get("name") for n in notes]
+
+	note_extra_column = frappe.get_all("FCRM Note", {"name": ["in", note_list]}, ["name", "posting_datetime"])
+	note_map = {n.get("name"): n.get("posting_datetime") for n in note_extra_column}
+	for note in notes:
+		note["modified"] = note_map.get(note["name"]) or note.get("creation")
+
 	return activities, calls, notes, tasks, attachments
 
 
