@@ -13,13 +13,9 @@ fixtures = [
 
 
 doc_events = {
-	"CRM Lead": {
-		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
-	},
 	"CRM Deal": {
 		"before_save": "frappe_crm_xt.doc_events.deal.before_save",
 		"after_insert": "frappe_crm_xt.doc_events.deal.after_insert",
-		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
 	},
 	"Gmail Thread": {
 		"validate": "frappe_crm_xt.doc_events.gmail_thread.validate",
@@ -40,7 +36,7 @@ override_whitelisted_methods = {
 	# Temp fix until frappe/crm#2187 is merged: SQL-level CRM-role filter
 	# replaces 173k-iteration per-user loop in crm.api.session.get_users.
 	"crm.api.session.get_users": "frappe_crm_xt.api.session.get_users",
-	"crm.api.doc.delete_bulk_docs": "frappe_crm_xt.api.doc.delete_bulk_docs",
+	"crm.api.doc.remove_linked_doc_reference": "frappe_crm_xt.api.doc.remove_linked_doc_reference",
 }
 
 
