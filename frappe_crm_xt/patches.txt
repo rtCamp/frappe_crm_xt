@@ -1,4 +1,5 @@
 [pre_model_sync]
+frappe_crm_xt.patches.v1_0.delete_data_custom_source_on_crm_organization
 
 [post_model_sync]
 frappe_crm_xt.patches.v1_0.rewrite_gmail_thread_reference_doctype
