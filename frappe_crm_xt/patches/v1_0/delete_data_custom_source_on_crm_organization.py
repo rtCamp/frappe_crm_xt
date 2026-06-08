@@ -5,11 +5,12 @@ import frappe
 
 
 def execute():
-	name = "CRM Organization-custom_source"
-	if not frappe.db.exists("Custom Field", name):
-		return
-
-	if frappe.db.get_value("Custom Field", name, "fieldtype") != "Data":
+	name = frappe.db.get_value(
+		"Custom Field",
+		{"dt": "CRM Organization", "fieldname": "custom_source", "fieldtype": "Data"},
+		"name",
+	)
+	if not name:
 		return
 
 	frappe.delete_doc("Custom Field", name, ignore_permissions=True, force=True)
