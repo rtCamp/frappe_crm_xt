@@ -4,6 +4,7 @@
       "fieldname": "custom_pipeline",
       "fieldtype": "Data",
       "label": "Pipeline",
+      "default":"Inbound",
       "insert_after": "next_step",
       "translatable": 1
     },
@@ -26,6 +27,7 @@
       "fieldtype": "Link",
       "label": "Sales Stage",
       "options": "Sales Stage",
+      "default":"Prospecting",
       "insert_after": "custom_priority"
     },
     {
