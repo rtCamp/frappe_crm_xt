@@ -20,20 +20,26 @@ import frappe
 _LINK_PARENT_DOCTYPES = ("Contact", "Address")
 _GMAIL_THREAD = "Gmail Thread"
 
+_DELETE_WHEN_ORPHANED = ("Address",)
+
 
 def on_trash(doc, method=None):
 	if not doc.name:
 		return
 
 	for parent_dt in _LINK_PARENT_DOCTYPES:
-		frappe.db.delete(
-			"Dynamic Link",
-			{
-				"parenttype": parent_dt,
-				"link_doctype": doc.doctype,
-				"link_name": doc.name,
-			},
-		)
+		link_filters = {
+			"parenttype": parent_dt,
+			"link_doctype": doc.doctype,
+			"link_name": doc.name,
+		}
+
+		affected = set(frappe.get_all("Dynamic Link", filters=link_filters, pluck="parent"))
+
+		frappe.db.delete("Dynamic Link", link_filters)
+
+		if parent_dt in _DELETE_WHEN_ORPHANED:
+			_delete_orphaned(parent_dt, affected)
 
 	for thread_name in frappe.get_all(
 		_GMAIL_THREAD,
@@ -48,3 +54,25 @@ def on_trash(doc, method=None):
 			{"reference_doctype": "", "reference_name": ""},
 			update_modified=False,
 		)
+
+
+def _delete_orphaned(parent_dt, names):
+	"""Delete records of `parent_dt` left with no Dynamic Link rows."""
+	for name in names:
+		# Skip if any other link remains (e.g. the Address is still attached to a
+		# Contact or another Deal).
+		if frappe.db.count("Dynamic Link", {"parenttype": parent_dt, "parent": name}):
+			continue
+		try:
+			frappe.delete_doc(
+				parent_dt,
+				name,
+				delete_permanently=True,
+			)
+		except Exception:
+			# A stuck orphan (e.g. still referenced via a Link field elsewhere)
+			# must not block the parent Lead/Deal delete — log it and move on.
+			frappe.log_error(
+				title="Address already Linked [Delete Failed]",
+				message=f"{parent_dt} {name}: {frappe.get_traceback()}",
+			)
