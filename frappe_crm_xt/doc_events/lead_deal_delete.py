@@ -34,12 +34,11 @@ def on_trash(doc, method=None):
 			"link_name": doc.name,
 		}
 
-		affected = set(frappe.get_all("Dynamic Link", filters=link_filters, pluck="parent"))
-
-		frappe.db.delete("Dynamic Link", link_filters)
-
 		if parent_dt in _DELETE_WHEN_ORPHANED:
-			_delete_orphaned(parent_dt, affected)
+			_detach_or_delete(parent_dt, link_filters)
+		else:
+			# Just drop the back-reference rows; the parent record stays.
+			frappe.db.delete("Dynamic Link", link_filters)
 
 	for thread_name in frappe.get_all(
 		_GMAIL_THREAD,
@@ -56,22 +55,33 @@ def on_trash(doc, method=None):
 		)
 
 
-def _delete_orphaned(parent_dt, names):
-	"""Delete records of `parent_dt` left with no Dynamic Link rows."""
-	for name in names:
-		# Skip if any other link remains (e.g. the Address is still attached to a
-		# Contact or another Deal).
-		if frappe.db.count("Dynamic Link", {"parenttype": parent_dt, "parent": name}):
+def _detach_or_delete(parent_dt, link_filters):
+	"""For each parent linked to the doc being trashed: if our link is its only
+	one, delete the parent outright (delete_doc cascades its child rows); else
+	just remove our back-reference row, leaving the parent intact."""
+	from collections import Counter
+
+	parent_dt_filter = {"parenttype": parent_dt}
+	# Count our matching rows per parent in one query (handles the rare case of a
+	# parent carrying more than one link to the same doc).
+	ours_by_parent = Counter(frappe.get_all("Dynamic Link", filters=link_filters, pluck="parent"))
+
+	for name, ours in ours_by_parent.items():
+		total = frappe.db.count("Dynamic Link", {**parent_dt_filter, "parent": name})
+
+		if total > ours:
+			# Other links remain → keep the parent, drop only our row(s).
+			frappe.db.delete("Dynamic Link", {**link_filters, "parent": name})
 			continue
+
+		# No other links → the parent is orphaned; delete it (rows cascade).
 		try:
-			frappe.delete_doc(
-				parent_dt,
-				name,
-				delete_permanently=True,
-			)
+			frappe.delete_doc(parent_dt, name, delete_permanently=True)
 		except Exception:
 			# A stuck orphan (e.g. still referenced via a Link field elsewhere)
-			# must not block the parent Lead/Deal delete — log it and move on.
+			# must not block the parent Lead/Deal delete — log it, but still drop
+			# our back-reference row so the delete isn't blocked by it.
+			frappe.db.delete("Dynamic Link", {**link_filters, "parent": name})
 			frappe.log_error(
 				title="Address already Linked [Delete Failed]",
 				message=f"{parent_dt} {name}: {frappe.get_traceback()}",
