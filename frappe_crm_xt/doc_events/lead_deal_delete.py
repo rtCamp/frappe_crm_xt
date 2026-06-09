@@ -1,17 +1,4 @@
-"""on_trash for CRM Lead and CRM Deal.
-
-Cleans up loose back-references so the parent delete can proceed:
-
-  - Contact / Address — back-references on their `links` child table
-    (Dynamic Link rows).
-  - Gmail Thread — back-reference on its own `reference_doctype` /
-    `reference_name` fields.
-
-Frappe's `delete_doc` runs `on_trash` **before** the dynamic-link
-existence check (frappe/model/delete_doc.py: on_trash at L165, link
-check at L173), so removing the rows here lets the delete proceed
-without LinkExistsError, no `ignore_links_on_delete` hook required.
-"""
+"""on_trash for CRM Lead and CRM Deal."""
 
 from __future__ import annotations
 
@@ -24,9 +11,6 @@ _DELETE_WHEN_ORPHANED = ("Address",)
 
 
 def on_trash(doc, method=None):
-	if not doc.name:
-		return
-
 	for parent_dt in _LINK_PARENT_DOCTYPES:
 		link_filters = {
 			"parenttype": parent_dt,
