@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import frappe
+from frappe.query_builder import Case
+from frappe.query_builder.functions import Count, Sum
 
 _LINK_PARENT_DOCTYPES = ("Contact", "Address")
 _GMAIL_THREAD = "Gmail Thread"
@@ -43,28 +45,33 @@ def _detach_or_delete(parent_dt, link_filters):
 	"""For each parent linked to the doc being trashed: if our link is its only
 	one, delete the parent outright (delete_doc cascades its child rows); else
 	just remove our back-reference row, leaving the parent intact."""
-	from collections import Counter
+	dl = frappe.qb.DocType("Dynamic Link")
+	ours = Sum(
+		Case()
+		.when(
+			(dl.link_doctype == link_filters["link_doctype"]) & (dl.link_name == link_filters["link_name"]),
+			1,
+		)
+		.else_(0)
+	)
+	rows = (
+		frappe.qb.from_(dl)
+		.select(dl.parent, Count(dl.name).as_("total"), ours.as_("ours"))
+		.where(dl.parenttype == link_filters["parenttype"])
+		.groupby(dl.parent)
+		.having(ours > 0)
+		.run(as_dict=True)
+	)
 
-	parent_dt_filter = {"parenttype": parent_dt}
-	# Count our matching rows per parent in one query (handles the rare case of a
-	# parent carrying more than one link to the same doc).
-	ours_by_parent = Counter(frappe.get_all("Dynamic Link", filters=link_filters, pluck="parent"))
-
-	for name, ours in ours_by_parent.items():
-		total = frappe.db.count("Dynamic Link", {**parent_dt_filter, "parent": name})
-
-		if total > ours:
-			# Other links remain → keep the parent, drop only our row(s).
+	for row in rows:
+		name = row.parent
+		if row.total > row.ours:
 			frappe.db.delete("Dynamic Link", {**link_filters, "parent": name})
 			continue
 
-		# No other links → the parent is orphaned; delete it (rows cascade).
 		try:
 			frappe.delete_doc(parent_dt, name, delete_permanently=True)
 		except Exception:
-			# A stuck orphan (e.g. still referenced via a Link field elsewhere)
-			# must not block the parent Lead/Deal delete — log it, but still drop
-			# our back-reference row so the delete isn't blocked by it.
 			frappe.db.delete("Dynamic Link", {**link_filters, "parent": name})
 			frappe.log_error(
 				title="Address already Linked [Delete Failed]",
