@@ -2,18 +2,18 @@
 
 Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features without forking the core app.
 
-- **Global search bar** — Cmd/Ctrl+K modal backed by [`frappe_search`](https://github.com/rtCamp/frappe_search) *(optional)*.
-- **Extensible sidebar** — any installed Frappe app can inject list views, routes, groups, or separators into the CRM sidebar via the `crm_sidebar` hook.
-- **Events tab** — calendar events tab injected into every Lead and Deal page; create, edit, duplicate, and delete Frappe `Event` records linked to the record.
-- **Event notifications** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
-- **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [`frappe_gmail_thread`](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
-- **Address management (Deal only)** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel.
-- **Follow button (eye icon)** — injected into the Lead/Deal header icon row. Toggles `Document Follow` for the current user; filled eye = following, outline eye = not following.
+- **[Global search bar](#global-search-bar)** — Cmd/Ctrl+K modal backed by [`rtcamp/frappe_search`](https://github.com/rtCamp/frappe_search) *(optional)*.
+- **[Extensible sidebar](#extensible-sidebar-crm_sidebar-hook)** — any installed Frappe app can inject list views, routes, groups, or separators into the CRM sidebar via the `crm_sidebar` hook.
+- **[Events tab](#events-tab)** — calendar events tab injected into every Lead and Deal page; create, edit, duplicate, and delete Frappe `Event` records linked to the record.
+- **[Event notifications](#event-notifications)** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
+- **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [`rtcamp/frappe_gmail_thread`](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
+- **[Address management (Deal only)](#address-management)** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel.
+- **[Follow button (eye icon)](#follow-button)** — injected into the Lead/Deal header icon row. Toggles `Document Follow` for the current user; filled eye = following, outline eye = not following.
 - **Quotation auto-items** — opening a `Quotation` from a CRM Deal's "Create Quotation" link auto-populates items, customer, currency, and missing values from the source Deal.
 - **Public Lead intake API** — guest-allowed `POST` endpoints for creating CRM Leads and uploading files against them; intended for website / external form integrations.
 - **Gmail Add-on backend** — whitelisted endpoints powering the Gmail sidebar Add-on (contact lookup by email, linked Leads / Deals, latest activity).
-- **Bundled fixtures** — Lead & Deal field layouts, Property Setters, Custom Fields, CRM Form Scripts, and a curated set of CRM View Settings ship as fixtures and install automatically.
-- **Project creation on Won** — when a Deal is marked Won, dialogs guide the user through updating MSA & Insurance details on the linked Customer and creating an ERPNext `Project` pre-filled from the deal.
+- **Bundled fixtures** — Lead & Deal field layouts, Property Setters, Custom Fields, CRM Form Scripts, and a curated set of CRM View Settings ship as fixtures and install automatically. (Optional)
+- **[Project creation on Won](#project-creation-on-won-deal)** — when a Deal is marked Won, dialogs guide the user through updating MSA & Insurance details on the linked Customer and creating an ERPNext `Project` pre-filled from the deal.
 
 ---
 
@@ -63,7 +63,7 @@ Two backends are tried in order:
 
 | Priority | Backend | Notes |
 |----------|---------|-------|
-| 1 | [`frappe_search`](https://github.com/rtCamp/frappe_search) | Full-text search with `<mark>` highlighting. Used when installed. |
+| 1 | [`rtcamp/frappe_search`](https://github.com/rtCamp/frappe_search) | Full-text search with `<mark>` highlighting. Used when installed. |
 | 2 | Frappe built-in global search | `frappe.utils.global_search` — always available, no extra install. |
 
 ---
@@ -275,8 +275,8 @@ The built-in list view rendered for every `"list_view"` sidebar item includes:
 | Package | Required |
 |---------|----------|
 | `crm` (Frappe CRM) | ✅ |
-| `frappe_search` | Optional — enables Cmd/Ctrl+K global search |
-| `frappe_gmail_thread` | Optional — enables Gmail thread activity entries on Lead/Deal |
+| `rtcamp/frappe_search` | Optional — enables Cmd/Ctrl+K global search |
+| `rtcamp/frappe_gmail_thread` | Optional — enables Gmail thread activity entries on Lead/Deal |
 | `erpnext` | Optional — required for Project creation on Won Deal and Customer MSA/Insurance fields |
 
 ## Installation
