@@ -18,7 +18,7 @@
   "is_standard": 0,
   "modified": "2026-06-11 00:00:00.000000",
   "name": "CRM Deal Probability Validation",
-  "script": "class CRMDeal {\n  probability() {\n    const probability = Number(this.value)\n    if (!Number.isFinite(probability)) return\n    if (probability < 0 || probability > 100) {\n      this.doc.probability = this.oldValue\n      throwError(`Probability must be between 0 and 100 (got ${probability}).`)\n    }\n  }\n\n  onValidate() {\n    const probability = Number(this.doc.probability)\n    if (!Number.isFinite(probability)) return\n    if (probability < 0 || probability > 100) {\n      throwError(`Probability must be between 0 and 100 (got ${probability}).`)\n    }\n  }\n}\n",
+  "script": "class CRMDeal {\n  probability() {\n    if (this.value === null || this.value === undefined || String(this.value).trim() === '') return\n    const probability = Number(this.value)\n    if (!Number.isFinite(probability)) return\n    if (probability < 0 || probability > 100) {\n      this.doc.probability = this.oldValue\n      throwError(`Probability must be between 0 and 100 (got ${probability}).`)\n    }\n  }\n\n  onValidate() {\n    const raw = this.doc.probability\n    if (raw === null || raw === undefined || String(raw).trim() === '') return\n    const probability = Number(raw)\n    if (!Number.isFinite(probability)) return\n    if (probability < 0 || probability > 100) {\n      throwError(`Probability must be between 0 and 100 (got ${probability}).`)\n    }\n  }\n}\n",
   "view": "Form"
  },
  {
