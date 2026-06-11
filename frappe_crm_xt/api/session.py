@@ -33,7 +33,7 @@ def get_users():
 
 	user_filters = []
 	user_filters.append(["name", "in", list(crm_user_names)])
-	user_filters.append(["name", "like", "%rtcamp.com"])
+	user_filters.append(["name", "like", "%@rtcamp.com"])
 
 	users = frappe.qb.get_query(
 		"User",
