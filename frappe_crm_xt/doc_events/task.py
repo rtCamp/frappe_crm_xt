@@ -11,6 +11,7 @@ def on_trash(doc, method=None):
 		_CRM_NOTIFICATION,
 		filters={"notification_type_doctype": _CRM_TASK, "notification_type_doc": doc.name},
 		pluck="name",
+		ignore_permissions=True,
 	)
 	for name in notifications:
 		frappe.delete_doc(_CRM_NOTIFICATION, name, ignore_permissions=True, delete_permanently=True)
