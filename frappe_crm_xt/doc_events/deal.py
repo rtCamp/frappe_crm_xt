@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import frappe
 from frappe import _
-from frappe.utils import get_link_to_form
+from frappe.utils import flt, get_link_to_form
 
 from frappe_crm_xt.frappe_crm_xt.doctype.crm_stage_change_log.crm_stage_change_log import (
 	add_stage_change_log,
@@ -21,11 +21,10 @@ from frappe_crm_xt.frappe_crm_xt.doctype.crm_stage_change_log.crm_stage_change_l
 
 
 def validate(doc, method=None):
-	"""Probability is a percentage — refuse anything above 100."""
-	probability = doc.get("probability")
-	if probability is not None and probability != "" and float(probability) > 100:
+	probability = flt(doc.get("probability"))
+	if probability < 0 or probability > 100:
 		frappe.throw(
-			_("Probability cannot be greater than 100 (got {0}).").format(probability),
+			_("Probability must be between 0 and 100 (got {0}).").format(probability),
 			frappe.ValidationError,
 		)
 
