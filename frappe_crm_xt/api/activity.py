@@ -76,10 +76,13 @@ def get_activities(name: str):
 	for note in notes:
 		activities.append(_note_to_activity(note, note_map.get(note["name"]), is_lead))
 
-	# Mirror the Note injection above for Tasks so they show up in the
-	# Activity timeline alongside notes / calls / events / emails.
+	task_names = [t.get("name") for t in tasks if t.get("name")]
+	task_owners = (
+		frappe.get_all("CRM Task", {"name": ["in", task_names]}, ["name", "owner"]) if task_names else []
+	)
+	task_owner_map = {t["name"]: t.get("owner") for t in task_owners}
 	for task in tasks:
-		activities.append(_task_to_activity(task, is_lead))
+		activities.append(_task_to_activity(task, task_owner_map.get(task.get("name")), is_lead))
 
 	activities.sort(key=lambda x: x.get("creation", "") or "", reverse=True)
 
@@ -155,11 +158,11 @@ def _note_to_activity(note: dict, posting_datetime, is_lead: bool) -> dict:
 	}
 
 
-def _task_to_activity(task: dict, is_lead: bool) -> dict:
+def _task_to_activity(task: dict, owner: str | None, is_lead: bool) -> dict:
 	return {
 		"activity_type": "added",
 		"creation": task.get("creation"),
-		"owner": task.get("owner") or task.get("assigned_to") or "Administrator",
+		"owner": owner or "Administrator",
 		"data": {
 			"field": "task",
 			"field_label": "Task",
