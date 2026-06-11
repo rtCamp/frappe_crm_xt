@@ -20,6 +20,16 @@ from frappe_crm_xt.frappe_crm_xt.doctype.crm_stage_change_log.crm_stage_change_l
 )
 
 
+def validate(doc, method=None):
+	"""Probability is a percentage — refuse anything above 100."""
+	probability = doc.get("probability")
+	if probability is not None and probability != "" and float(probability) > 100:
+		frappe.throw(
+			_("Probability cannot be greater than 100 (got {0}).").format(probability),
+			frappe.ValidationError,
+		)
+
+
 def before_save(doc, method=None):
 	current_status = frappe.db.get_value("CRM Deal", doc.name, "status")
 	current_stage = frappe.db.get_value("CRM Deal", doc.name, "sales_stage")

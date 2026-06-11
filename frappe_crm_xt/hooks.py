@@ -17,6 +17,7 @@ doc_events = {
 		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
 	},
 	"CRM Deal": {
+		"validate": "frappe_crm_xt.doc_events.deal.validate",
 		"before_save": "frappe_crm_xt.doc_events.deal.before_save",
 		"after_insert": "frappe_crm_xt.doc_events.deal.after_insert",
 		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
