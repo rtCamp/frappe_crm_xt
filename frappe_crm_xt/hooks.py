@@ -23,9 +23,6 @@ doc_events = {
 		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
 	},
 	"CRM Task": {
-		# Clear CRM Notification refs that block the delete via the dynamic
-		# link check. on_trash runs before that check, so the cleanup lets
-		# the delete proceed normally.
 		"on_trash": "frappe_crm_xt.doc_events.task.on_trash",
 	},
 	"Gmail Thread": {
