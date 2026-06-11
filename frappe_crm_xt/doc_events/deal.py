@@ -21,10 +21,11 @@ from frappe_crm_xt.frappe_crm_xt.doctype.crm_stage_change_log.crm_stage_change_l
 
 
 def validate(doc, method=None):
-	raw = doc.get("probability")
-	if raw in (None, ""):
-		return
-	probability = flt(raw)
+	validate_probability(doc)
+
+
+def validate_probability(doc):
+	probability = flt(doc.get("probability"), 2)
 	if probability < 0 or probability > 100:
 		frappe.throw(
 			_("Probability must be between 0 and 100 (got {0}).").format(probability),
