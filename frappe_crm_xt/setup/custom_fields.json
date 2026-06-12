@@ -276,7 +276,7 @@
       "label": "Project Manager",
       "options": "User",
       "insert_after": "custom_project_type",
-      "link_filters": "{\"user_type\":[\"=\",\"System User\"],\"name\":[\"like\",\"%rtcamp.com\"]}"
+      "link_filters": "{\"user_type\":[\"=\",\"System User\"],\"name\":[\"like\",\"%@rtcamp.com\"]}"
     },
     {
       "fieldname": "custom_deal_type",
