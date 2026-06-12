@@ -17,14 +17,9 @@ USER_FIELDS = [
 
 
 @frappe.whitelist()
-def get_users(include_all: bool = False):
-	"""Return (users, crm_users); SQL-filtered to CRM users unless include_all and System Manager."""
-	session_roles = get_session_role_flags()
-
-	if isinstance(include_all, str):
-		include_all = include_all.lower() in ("1", "true", "yes")
-	if not session_roles["is_system_manager"]:
-		include_all = False
+def get_users():
+	"""Return (users, crm_users): enabled CRM users plus @rtcamp.com users, and the CRM-role subset."""
+	get_session_role_flags()  # access guard: throws if the session user has no CRM role
 
 	crm_user_names = set(
 		frappe.get_all(
@@ -36,27 +31,27 @@ def get_users(include_all: bool = False):
 	)
 	crm_user_names.add("Administrator")
 
-	user_filters = {"enabled": 1}
-	if not include_all:
-		user_filters["name"] = ["in", list(crm_user_names)]
+	user_filters = []
+	user_filters.append(["name", "in", list(crm_user_names)])
+	user_filters.append(["name", "like", "%@rtcamp.com"])
 
 	users = frappe.qb.get_query(
 		"User",
 		fields=USER_FIELDS,
 		order_by="full_name asc",
-		filters=user_filters,
+		filters={"enabled": 1},
+		or_filters=user_filters,
 	).run(as_dict=1)
 
 	if not users:
 		return [], []
 
+	user_list = [user.name for user in users]
+
 	system_language = frappe.db.get_single_value("System Settings", "language")
 	session_user = frappe.session.user
 
-	if include_all:
-		role_filters = {"parenttype": "User"}
-	else:
-		role_filters = {"parenttype": "User", "parent": ["in", list(crm_user_names)]}
+	role_filters = {"parenttype": "User", "parent": ["in", list(user_list)]}
 	role_rows = frappe.get_all("Has Role", filters=role_filters, fields=["parent", "role"])
 	roles_by_user = {}
 	for row in role_rows:
@@ -90,8 +85,5 @@ def get_users(include_all: bool = False):
 
 		if user.role in CRM_ALLOWED_ROLES:
 			crm_users.append(user)
-
-	if not include_all:
-		return crm_users, crm_users
 
 	return users, crm_users

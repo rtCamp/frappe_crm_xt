@@ -67,12 +67,25 @@ def get_activities(name: str):
 		for ev in _collect_linked_events(doctype, name):
 			activities.append(_event_to_activity(ev, is_lead))
 
-	activities.sort(key=lambda x: x.get("creation", "") or "", reverse=True)
-
+	# Resolve each note's posting datetime ONCE; reused for both the Notes-tab
+	# `modified` override and the Activity-timeline injection below.
 	note_list = [n.get("name") for n in notes]
-
 	note_extra_column = frappe.get_all("FCRM Note", {"name": ["in", note_list]}, ["name", "posting_datetime"])
 	note_map = {n.get("name"): n.get("posting_datetime") for n in note_extra_column}
+
+	for note in notes:
+		activities.append(_note_to_activity(note, note_map.get(note["name"]), is_lead))
+
+	task_names = [t.get("name") for t in tasks if t.get("name")]
+	task_owners = (
+		frappe.get_all("CRM Task", {"name": ["in", task_names]}, ["name", "owner"]) if task_names else []
+	)
+	task_owner_map = {t["name"]: t.get("owner") for t in task_owners}
+	for task in tasks:
+		activities.append(_task_to_activity(task, task_owner_map.get(task.get("name")), is_lead))
+
+	activities.sort(key=lambda x: x.get("creation", "") or "", reverse=True)
+
 	for note in notes:
 		note["modified"] = note_map.get(note["name"]) or note.get("creation")
 
@@ -124,6 +137,36 @@ def _event_to_activity(event: dict, is_lead: bool) -> dict:
 			"field": "event",
 			"field_label": "Event",
 			"value": value,
+		},
+		"is_lead": is_lead,
+	}
+
+
+def _note_to_activity(note: dict, posting_datetime, is_lead: bool) -> dict:
+	# `creation` drives both the timeline sort order and the displayed
+	# timestamp, so stamp it with the posting time (falling back to creation).
+	return {
+		"activity_type": "added",
+		"creation": posting_datetime or note.get("creation"),
+		"owner": note.get("owner") or "Administrator",
+		"data": {
+			"field": "note",
+			"field_label": "Note",
+			"value": note.get("title") or "Untitled note",
+		},
+		"is_lead": is_lead,
+	}
+
+
+def _task_to_activity(task: dict, owner: str | None, is_lead: bool) -> dict:
+	return {
+		"activity_type": "added",
+		"creation": task.get("creation"),
+		"owner": owner or "Administrator",
+		"data": {
+			"field": "task",
+			"field_label": "Task",
+			"value": task.get("title") or "Untitled task",
 		},
 		"is_lead": is_lead,
 	}

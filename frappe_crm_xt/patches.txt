@@ -1,7 +1,9 @@
 [pre_model_sync]
+frappe_crm_xt.patches.v1_0.delete_data_custom_source_on_crm_organization
 
 [post_model_sync]
 frappe_crm_xt.patches.v1_0.rewrite_gmail_thread_reference_doctype
 frappe_crm_xt.patches.v1_0.backfill_fcrm_note_posting_datetime
 frappe_crm_xt.patches.v1_0.add_crm_deal_link_to_project
 frappe_crm_xt.patches.v1_0.reset_fcrm_note_modified_to_creation
+frappe_crm_xt.patches.v1_0.setup_global_search_for_crm_doctypes

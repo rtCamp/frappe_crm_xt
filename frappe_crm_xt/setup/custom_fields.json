@@ -4,6 +4,7 @@
       "fieldname": "custom_pipeline",
       "fieldtype": "Data",
       "label": "Pipeline",
+      "default":"Inbound",
       "insert_after": "next_step",
       "translatable": 1
     },
@@ -26,6 +27,7 @@
       "fieldtype": "Link",
       "label": "Sales Stage",
       "options": "Sales Stage",
+      "default":"Prospecting",
       "insert_after": "custom_priority"
     },
     {
@@ -274,7 +276,7 @@
       "label": "Project Manager",
       "options": "User",
       "insert_after": "custom_project_type",
-      "link_filters": "{\"user_type\":[\"=\",\"System User\"]}"
+      "link_filters": "{\"user_type\":[\"=\",\"System User\"],\"name\":[\"like\",\"%@rtcamp.com\"]}"
     },
     {
       "fieldname": "custom_deal_type",

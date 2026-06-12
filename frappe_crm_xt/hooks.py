@@ -13,9 +13,17 @@ fixtures = [
 
 
 doc_events = {
+	"CRM Lead": {
+		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
+	},
 	"CRM Deal": {
+		"validate": "frappe_crm_xt.doc_events.deal.validate",
 		"before_save": "frappe_crm_xt.doc_events.deal.before_save",
 		"after_insert": "frappe_crm_xt.doc_events.deal.after_insert",
+		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
+	},
+	"CRM Task": {
+		"on_trash": "frappe_crm_xt.doc_events.task.on_trash",
 	},
 	"Gmail Thread": {
 		"validate": "frappe_crm_xt.doc_events.gmail_thread.validate",
@@ -36,8 +44,10 @@ override_whitelisted_methods = {
 	# Temp fix until frappe/crm#2187 is merged: SQL-level CRM-role filter
 	# replaces 173k-iteration per-user loop in crm.api.session.get_users.
 	"crm.api.session.get_users": "frappe_crm_xt.api.session.get_users",
-	# TODO: Removing linked doc and deleting as api does not have the connected Lead/Deal
-	# "crm.api.doc.remove_linked_doc_reference": "frappe_crm_xt.api.doc.remove_linked_doc_reference",
+	# Hide Contact/Address/Gmail Thread from the linked-docs modal when the
+	# parent is a Lead/Deal — upstream can't actually unlink them, so showing
+	# them as blockers is misleading. They get cleaned up via on_trash above.
+	"crm.api.doc.get_linked_docs_of_document": "frappe_crm_xt.api.doc.get_linked_docs_of_document",
 	# Bump Link dropdown default page_length 10 → 20 (frontend sends none).
 	"frappe.desk.search.search_link": "frappe_crm_xt.api.search.search_link",
 }
@@ -45,6 +55,15 @@ override_whitelisted_methods = {
 
 doctype_js = {
 	"Quotation": "public/js/quotation_auto_items.js",
+}
+
+
+global_search_doctypes = {
+	"Default": [
+		{"doctype": "CRM Lead"},
+		{"doctype": "CRM Deal"},
+		{"doctype": "FCRM Note"},
+	]
 }
 
 
