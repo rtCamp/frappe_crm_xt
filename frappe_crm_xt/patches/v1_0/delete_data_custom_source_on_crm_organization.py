@@ -18,4 +18,3 @@ def execute():
 		"  Deleted stale Data-type CRM Organization.custom_source (will re-sync as Link)",
 		fg="green",
 	)
-	frappe.db.commit()
