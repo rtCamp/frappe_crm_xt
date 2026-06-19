@@ -5,7 +5,6 @@
   { "doctype": "FCRM Settings", "fieldname": null, "property": "track_changes", "value": "1", "property_type": "Check", "for_doctype": true},
   { "doctype": "CRM Fields Layout", "fieldname": null, "property": "track_changes", "value": "1", "property_type": "Check", "for_doctype": true},
   { "doctype": "CRM Notification", "fieldname": null, "property": "track_changes", "value": "1", "property_type": "Check", "for_doctype": true},
-  { "doctype": "CRM Status Change Log", "fieldname": null, "property": "track_changes", "value": "1", "property_type": "Check", "for_doctype": true},
   { "doctype": "CRM Form Script", "fieldname": null, "property": "track_changes", "value": "1", "property_type": "Check", "for_doctype": true},
   { "doctype": "CRM Communication Status", "fieldname": null, "property": "track_changes", "value": "1", "property_type": "Check", "for_doctype": true},
   { "doctype": "CRM Service Level Agreement", "fieldname": null, "property": "track_changes", "value": "1", "property_type": "Check", "for_doctype": true},
