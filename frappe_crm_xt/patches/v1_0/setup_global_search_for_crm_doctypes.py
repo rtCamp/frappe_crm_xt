@@ -8,7 +8,7 @@ from frappe_crm_xt.setup import install
 
 # CRM Task is excluded: its autoincrement (int) names crash
 # rebuild_for_doctype (frappe.db.escape only accepts str/bytes).
-DOCTYPES = ("CRM Lead", "CRM Deal", "FCRM Note")
+DOCTYPES = ("CRM Lead", "CRM Deal", "FCRM Note", "CRM Organization")
 
 
 def execute():

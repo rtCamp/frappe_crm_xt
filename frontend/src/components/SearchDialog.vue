@@ -136,6 +136,9 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue'
 
+let domParser = null
+const LIKELY_HTML_OR_ENTITY_RE = /<[a-zA-Z!/]|&[#a-zA-Z]/
+
 const props = defineProps({
   show: Boolean,
 })
@@ -324,7 +327,7 @@ function mapResults(list) {
 // Extract human-readable title from frappe_search content strings like
 // "Full Name : Alice Johnson ||| Name : CRM-LEAD-2026-00016"
 function extractTitle(content) {
-  const plain = content.replace(/<[^>]*>/g, '')
+  const plain = htmlToPlainText(content)
   const patterns = [
     /Full Name\s*:\s*([^|\n]+)/i,
     /Organization Name\s*:\s*([^|\n]+)/i,
@@ -338,6 +341,19 @@ function extractTitle(content) {
     if (m) return m[1].trim()
   }
   return ''
+}
+
+function htmlToPlainText(html) {
+  const text = String(html ?? '')
+  if (!LIKELY_HTML_OR_ENTITY_RE.test(text)) return text
+  if (typeof DOMParser === 'undefined') return text
+  try {
+    domParser ??= new DOMParser()
+    const doc = domParser.parseFromString(text, 'text/html')
+    return doc.body?.textContent || ''
+  } catch {
+    return text
+  }
 }
 
 function selectResult(result) {
