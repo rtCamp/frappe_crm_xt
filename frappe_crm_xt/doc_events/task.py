@@ -10,6 +10,7 @@ _CRM_NOTIFICATION = "CRM Notification"
 
 def validate(doc, method=None):
 	"""Validate a CRM Task before save."""
+	doc.start_date = doc.get("custom_start_datetime")  # for upstream's benefit
 	validate_due_after_start(doc)
 
 

@@ -32,20 +32,22 @@ def sync_task_to_calendar(doc, method=None):
 
 	starts_on, ends_on = _resolve_event_window(doc)
 
-	values: dict = {
-		"doctype": "Event",
-		"subject": _build_subject(doc),
-		"description": doc.get("description") or "",
-		"starts_on": starts_on,
-		"ends_on": ends_on,
-		"event_type": "Private",
-		"event_category": "Event",
-		"reference_doctype": "CRM Task",
-		"reference_docname": doc.name,
-		"event_participants": _collect_participant_rows(doc),
-	}
-
-	event = frappe.get_doc(values).insert(ignore_permissions=True)
+	event = frappe.new_doc("Event")
+	event.update(
+		{
+			"subject": _build_subject(doc),
+			"description": doc.get("description") or "",
+			"starts_on": starts_on,
+			"ends_on": ends_on,
+			"event_type": "Private",
+			"event_category": "Event",
+			"reference_doctype": "CRM Task",
+			"reference_docname": doc.name,
+			"event_participants": _collect_participant_rows(doc),
+		}
+	)
+	_apply_google_calendar_bridge(event, doc)
+	event.insert(ignore_permissions=True)
 	return event.name
 
 
@@ -65,8 +67,19 @@ def _update_event(event_name: str, doc) -> None:
 		event.starts_on, event.ends_on = _resolve_event_window(doc)
 
 	event.set("event_participants", _collect_participant_rows(doc))
+	_apply_google_calendar_bridge(event, doc)
 
 	event.save(ignore_permissions=True)
+
+
+def _apply_google_calendar_bridge(event, doc) -> None:
+	"""Link the Event to a Google Calendar so Frappe's integration pushes it."""
+	google_calendar = doc.get("custom_google_calendar_link")
+	if google_calendar:
+		event.google_calendar = google_calendar
+		event.sync_with_google_calendar = 1
+	else:
+		event.sync_with_google_calendar = 0
 
 
 def _build_subject(doc) -> str:
