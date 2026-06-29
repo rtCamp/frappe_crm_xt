@@ -79,6 +79,7 @@ def _apply_google_calendar_bridge(event, doc) -> None:
 		event.google_calendar = google_calendar
 		event.sync_with_google_calendar = 1
 	else:
+		event.google_calendar = None
 		event.sync_with_google_calendar = 0
 
 
@@ -91,10 +92,9 @@ def _build_subject(doc) -> str:
 
 
 def delete_event_on_task_trash(doc, method=None):
-	"""Wired to CRM Task `on_trash` — drop the linked Event so it doesn't dangle."""
-	existing = _existing_event_for(doc.name)
-	if existing:
-		_delete_event(existing)
+	"""Wired to CRM Task `on_trash` — drop every linked Event so none dangle."""
+	for ev in _all_events_for(doc.name):
+		_delete_event(ev)
 
 
 def _resolve_event_window(doc) -> tuple:
@@ -113,15 +113,6 @@ def _resolve_event_window(doc) -> tuple:
 		return add_to_date(end_dt, hours=-1), end_dt
 	now = now_datetime()
 	return now, add_to_date(now, hours=1)
-
-
-def _existing_event_for(task_name) -> str | None:
-	"""Return the name of any Event already linked to this task, else None."""
-	return frappe.db.get_value(
-		"Event",
-		{"reference_doctype": "CRM Task", "reference_docname": task_name},
-		"name",
-	)
 
 
 def _all_events_for(task_name) -> list[str]:
@@ -151,7 +142,8 @@ def _delete_event(event_name: str) -> None:
 		)
 	except frappe.exceptions.ValidationError:
 		frappe.log_error(
-			"Event failed to Delete (CRM Task)", f"Failed to delete Event {event_name} on CRM Task trash"
+			title="Event delete failed (CRM Task)",
+			message=f"Failed to delete Event {event_name}:\n{frappe.get_traceback()}",
 		)
 
 
