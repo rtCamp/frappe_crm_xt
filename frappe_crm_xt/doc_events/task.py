@@ -11,7 +11,25 @@ _CRM_NOTIFICATION = "CRM Notification"
 def validate(doc, method=None):
 	"""Validate a CRM Task before save."""
 	doc.start_date = doc.get("custom_start_datetime")  # for upstream's benefit
+	validate_calendar_sync_completeness(doc)
 	validate_due_after_start(doc)
+
+
+def validate_calendar_sync_completeness(doc):
+	"""When calendar sync is on, require the fields the Event actually needs."""
+	if not doc.get("custom_sync_with_calendar"):
+		return
+
+	missing = []
+	if not doc.get("custom_start_datetime"):
+		missing.append(_("Start Date & Time"))
+	if not doc.get("due_date"):
+		missing.append(_("Due Date"))
+	if not doc.get("custom_google_calendar_link"):
+		missing.append(_("Google Calendar Link"))
+
+	if missing:
+		frappe.throw(_("Calendar sync is on — fill in: {0}.").format(", ".join(missing)))
 
 
 def validate_due_after_start(doc):
