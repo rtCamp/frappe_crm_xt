@@ -396,6 +396,37 @@
       "insert_after": "status_change_log"
     }
   ],
+  "CRM Task": [
+    {
+      "fieldname": "custom_start_time",
+      "fieldtype": "Time",
+      "label": "Start Time",
+      "insert_after": "due_date",
+      "depends_on": "eval:doc.start_date"
+    },
+    {
+      "fieldname": "custom_calendar_sync_section",
+      "fieldtype": "Section Break",
+      "label": "Calendar Sync",
+      "insert_after": "reference_docname",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "custom_sync_with_calendar",
+      "fieldtype": "Check",
+      "label": "Sync with Calendar",
+      "description": "When checked, a Frappe Event is created on this task and linked to your calendar.",
+      "insert_after": "custom_calendar_sync_section"
+    },
+    {
+      "fieldname": "custom_event_participants",
+      "fieldtype": "Table MultiSelect",
+      "label": "Event Participants",
+      "options": "CRM Involved User",
+      "insert_after": "custom_sync_with_calendar",
+      "depends_on": "eval:doc.custom_sync_with_calendar"
+    }
+  ],
   "CRM Deal Status": [
     {
       "fieldname": "custom_section_break_fvk1s",

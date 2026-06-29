@@ -23,7 +23,13 @@ doc_events = {
 		"on_trash": "frappe_crm_xt.doc_events.lead_deal_delete.on_trash",
 	},
 	"CRM Task": {
-		"on_trash": "frappe_crm_xt.doc_events.task.on_trash",
+		"validate": "frappe_crm_xt.doc_events.task.validate",
+		"on_trash": [
+			"frappe_crm_xt.doc_events.task.on_trash",
+			"frappe_crm_xt.doc_events.calendar_sync.delete_event_on_task_trash",
+		],
+		"after_insert": "frappe_crm_xt.doc_events.calendar_sync.sync_task_to_calendar",
+		"on_update": "frappe_crm_xt.doc_events.calendar_sync.sync_task_to_calendar",
 	},
 	"Gmail Thread": {
 		"validate": "frappe_crm_xt.doc_events.gmail_thread.validate",
