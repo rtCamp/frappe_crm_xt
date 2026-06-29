@@ -1,22 +1,7 @@
-"""Calendar sync for CRM Task.
-
-Lifecycle:
-- `custom_sync_with_calendar` ON  → create a Frappe Event linked to the task
-  (idempotent, runs from `after_insert` + `on_update`).
-- `custom_sync_with_calendar` OFF → delete the previously-created Event so
-  the task and its calendar entry stay in sync.
-- CRM Task trashed → delete the linked Event so nothing dangles.
-
-Participants come from the `custom_event_participants` Table MultiSelect
-(child doctype `CRM Involved User`, one User per row).
-"""
-
 from __future__ import annotations
 
-from datetime import datetime
-
 import frappe
-from frappe.utils import add_to_date, get_datetime, get_time, getdate, now_datetime
+from frappe.utils import add_to_date, get_datetime, now_datetime
 
 # Frappe Data field default is varchar(140); Event.subject is Data.
 _EVENT_SUBJECT_MAX = 140
@@ -67,8 +52,8 @@ def sync_task_to_calendar(doc, method=None):
 def _update_event(event_name: str, doc) -> None:
 	"""Propagate task changes (subject, window, participants, GC link) to its Event.
 
-	Skips the date-window write when the task has neither `start_date` nor
-	`due_date` — otherwise every unrelated save would slide the Event's
+	Skips the date-window write when the task has neither `custom_start_datetime`
+	nor `due_date` — otherwise every unrelated save would slide the Event's
 	`starts_on`/`ends_on` forward by `now_datetime()`'s ticking value.
 	"""
 	event = frappe.get_doc("Event", event_name)
@@ -76,21 +61,12 @@ def _update_event(event_name: str, doc) -> None:
 	event.subject = _build_subject(doc)
 	event.description = doc.get("description") or ""
 
-	if doc.get("start_date") or doc.get("due_date"):
+	if doc.get("custom_start_datetime") or doc.get("due_date"):
 		event.starts_on, event.ends_on = _resolve_event_window(doc)
 
 	event.set("event_participants", _collect_participant_rows(doc))
 
 	event.save(ignore_permissions=True)
-
-
-def _combine_date_time(date_value, time_value) -> datetime:
-	"""Combine a Date + Time into a full datetime; falls back to midnight if no time."""
-	date_part = getdate(date_value)
-	if not time_value:
-		return datetime.combine(date_part, datetime.min.time())
-	time_part = get_time(time_value)
-	return datetime.combine(date_part, time_part)
 
 
 def _build_subject(doc) -> str:
@@ -109,24 +85,11 @@ def delete_event_on_task_trash(doc, method=None):
 
 
 def _resolve_event_window(doc) -> tuple:
-	"""Compute (starts_on, ends_on) from the task's `start_date` + `due_date`.
-
-	CRM Task has `start_date: Date` and `due_date: Datetime`. We coerce both
-	to datetime, then:
-
-	- both set            → use as-is (Event spans the whole task window).
-	                        `validate_due_after_start` guarantees end > start.
-	- only `start_date`   → 1h block starting at the task start
-	- only `due_date`     → 1h block ENDING at the deadline (prep window)
-	- neither             → 1h block starting now
-
-	Returned values are passed straight to the Event's `starts_on`/`ends_on`.
-	"""
-	start_raw = doc.get("start_date")
+	"""Compute (starts_on, ends_on) from the task's `custom_start_datetime` + `due_date`."""
+	start_raw = doc.get("custom_start_datetime")
 	end_raw = doc.get("due_date")
-	start_time = doc.get("custom_start_time")
 
-	start_dt = _combine_date_time(start_raw, start_time) if start_raw else None
+	start_dt = get_datetime(start_raw) if start_raw else None
 	end_dt = get_datetime(end_raw) if end_raw else None
 
 	if start_dt and end_dt:
@@ -180,18 +143,7 @@ def _delete_event(event_name: str) -> None:
 
 
 def _collect_participant_rows(doc) -> list[dict]:
-	"""Build Event Participants rows from the task.
-
-	Two sources go into the Event's participants table:
-
-	1. Users from the `custom_event_participants` Table MultiSelect — each
-	   row of the `CRM Involved User` child has a single `account` Link to User.
-	2. The task's parent record (`reference_doctype` + `reference_docname`),
-	   typically a CRM Lead or CRM Deal — added as a dynamic-link row so the
-	   Event form surfaces a click-through to the customer.
-
-	Skips empty rows and de-duplicates within each section.
-	"""
+	"""Build Event Participants rows from the task."""
 	rows: list[dict] = []
 	seen_users: set[str] = set()
 	candidate_users: list[str] = []

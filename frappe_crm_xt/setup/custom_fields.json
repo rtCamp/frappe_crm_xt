@@ -398,11 +398,11 @@
   ],
   "CRM Task": [
     {
-      "fieldname": "custom_start_time",
-      "fieldtype": "Time",
-      "label": "Start Time",
+      "fieldname": "custom_start_datetime",
+      "fieldtype": "Datetime",
+      "label": "Start Date & Time",
       "insert_after": "due_date",
-      "depends_on": "eval:doc.start_date"
+      "description": "Start of the calendar event. Stored in the system timezone; shown in each user's own timezone."
     },
     {
       "fieldname": "custom_calendar_sync_section",

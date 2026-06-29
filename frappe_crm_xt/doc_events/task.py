@@ -4,8 +4,6 @@ import frappe
 from frappe import _
 from frappe.utils import get_datetime
 
-from frappe_crm_xt.doc_events.calendar_sync import _combine_date_time
-
 _CRM_TASK = "CRM Task"
 _CRM_NOTIFICATION = "CRM Notification"
 
@@ -16,23 +14,23 @@ def validate(doc, method=None):
 
 
 def validate_due_after_start(doc):
-	"""Reject saves where `due_date` is at or before `start_date + custom_start_time`.
+	"""Reject saves where `due_date` is at or before `custom_start_datetime`.
 
-	Skips silently when either field is missing — partial date input is allowed
-	(used by quick-create flows that only fill one end of the window).
+	Both are Datetime fields stored in the system timezone, so they compare
+	directly. Skips silently when either is missing — partial date input is
+	allowed (used by quick-create flows that only fill one end of the window).
 	"""
-	start_date = doc.get("start_date")
+	start = doc.get("custom_start_datetime")
 	due_date = doc.get("due_date")
-	if not (start_date and due_date):
+	if not (start and due_date):
 		return
 
-	start_moment = _combine_date_time(start_date, doc.get("custom_start_time"))
+	start_moment = get_datetime(start)
 	due_moment = get_datetime(due_date)
 
 	if due_moment <= start_moment:
-		suffix = " + Start Time" if doc.get("custom_start_time") else ""
 		frappe.throw(
-			_("Due Date ({0}) must be after Start Date{1} ({2}).").format(due_moment, suffix, start_moment)
+			_("Due Date ({0}) must be after Start Date & Time ({1}).").format(due_moment, start_moment)
 		)
 
 
