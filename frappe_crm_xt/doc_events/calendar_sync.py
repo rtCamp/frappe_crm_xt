@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import frappe
+from frappe import _
 from frappe.utils import add_to_date, get_datetime, now_datetime
 
 # Frappe Data field default is varchar(140); Event.subject is Data.
@@ -43,11 +44,25 @@ def sync_task_to_calendar(doc, method=None):
 			"event_category": "Event",
 			"reference_doctype": "CRM Task",
 			"reference_docname": doc.name,
-			"event_participants": _collect_participant_rows(doc),
 		}
 	)
+	_set_participants(event, doc)
 	_apply_google_calendar_bridge(event, doc)
-	event.insert(ignore_permissions=True)
+
+	savepoint = "crm_task_event_create"
+	frappe.db.savepoint(savepoint)
+	try:
+		event.insert(ignore_permissions=True)
+	except Exception:
+		frappe.db.rollback(save_point=savepoint)
+		frappe.log_error(title="Calendar sync failed (CRM Task)", message=frappe.get_traceback())
+		doc.db_set("custom_sync_with_calendar", 0)
+		frappe.msgprint(
+			_("Could not sync this task to the calendar — 'Sync with Calendar' has been turned off."),
+			indicator="red",
+			title=_("Calendar sync failed"),
+		)
+		return None
 	return event.name
 
 
@@ -66,10 +81,22 @@ def _update_event(event_name: str, doc) -> None:
 	if doc.get("custom_start_datetime") or doc.get("due_date"):
 		event.starts_on, event.ends_on = _resolve_event_window(doc)
 
-	event.set("event_participants", _collect_participant_rows(doc))
+	_set_participants(event, doc)
 	_apply_google_calendar_bridge(event, doc)
 
-	event.save(ignore_permissions=True)
+	savepoint = "crm_task_event_update"
+	frappe.db.savepoint(savepoint)
+	try:
+		event.save(ignore_permissions=True)
+	except Exception:
+		frappe.db.rollback(save_point=savepoint)
+		frappe.log_error(title="Calendar sync failed (CRM Task)", message=frappe.get_traceback())
+		doc.db_set("custom_sync_with_calendar", 0)
+		frappe.msgprint(
+			_("Could not sync this task to the calendar — 'Sync with Calendar' has been turned off."),
+			indicator="red",
+			title=_("Calendar sync failed"),
+		)
 
 
 def _apply_google_calendar_bridge(event, doc) -> None:
@@ -147,28 +174,16 @@ def _delete_event(event_name: str) -> None:
 		)
 
 
-def _collect_participant_rows(doc) -> list[dict]:
-	"""Build Event Participants rows from the task."""
-	rows: list[dict] = []
-	seen_users: set[str] = set()
-	candidate_users: list[str] = []
+def _set_participants(event, doc) -> None:
+	"""Replace the Event's participants with the task's Users."""
+	seen: set[str] = set()
+	participants: list[dict] = []
 	for row in doc.get("custom_event_participants") or []:
 		user = row.get("account") if hasattr(row, "get") else getattr(row, "account", None)
-		if user:
-			candidate_users.append(user)
+		if user and user not in seen:
+			seen.add(user)
+			participants.append({"doctype": "User", "docname": user})
 
-	for user in candidate_users:
-		if user in seen_users:
-			continue
-		seen_users.add(user)
-		email = frappe.db.get_value("User", user, "email")
-		if not email:
-			continue
-		rows.append(
-			{
-				"reference_doctype": "User",
-				"reference_docname": user,
-				"email": email,
-			}
-		)
-	return rows
+	event.set("event_participants", [])
+	if participants:
+		event.add_participants(participants)
