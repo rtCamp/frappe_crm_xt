@@ -28,7 +28,6 @@ doc_events = {
 			"frappe_crm_xt.doc_events.task.on_trash",
 			"frappe_crm_xt.doc_events.calendar_sync.delete_event_on_task_trash",
 		],
-		"after_insert": "frappe_crm_xt.doc_events.calendar_sync.sync_task_to_calendar",
 		"on_update": "frappe_crm_xt.doc_events.calendar_sync.sync_task_to_calendar",
 	},
 	"Gmail Thread": {
