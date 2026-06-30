@@ -56,7 +56,21 @@ override_whitelisted_methods = {
 	"crm.api.doc.get_linked_docs_of_document": "frappe_crm_xt.api.doc.get_linked_docs_of_document",
 	# Bump Link dropdown default page_length 10 → 20 (frontend sends none).
 	"frappe.desk.search.search_link": "frappe_crm_xt.api.search.search_link",
+	# Dynamic dashboard: surface native Desk Dashboard Charts / Number Cards
+	# (including Report-backed ones) from the "CRM" Desk Dashboard on the CRM
+	# frontend dashboard, reshaped into its number/axis/donut chart configs.
+	# Built-in CRM charts are delegated unchanged to the upstream functions.
+	"crm.api.dashboard.get_dashboard": "frappe_crm_xt.api.dashboard.get_dashboard",
+	"crm.api.dashboard.get_chart": "frappe_crm_xt.api.dashboard.get_chart",
 }
+
+
+# Name of the native Frappe Desk Dashboard whose Charts/Number Cards are
+# surfaced on the CRM frontend dashboard. Override in any installed app to point
+# at a different Dashboard. Build/manage its widgets in the Desk dashboard UI
+# (/app/dashboard) — Report-type charts/cards consume the reports you create.
+# NB: avoid "CRM" — ERPNext ships a standard Dashboard by that name.
+crm_desk_dashboard = "Frappe CRM Dashboard"
 
 
 doctype_js = {

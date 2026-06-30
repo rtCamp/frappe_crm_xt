@@ -10,6 +10,7 @@ def after_install():
 	"""Apply customisations and seed default field layouts (install only)."""
 	install()
 	install_fields_layout()
+	install_desk_dashboard()
 
 
 def install():
@@ -56,3 +57,106 @@ def install_fields_layout():
 					"layout": entry["layout"],
 				}
 			).insert(ignore_permissions=True)
+
+
+# Native Desk Dashboard surfaced on the CRM frontend dashboard (see
+# frappe_crm_xt.api.dashboard). Each chart/card is backed by a report shipped by
+# this app; the Desk dashboard UI (/app/dashboard) is the management surface.
+DESK_DASHBOARD_NAME = "Frappe CRM Dashboard"
+
+DESK_DASHBOARD_CHARTS = [
+	{
+		"chart_name": "CRM Deals by Stage",
+		"report": "CRM Deal Pipeline",
+		"type": "Donut",
+		"x_field": "stage",
+		"y_fields": ["deal_count"],
+		"width": "Half",
+	},
+	{
+		"chart_name": "CRM Organizations: Deals vs Leads",
+		"report": "CRM Organization Stats",
+		"type": "Bar",
+		"x_field": "title",
+		"y_fields": ["deals_count", "leads_count"],
+		"width": "Full",
+	},
+]
+
+DESK_DASHBOARD_CARDS = [
+	{
+		"label": "CRM Avg SLA Met %",
+		"report": "CRM Average Response",
+		"report_field": "sla_met",
+		"report_function": "Average",
+	},
+]
+
+
+def install_desk_dashboard():
+	"""Seed the 'CRM' Desk Dashboard with Report-backed charts/cards (idempotent).
+
+	Skips any chart/card whose report is missing, and never duplicates existing
+	charts, cards, or dashboard links — safe to re-run.
+	"""
+	chart_links = []
+	for spec in DESK_DASHBOARD_CHARTS:
+		if not frappe.db.exists("Report", spec["report"]):
+			continue
+		if not frappe.db.exists("Dashboard Chart", spec["chart_name"]):
+			frappe.get_doc(
+				{
+					"doctype": "Dashboard Chart",
+					"chart_name": spec["chart_name"],
+					"chart_type": "Report",
+					"report_name": spec["report"],
+					"type": spec["type"],
+					"x_field": spec["x_field"],
+					"y_axis": [{"y_field": y} for y in spec["y_fields"]],
+					"filters_json": "{}",
+					"is_public": 1,
+				}
+			).insert(ignore_permissions=True)
+		chart_links.append({"chart": spec["chart_name"], "width": spec["width"]})
+
+	card_links = []
+	for spec in DESK_DASHBOARD_CARDS:
+		if not frappe.db.exists("Report", spec["report"]):
+			continue
+		card_name = frappe.db.get_value("Number Card", {"label": spec["label"]})
+		if not card_name:
+			card = frappe.get_doc(
+				{
+					"doctype": "Number Card",
+					"label": spec["label"],
+					"type": "Report",
+					"report_name": spec["report"],
+					"report_field": spec["report_field"],
+					"report_function": spec["report_function"],
+					"filters_json": "[]",
+					"is_public": 1,
+				}
+			).insert(ignore_permissions=True)
+			card_name = card.name
+		card_links.append(card_name)
+
+	if not chart_links:
+		# Dashboard requires at least one chart; nothing to seed without reports.
+		return
+
+	if frappe.db.exists("Dashboard", DESK_DASHBOARD_NAME):
+		dashboard = frappe.get_doc("Dashboard", DESK_DASHBOARD_NAME)
+	else:
+		dashboard = frappe.get_doc({"doctype": "Dashboard", "dashboard_name": DESK_DASHBOARD_NAME})
+
+	existing_charts = {row.chart for row in dashboard.charts}
+	for link in chart_links:
+		if link["chart"] not in existing_charts:
+			dashboard.append("charts", link)
+
+	existing_cards = {row.card for row in dashboard.cards}
+	for card_name in card_links:
+		if card_name not in existing_cards:
+			dashboard.append("cards", {"card": card_name})
+
+	dashboard.save(ignore_permissions=True)
