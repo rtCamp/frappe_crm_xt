@@ -4,9 +4,6 @@ import frappe
 from frappe import _
 from frappe.utils import add_to_date, get_datetime, now_datetime
 
-# Frappe Data field default is varchar(140); Event.subject is Data.
-_EVENT_SUBJECT_MAX = 140
-
 
 def sync_task_to_calendar(doc, method=None):
 	"""Reconcile the task's Event with its `custom_sync_with_calendar` flag.
@@ -36,7 +33,7 @@ def sync_task_to_calendar(doc, method=None):
 	event = frappe.new_doc("Event")
 	event.update(
 		{
-			"subject": _build_subject(doc),
+			"subject": doc.get("title") or f"CRM Task {doc.name}",
 			"description": doc.get("description") or "",
 			"starts_on": starts_on,
 			"ends_on": ends_on,
@@ -75,7 +72,7 @@ def _update_event(event_name: str, doc) -> None:
 	"""
 	event = frappe.get_doc("Event", event_name)
 
-	event.subject = _build_subject(doc)
+	event.subject = doc.get("title") or f"CRM Task {doc.name}"
 	event.description = doc.get("description") or ""
 
 	if doc.get("custom_start_datetime") or doc.get("due_date"):
@@ -108,14 +105,6 @@ def _apply_google_calendar_bridge(event, doc) -> None:
 	else:
 		event.google_calendar = None
 		event.sync_with_google_calendar = 0
-
-
-def _build_subject(doc) -> str:
-	"""Subject for the Event — falls back to `CRM Task <name>` and truncates to 140 chars."""
-	subject = doc.get("title") or f"CRM Task {doc.name}"
-	if len(subject) > _EVENT_SUBJECT_MAX:
-		subject = subject[: _EVENT_SUBJECT_MAX - 1] + "…"
-	return subject
 
 
 def delete_event_on_task_trash(doc, method=None):
