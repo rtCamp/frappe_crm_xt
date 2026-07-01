@@ -4,6 +4,15 @@ import frappe
 from frappe import _
 from frappe.utils import add_to_date, get_datetime, now_datetime
 
+_CALENDAR_FIELDS = (
+	"custom_sync_with_calendar",
+	"custom_start_datetime",
+	"due_date",
+	"custom_google_calendar_link",
+	"title",
+	"description",
+)
+
 
 def sync_task_to_calendar(doc, method=None):
 	"""Reconcile the task's Event with its `custom_sync_with_calendar` flag.
@@ -13,6 +22,9 @@ def sync_task_to_calendar(doc, method=None):
 	- flag OFF, event exists → delete
 	- flag OFF, no event     → no-op
 	"""
+	if not _calendar_fields_changed(doc):
+		return
+
 	existing_events = _all_events_for(doc.name)
 	want_sync = bool(doc.get("custom_sync_with_calendar"))
 
@@ -161,6 +173,24 @@ def _delete_event(event_name: str) -> None:
 			title="Event delete failed (CRM Task)",
 			message=f"Failed to delete Event {event_name}:\n{frappe.get_traceback()}",
 		)
+
+
+def _calendar_fields_changed(doc) -> bool:
+	"""True when this save touched something the Event mirrors."""
+	before = doc.get_doc_before_save()
+	if before is None:
+		return True
+	if any(doc.has_value_changed(fieldname) for fieldname in _CALENDAR_FIELDS):
+		return True
+	return _participant_accounts(doc) != _participant_accounts(before)
+
+
+def _participant_accounts(doc) -> set:
+	"""Set of User accounts in the task's `custom_event_participants` table."""
+	return {
+		row.get("account") if hasattr(row, "get") else getattr(row, "account", None)
+		for row in (doc.get("custom_event_participants") or [])
+	}
 
 
 def _set_participants(event, doc) -> None:
