@@ -204,5 +204,18 @@ def _set_participants(event, doc) -> None:
 			participants.append({"doctype": "User", "docname": user})
 
 	event.set("event_participants", [])
-	if participants:
-		event.add_participants(participants)
+	if not participants:
+		return
+
+	event.add_participants(participants)
+
+	users = [p["docname"] for p in participants]
+	emails = dict(
+		frappe.get_all("User", filters={"name": ["in", users]}, fields=["name", "email"], as_list=True)
+	)
+	for participant in event.event_participants:
+		# Only set when found — leaving it unset lets Event.set_participants_email
+		# fall back to its Contact lookup rather than blanking the row.
+		email = emails.get(participant.reference_docname)
+		if email:
+			participant.email = email
