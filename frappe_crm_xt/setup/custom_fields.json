@@ -396,6 +396,47 @@
       "insert_after": "status_change_log"
     }
   ],
+  "CRM Task": [
+    {
+      "fieldname": "custom_start_datetime",
+      "fieldtype": "Datetime",
+      "label": "Start Date & Time",
+      "insert_after": "due_date",
+      "description": "Start of the calendar event. Stored in the system timezone; shown in each user's own timezone."
+    },
+    {
+      "fieldname": "custom_calendar_sync_section",
+      "fieldtype": "Section Break",
+      "label": "Calendar Sync",
+      "insert_after": "reference_docname",
+      "collapsible": 1
+    },
+    {
+      "fieldname": "custom_sync_with_calendar",
+      "fieldtype": "Check",
+      "label": "Sync with Calendar",
+      "description": "When checked, a Frappe Event is created on this task and linked to your calendar.",
+      "insert_after": "custom_calendar_sync_section"
+    },
+    {
+      "fieldname": "custom_event_participants",
+      "fieldtype": "Table MultiSelect",
+      "label": "Event Participants",
+      "options": "CRM Involved User",
+      "insert_after": "custom_sync_with_calendar",
+      "depends_on": "eval:doc.custom_sync_with_calendar"
+    },
+    {
+      "fieldname": "custom_google_calendar_link",
+      "fieldtype": "Link",
+      "label": "Google Calendar",
+      "options": "Google Calendar",
+      "link_filters": "{\"custom_is_google_calendar_authorized\":[\"=\",1],\"push_to_google_calendar\":[\"=\",1]}",
+      "insert_after": "custom_event_participants",
+      "depends_on": "eval:doc.custom_sync_with_calendar",
+      "description": "The connected Google Calendar to push this event to. The calendar must be authorized with Push enabled."
+    }
+  ],
   "CRM Deal Status": [
     {
       "fieldname": "custom_section_break_fvk1s",
