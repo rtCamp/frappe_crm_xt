@@ -77,6 +77,9 @@ scheduler_events = {
 	"hourly": ["frappe_crm_xt.api.event.trigger_hourly_event_notifications"],
 	"daily": ["frappe_crm_xt.api.event.trigger_daily_event_notifications"],
 	"weekly": ["frappe_crm_xt.api.event.trigger_weekly_event_notifications"],
+	"cron": {
+		"0 9 * * *": ["frappe_crm_xt.api.deal_inactivity.notify_inactive_deals"],
+	},
 }
 
 # ─── CRM Sidebar hook ─────────────────────────────────────────────────────────
