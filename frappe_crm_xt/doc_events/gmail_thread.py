@@ -108,6 +108,9 @@ def backfill_parent_from_thread(parent, doc):
 	sorted_emails = sorted(doc.emails, key=_email_ts)
 	latest_received = next((e for e in reversed(sorted_emails) if e.sent_or_received == "Received"), None)
 
+	sent_emails = [e for e in sorted_emails if e.sent_or_received == "Sent"]
+	latest_sent = sent_emails[-1] if sent_emails else None
+
 	# Always-safe write: the latest customer-email timestamp. Independent of SLA.
 	if latest_received and parent.meta.has_field("custom_last_incoming_email_time"):
 		parent.db_set(
@@ -117,9 +120,12 @@ def backfill_parent_from_thread(parent, doc):
 		)
 
 	if not parent.get("sla"):
-		# No SLA → skip every SLA-related write to avoid unrelated validation
-		# or computation errors. The custom_last_incoming_email_time above is
-		# already persisted via db_set.
+		if latest_sent and parent.meta.has_field("custom_last_responded_on"):
+			parent.db_set(
+				"custom_last_responded_on",
+				latest_sent.date_and_time,
+				update_modified=False,
+			)
 		return
 
 	from frappe.utils import time_diff_in_seconds
@@ -197,11 +203,19 @@ def update_last_response_time(parent, gmail_thread, email):
 	fills the rest on save.
 
 	Gated on the parent having an SLA attached — when no SLA is configured we
-	skip all SLA-related writes (including rolling_responses) for safety.
+	record only rtcamp's own `custom_last_responded_on` and leave FCRM's default
+	SLA fields untouched, skipping all other SLA-related writes (rolling_responses
+	etc.) for safety.
 	"""
 	if not parent.meta.has_field("last_response_time"):
 		return
 	if not parent.get("sla"):
+		if parent.meta.has_field("custom_last_responded_on"):
+			parent.db_set(
+				"custom_last_responded_on",
+				email.date_and_time,
+				update_modified=False,
+			)
 		return
 
 	if parent.meta.has_field("first_responded_on") and not parent.get("first_responded_on"):

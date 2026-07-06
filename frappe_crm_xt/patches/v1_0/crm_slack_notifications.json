@@ -10,7 +10,7 @@
 		"condition": null,
 		"filters": null,
 		"message_type": "Markdown",
-		"message": "{%- set deal_url = frappe.utils.get_url() + \"/crm/deals/\" + doc.name -%}\n⏰ *Deal inactive 7+ days* → *<{{ deal_url }}|{{ doc.title or doc.organization or doc.name }}>*\n• *Status:* {{ doc.status or \"—\" }}{% if doc.status == \"Won\" %} 🏆{% elif doc.status == \"Lost\" %} 😢{% endif %}\n• *Deal Value:* {% if doc.deal_value %}{{ frappe.utils.fmt_money(doc.deal_value, currency=doc.currency) }} {{ doc.currency or \"\" }}{% else %}—{% endif %}\n• *Deal Owner:* {{ doc.deal_owner or \"—\" }}\n{% if doc.last_activity_on %}• *Last activity:* {{ frappe.utils.pretty_date(doc.last_activity_on) }}\n{% endif %}_No email, status, note, task or comment activity in the last 7 days._"
+		"message": "{%- set deal_url = frappe.utils.get_url() + \"/crm/deals/\" + doc.name -%}\n⏰ *Deal inactive 7+ days* → *<{{ deal_url }}|{{ doc.title or doc.organization or doc.name }}>*\n• *Deal Owner:* {{ doc.deal_owner or \"—\" }}\n<!--\\n\\n────────\\n\\n-->"
 	},
 	{
 		"name": "CRM Slack — CRM Deal Note Added",
