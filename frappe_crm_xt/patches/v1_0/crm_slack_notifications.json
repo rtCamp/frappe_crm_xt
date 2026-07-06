@@ -5,7 +5,6 @@
 		"document_type": "CRM Deal",
 		"channel": "Slack",
 		"event": "Custom",
-		"method": "scheduled_inactivity_alert",
 		"condition_type": "Python",
 		"condition": null,
 		"filters": null,
