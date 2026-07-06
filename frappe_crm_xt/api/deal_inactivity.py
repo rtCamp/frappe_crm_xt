@@ -99,10 +99,9 @@ def _render_message(notification, deal):
 
 	context = get_context(deal)
 	context.update({"alert": notification, "comments": None})
-	# message is an admin-authored Notification field (System Manager only), rendered as frappe's own Notification.send() does.
-	return frappe.render_template(
-		notification.message, context
-	)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+	# message is admin-authored (System Manager only); trusted template surface, like frappe's Notification.send().
+	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+	return frappe.render_template(notification.message, context)
 
 
 def _send_slack_digest(notification, blocks):
@@ -120,10 +119,9 @@ def _send_slack_digest(notification, blocks):
 	blocks = [COMMENT_RE.sub("", b).strip() for b in blocks]
 
 	n = len(blocks)
-	# subject is an admin-authored Notification field (System Manager only); same trusted template surface.
-	header = frappe.render_template(
-		notification.subject or "", {"count": n, "days": INACTIVE_DAYS}
-	)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+	# subject is admin-authored (System Manager only); same trusted template surface.
+	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+	header = frappe.render_template(notification.subject or "", {"count": n, "days": INACTIVE_DAYS})
 
 	posts, current = [], None
 	for block in blocks:
