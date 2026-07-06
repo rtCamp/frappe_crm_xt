@@ -862,6 +862,22 @@
       "read_only": 1
     }
   ],
+  "CRM Dashboard": [
+    {
+      "fieldname": "charts",
+      "fieldtype": "Table",
+      "label": "Charts",
+      "options": "Dashboard Chart Link",
+      "insert_after": "layout"
+    },
+    {
+      "fieldname": "cards",
+      "fieldtype": "Table",
+      "label": "Cards",
+      "options": "Number Card Link",
+      "insert_after": "charts"
+    }
+  ],
   "Sales Stage": [
     {
       "fieldname": "custom_checklist",

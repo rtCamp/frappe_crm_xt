@@ -41,6 +41,12 @@ doc_events = {
 	"FCRM Note": {
 		"validate": "frappe_crm_xt.doc_events.fcrm_note.validate",
 	},
+	# Reconcile the CRM Dashboard's `charts`/`cards` child-table selections into
+	# its `layout` JSON so linked Desk charts/cards (incl. Report-backed) render
+	# on the CRM frontend dashboard. Delta-based: leaves plain layout edits alone.
+	"CRM Dashboard": {
+		"validate": "frappe_crm_xt.doc_events.crm_dashboard.validate",
+	},
 }
 
 
@@ -62,6 +68,9 @@ override_whitelisted_methods = {
 	# Built-in CRM charts are delegated unchanged to the upstream functions.
 	"crm.api.dashboard.get_dashboard": "frappe_crm_xt.api.dashboard.get_dashboard",
 	"crm.api.dashboard.get_chart": "frappe_crm_xt.api.dashboard.get_chart",
+	# Add Chart modal: append selectable Desk Charts/Cards (from the CRM Dashboard
+	# child tables) to upstream's built-in options.
+	"crm.api.dashboard.get_chart_options": "frappe_crm_xt.api.dashboard.get_chart_options",
 }
 
 

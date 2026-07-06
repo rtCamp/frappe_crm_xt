@@ -1,22 +1,16 @@
 """Dynamic CRM dashboard bridge.
 
-Overrides ``crm.api.dashboard.get_dashboard`` / ``get_chart`` (registered in
-hooks.py ``override_whitelisted_methods``) so the Frappe CRM frontend dashboard
-can render widgets sourced from native Frappe **Desk** artifacts:
+Overrides ``crm.api.dashboard.get_dashboard`` / ``get_chart`` /
+``get_chart_options`` (registered in hooks.py ``override_whitelisted_methods``)
+so the CRM frontend can keep using its native ``CRM Dashboard`` layout while also
+offering and resolving Desk artifacts when explicitly referenced by name:
 
-* **Dashboard Charts** (``Count`` / ``Sum`` / ``Average`` / ``Group By`` and
-  ``Report``-backed) and **Number Cards** (``Document Type`` / ``Report``),
-* grouped on a single Frappe **Dashboard** (default name ``"Frappe CRM
-  Dashboard"``, overridable via the ``crm_desk_dashboard`` hook).
+* ``deskchart::<Dashboard Chart Name>`` for Desk Dashboard Charts,
+* ``deskcard::<Number Card Name>`` for Desk Number Cards.
 
-Every chart/card on that Dashboard is auto-injected into the CRM
-``Manager Dashboard`` layout and its data is computed live and reshaped into the
-CRM frontend's chart-config shapes (``number_chart`` / ``axis_chart`` /
-``donut_chart``). Built-in CRM charts are delegated, unchanged, to the upstream
-``crm.api.dashboard`` functions.
-
-Nothing in ``apps/crm`` is modified, and no custom storage doctype is
-introduced — the Desk dashboard builder UI is the management surface.
+Built-in CRM charts are delegated unchanged to upstream
+``crm.api.dashboard`` functions. There is no runtime auto-injection from a Desk
+Dashboard; the ``CRM Dashboard`` layout is the single source of truth.
 """
 
 import frappe
@@ -30,7 +24,6 @@ from frappe.desk.query_report import run as run_query_report
 
 DESK_CHART_PREFIX = "deskchart::"
 DESK_CARD_PREFIX = "deskcard::"
-DEFAULT_SOURCE_DASHBOARD = "Frappe CRM Dashboard"
 
 
 # ─── whitelisted overrides ──────────────────────────────────────────────────
@@ -47,7 +40,6 @@ def get_dashboard(from_date: str | None = None, to_date: str | None = None, user
 	from_date, to_date, user = _normalize(from_date, to_date, user)
 
 	layout = _load_layout()
-	_inject_desk_widgets(layout)
 
 	for item in layout:
 		item["data"] = _resolve_chart_data(item.get("name"), item.get("type"), from_date, to_date, user)
@@ -71,6 +63,70 @@ def get_chart(
 	if data is None:
 		return {"error": _("Invalid chart name")}
 	return data
+
+
+@frappe.whitelist()
+@sales_user_only
+def get_chart_options():
+	"""Override of ``crm.api.dashboard.get_chart_options``.
+
+	Returns the built-in CRM options unchanged, plus selectable Desk Dashboard
+	Charts / Number Cards (including Report-backed ones) sourced from the
+	``CRM Dashboard`` child tables. Selecting one yields a ``deskchart::`` /
+	``deskcard::`` value that ``get_chart`` / ``get_dashboard`` resolve.
+	"""
+	options = crm_dashboard.get_chart_options()  # upstream built-ins (fresh dict)
+	for key, entries in _desk_chart_options().items():
+		options.setdefault(key, []).extend(entries)
+	return options
+
+
+def _desk_chart_options():
+	"""Selectable Desk widgets sourced from the CRM Dashboard child tables,
+	grouped by CRM chart type (``cards`` → number; ``charts`` → axis/donut).
+
+	Expected custom fields on ``CRM Dashboard``:
+	* ``charts`` (Table: ``Dashboard Chart Link``)
+	* ``cards`` (Table: ``Number Card Link``)
+	"""
+	if not frappe.db.exists("CRM Dashboard", "Manager Dashboard"):
+		frappe.parse_json(create_default_manager_dashboard())
+		frappe.db.commit()
+
+	dashboard = frappe.get_doc("CRM Dashboard", "Manager Dashboard")
+	out = {"number_chart": [], "axis_chart": [], "donut_chart": []}
+	seen = {"number_chart": set(), "axis_chart": set(), "donut_chart": set()}
+
+	for row in dashboard.get("cards") or []:
+		card_name = row.get("card")
+		if not card_name or not frappe.db.exists("Number Card", card_name):
+			continue
+		value = f"{DESK_CARD_PREFIX}{card_name}"
+		if value in seen["number_chart"]:
+			continue
+		label = frappe.db.get_value("Number Card", card_name, "label") or card_name
+		out["number_chart"].append({"label": label, "value": value})
+		seen["number_chart"].add(value)
+
+	for row in dashboard.get("charts") or []:
+		chart_name = row.get("chart")
+		if not chart_name:
+			continue
+		meta = frappe.db.get_value(
+			"Dashboard Chart", chart_name, ["chart_name", "chart_type", "type"], as_dict=True
+		)
+		if not meta or meta.chart_type == "Custom" or meta.type == "Heatmap":
+			continue
+
+		key = "donut_chart" if meta.type in ("Pie", "Donut") else "axis_chart"
+		value = f"{DESK_CHART_PREFIX}{chart_name}"
+		if value in seen[key]:
+			continue
+
+		out[key].append({"label": meta.chart_name or chart_name, "value": value})
+		seen[key].add(value)
+
+	return out
 
 
 # ─── layout assembly ────────────────────────────────────────────────────────
@@ -97,87 +153,6 @@ def _load_layout():
 		frappe.db.commit()
 		return layout
 	return frappe.parse_json(frappe.db.get_value("CRM Dashboard", "Manager Dashboard", "layout") or "[]")
-
-
-def _source_dashboard_name():
-	"""Name of the Desk Dashboard to surface (hook override → default → None)."""
-	hooked = frappe.get_hooks("crm_desk_dashboard")
-	name = hooked[-1] if hooked else DEFAULT_SOURCE_DASHBOARD
-	return name if name and frappe.db.exists("Dashboard", name) else None
-
-
-def _desk_widget_items():
-	"""Layout stubs (``name`` + CRM ``type``) for the source Dashboard's widgets.
-
-	Cards first, then charts — mirroring the Desk dashboard order. Heatmap and
-	Custom charts are skipped (no CRM renderer / no generic resolution). The
-	Dashboard membership is read directly (not permission-filtered) — data-level
-	permissions are enforced later when each widget is actually run.
-	"""
-	name = _source_dashboard_name()
-	if not name:
-		return []
-
-	dashboard = frappe.get_doc("Dashboard", name)
-	items = []
-
-	for link in dashboard.cards or []:
-		if link.card and frappe.db.exists("Number Card", link.card):
-			items.append({"name": DESK_CARD_PREFIX + link.card, "type": "number_chart"})
-
-	for link in dashboard.charts or []:
-		if not link.chart:
-			continue
-		meta = frappe.db.get_value("Dashboard Chart", link.chart, ["chart_type", "type"], as_dict=True)
-		if not meta or meta.chart_type == "Custom" or meta.type == "Heatmap":
-			continue
-		crm_type = "donut_chart" if meta.type in ("Pie", "Donut") else "axis_chart"
-		items.append(
-			{"name": DESK_CHART_PREFIX + link.chart, "type": crm_type, "full": link.get("width") == "Full"}
-		)
-
-	return items
-
-
-def _inject_desk_widgets(layout):
-	"""Append layout items for Desk widgets not already present (idempotent)."""
-	existing = {item.get("name") for item in layout}
-	widgets = _desk_widget_items()
-	if not widgets:
-		return
-
-	next_y = max(
-		(
-			item["layout"]["y"] + item["layout"]["h"]
-			for item in layout
-			if isinstance(item.get("layout"), dict)
-		),
-		default=0,
-	)
-	x = row_height = 0
-
-	for widget in widgets:
-		if widget["name"] in existing:
-			continue
-
-		if widget["type"] == "number_chart":
-			width, height = 4, 3
-		else:
-			width, height = (20 if widget.get("full") else 10), 7
-
-		if x + width > 20:
-			x, next_y, row_height = 0, next_y + row_height, 0
-
-		layout.append(
-			{
-				"name": widget["name"],
-				"type": widget["type"],
-				"layout": {"x": x, "y": next_y, "w": width, "h": height, "i": widget["name"]},
-			}
-		)
-		existing.add(widget["name"])
-		x += width
-		row_height = max(row_height, height)
 
 
 def _resolve_chart_data(name, widget_type, from_date, to_date, user):
