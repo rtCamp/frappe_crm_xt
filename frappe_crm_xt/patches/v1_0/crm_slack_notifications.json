@@ -1,7 +1,7 @@
 [
 	{
 		"name": "CRM Slack — CRM Deal Inactivity (7 days)",
-		"subject": "Deal inactive: {{ doc.title or doc.name }}",
+		"subject": "🔔 *{{ count }} deal{{ \"\" if count == 1 else \"s\" }} inactive for {{ days }}+ days*",
 		"document_type": "CRM Deal",
 		"channel": "Slack",
 		"event": "Custom",
@@ -10,7 +10,7 @@
 		"condition": null,
 		"filters": null,
 		"message_type": "Markdown",
-		"message": "{%- set deal_url = frappe.utils.get_url() + \"/crm/deals/\" + doc.name -%}\n⏰ *Deal inactive 7+ days* → *<{{ deal_url }}|{{ doc.title or doc.organization or doc.name }}>*\n• *Deal Owner:* {{ doc.deal_owner or \"—\" }}\n<!--\\n\\n────────\\n\\n-->"
+		"message": "{%- set deal_url = frappe.utils.get_url() + \"/crm/deals/\" + doc.name -%}\n• *Deal inactive 7+ days* → *<{{ deal_url }}|{{ doc.title or doc.organization or doc.name }}>*\n\t◦ *Deal Owner:* {{ doc.deal_owner or \"—\" }}\n<!--\\n\\n────────\\n\\n-->"
 	},
 	{
 		"name": "CRM Slack — CRM Deal Note Added",

@@ -117,7 +117,7 @@ def _send_slack_digest(notification, blocks):
 	blocks = [COMMENT_RE.sub("", b).strip() for b in blocks]
 
 	n = len(blocks)
-	header = f"🔔 *{n} deal{'' if n == 1 else 's'} inactive for {INACTIVE_DAYS}+ days*"
+	header = frappe.render_template(notification.subject or "", {"count": n, "days": INACTIVE_DAYS})
 
 	posts, current = [], None
 	for block in blocks:
