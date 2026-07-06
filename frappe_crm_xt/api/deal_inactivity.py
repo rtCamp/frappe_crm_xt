@@ -99,7 +99,10 @@ def _render_message(notification, deal):
 
 	context = get_context(deal)
 	context.update({"alert": notification, "comments": None})
-	return frappe.render_template(notification.message, context)
+	# message is an admin-authored Notification field (System Manager only), rendered as frappe's own Notification.send() does.
+	return frappe.render_template(
+		notification.message, context
+	)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 
 
 def _send_slack_digest(notification, blocks):
@@ -117,7 +120,10 @@ def _send_slack_digest(notification, blocks):
 	blocks = [COMMENT_RE.sub("", b).strip() for b in blocks]
 
 	n = len(blocks)
-	header = frappe.render_template(notification.subject or "", {"count": n, "days": INACTIVE_DAYS})
+	# subject is an admin-authored Notification field (System Manager only); same trusted template surface.
+	header = frappe.render_template(
+		notification.subject or "", {"count": n, "days": INACTIVE_DAYS}
+	)  # nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 
 	posts, current = [], None
 	for block in blocks:
@@ -171,19 +177,16 @@ def _latest_map(doctype, ref_field, date_field, deal_names, comment_type=None):
 	"""{deal_name: latest activity timestamp} for the given deals — one grouped query."""
 	if not deal_names:
 		return {}
-	params = {"rdt": "CRM Deal", "names": tuple(deal_names)}
-	ct_clause = ""
-	if comment_type:
-		ct_clause = "and comment_type = %(ct)s"
-		params["ct"] = comment_type
-	rows = frappe.db.sql(
-		f"""
-		select `{ref_field}` as ref, max(`{date_field}`) as ts
-		from `tab{doctype}`
-		where reference_doctype = %(rdt)s and `{ref_field}` in %(names)s {ct_clause}
-		group by `{ref_field}`
-		""",
-		params,
-		as_dict=True,
+	from frappe.query_builder.functions import Max
+
+	t = frappe.qb.DocType(doctype)
+	q = (
+		frappe.qb.from_(t)
+		.select(t[ref_field].as_("ref"), Max(t[date_field]).as_("ts"))
+		.where(t.reference_doctype == "CRM Deal")
+		.where(t[ref_field].isin(deal_names))
 	)
-	return {r.ref: r.ts for r in rows if r.ref}
+	if comment_type:
+		q = q.where(t.comment_type == comment_type)
+	q = q.groupby(t[ref_field])
+	return {r.ref: r.ts for r in q.run(as_dict=True) if r.ref}
