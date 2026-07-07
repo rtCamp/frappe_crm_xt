@@ -87,6 +87,20 @@ def _email_ts(email):
 	return get_datetime(email.date_and_time) if isinstance(email.date_and_time, str) else email.date_and_time
 
 
+def _set_if_newer(parent, fieldname, new_ts):
+	"""db_set `fieldname` only when `new_ts` advances the stored value.
+
+	on_update fires on status flips and re-links, and a deal can have several
+	threads, so an older thread must not rewind a stamp a newer reply already set.
+	"""
+	if not new_ts:
+		return
+	current = parent.get(fieldname)
+	if current and get_datetime(new_ts) <= get_datetime(current):
+		return
+	parent.db_set(fieldname, new_ts, update_modified=False)
+
+
 def backfill_parent_from_thread(parent, doc):
 	"""Backfill the parent's SLA fields from the full thread history.
 
@@ -121,11 +135,7 @@ def backfill_parent_from_thread(parent, doc):
 
 	if not parent.get("sla"):
 		if latest_sent and parent.meta.has_field("custom_last_responded_on"):
-			parent.db_set(
-				"custom_last_responded_on",
-				latest_sent.date_and_time,
-				update_modified=False,
-			)
+			_set_if_newer(parent, "custom_last_responded_on", latest_sent.date_and_time)
 		return
 
 	from frappe.utils import time_diff_in_seconds
@@ -211,11 +221,7 @@ def update_last_response_time(parent, gmail_thread, email):
 		return
 	if not parent.get("sla"):
 		if parent.meta.has_field("custom_last_responded_on"):
-			parent.db_set(
-				"custom_last_responded_on",
-				email.date_and_time,
-				update_modified=False,
-			)
+			_set_if_newer(parent, "custom_last_responded_on", email.date_and_time)
 		return
 
 	if parent.meta.has_field("first_responded_on") and not parent.get("first_responded_on"):

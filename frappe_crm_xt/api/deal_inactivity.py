@@ -16,23 +16,34 @@ COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)  # Markdown-style comments, 
 
 def notify_inactive_deals():
 	"""Scheduler entry point (daily). Gated by the Notification's `enabled` flag."""
-	if not frappe.db.get_value("Notification", NOTIFICATION, "enabled"):
+	if not frappe.db.exists("Notification", NOTIFICATION):
+		frappe.log_error(
+			title="Deal inactivity alert not configured",
+			message=f"Notification {NOTIFICATION!r} not found; deal-inactivity digest skipped.",
+		)
+		return
+
+	notification = frappe.get_doc("Notification", NOTIFICATION)
+	if not notification.enabled or not notification.slack_webhook_url:
 		return
 
 	# Only deals touched on target_day can have their gap cross exactly INACTIVE_DAYS today.
 	target_day = add_days(nowdate(), -INACTIVE_DAYS)
 	day = [target_day + " 00:00:00", target_day + " 23:59:59"]
 
+	deal_meta = frappe.get_meta("CRM Deal")
+	custom_date_fields = [
+		f for f in ("custom_last_incoming_email_time", "custom_last_responded_on") if deal_meta.has_field(f)
+	]
+	or_filters = {"modified": ["between", day], "last_responded_on": ["between", day]}
+	for f in custom_date_fields:
+		or_filters[f] = ["between", day]
+
 	candidates = set(
 		frappe.get_all(
 			"CRM Deal",
 			filters={"status": ["not in", CLOSED_STATUSES]},
-			or_filters={
-				"modified": ["between", day],
-				"custom_last_incoming_email_time": ["between", day],
-				"last_responded_on": ["between", day],
-				"custom_last_responded_on": ["between", day],
-			},
+			or_filters=or_filters,
 			pluck="name",
 		)
 	)
@@ -47,26 +58,19 @@ def notify_inactive_deals():
 	deals = frappe.get_all(
 		"CRM Deal",
 		filters={"name": ["in", names], "status": ["not in", CLOSED_STATUSES]},
-		fields=[
-			"name",
-			"modified",
-			"custom_last_incoming_email_time",
-			"last_responded_on",
-			"custom_last_responded_on",
-		],
+		fields=["name", "modified", "last_responded_on", *custom_date_fields],
 	)
 	notes = _latest_map("FCRM Note", "reference_docname", "modified", names)
 	tasks = _latest_map("CRM Task", "reference_docname", "modified", names)
 	comments = _latest_map("Comment", "reference_name", "creation", names, comment_type="Comment")
 
-	notification = frappe.get_doc("Notification", NOTIFICATION)
 	blocks = []
 	for d in deals:
 		stamps = [
 			d.modified,
-			d.custom_last_incoming_email_time,
 			d.last_responded_on,
-			d.custom_last_responded_on,
+			d.get("custom_last_incoming_email_time"),
+			d.get("custom_last_responded_on"),
 			notes.get(d.name),
 			tasks.get(d.name),
 			comments.get(d.name),
