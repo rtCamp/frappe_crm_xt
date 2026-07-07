@@ -27,8 +27,9 @@ class TestApiActivity(IntegrationTestCase):
 		result = get_activities(deal.name)
 
 		self.assertEqual(len(result), 5)
-		activities, calls, notes, tasks, attachments = result
-		self.assertIsInstance(list(activities), list)
+		# Each element of the tuple is a list the frontend iterates over.
+		for component in result:
+			self.assertIsInstance(component, list)
 
 	def test_get_latest_activity_returns_none_or_dict(self):
 		"""get_latest_activity returns None (or a dict) for a deal with no activity"""
