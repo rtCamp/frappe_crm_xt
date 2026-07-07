@@ -3,6 +3,7 @@
 
 from datetime import datetime, time
 
+import frappe
 from frappe.tests import UnitTestCase
 
 from frappe_crm_xt.api.event import (
@@ -11,10 +12,26 @@ from frappe_crm_xt.api.event import (
 	_get_interval_kwargs,
 	_get_trigger_window_duration,
 	_split_participant_emails,
+	get_doc_events,
+	search_emails,
 )
 
 
 class TestApiEventHelpers(UnitTestCase):
+	# ─── public entry points ───────────────────────────────────────────────────
+
+	def test_get_doc_events_returns_empty_for_unlinked_doc(self):
+		"""get_doc_events returns [] for a docname no Event references"""
+		out = get_doc_events(doctype="CRM Deal", docname=f"XT-NoDeal-{frappe.generate_hash(length=8)}")
+
+		self.assertEqual(out, [])
+
+	def test_search_emails_returns_no_rows_for_no_match(self):
+		"""search_emails returns no rows for a query that matches no contact"""
+		out = search_emails(txt=f"xt-nomatch-{frappe.generate_hash(length=8)}")
+
+		self.assertEqual(len(out), 0)
+
 	# ─── _split_participant_emails ─────────────────────────────────────────────
 
 	def test_split_participant_emails_none_or_empty(self):

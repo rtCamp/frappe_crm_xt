@@ -2,15 +2,12 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.tests import UnitTestCase
+from frappe.tests import IntegrationTestCase
 
 from frappe_crm_xt.doc_events.task import on_trash
 
 
-class TestTaskEvents(UnitTestCase):
-	def tearDown(self) -> None:
-		frappe.db.rollback()
-
+class TestTaskEvents(IntegrationTestCase):
 	def _make_task(self, title_suffix: str) -> str:
 		task = frappe.get_doc(
 			{"doctype": "CRM Task", "title": f"XT-Task-{title_suffix}-{frappe.generate_hash(length=6)}"}

@@ -2,15 +2,12 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.tests import UnitTestCase
+from frappe.tests import IntegrationTestCase
 
 from frappe_crm_xt.doc_events.deal import create_checklist, validate, validate_probability
 
 
-class TestDealEvents(UnitTestCase):
-	def tearDown(self) -> None:
-		frappe.db.rollback()
-
+class TestDealEvents(IntegrationTestCase):
 	def test_probability_within_bounds(self):
 		"""validate_probability accepts 0, 50 and 100"""
 		for value in (0, 50, 100):
@@ -52,17 +49,20 @@ class TestDealEvents(UnitTestCase):
 		# Use a status name guaranteed not to have a checklist
 		marker = f"XT-Deal-{frappe.generate_hash(length=8)}"
 		deal = frappe.get_doc({"doctype": "CRM Deal"}).insert(ignore_permissions=True)
-		try:
-			create_checklist(
-				frappe._dict(name=deal.name, deal_owner=None),
-				field="status",
-				value=marker,
-			)
-			tasks = frappe.get_all(
-				"CRM Task",
-				filters={"reference_doctype": "CRM Deal", "reference_docname": deal.name},
-				pluck="name",
-			)
-			self.assertEqual(tasks, [])
-		finally:
-			frappe.db.rollback()
+		create_checklist(
+			frappe._dict(name=deal.name, deal_owner=None),
+			field="status",
+			value=marker,
+		)
+		# Filter on the marker title so the app's own after_insert checklist task
+		# (created for the default deal status) doesn't make this non-deterministic.
+		tasks = frappe.get_all(
+			"CRM Task",
+			filters={
+				"reference_doctype": "CRM Deal",
+				"reference_docname": deal.name,
+				"title": f"Checklist for {marker}",
+			},
+			pluck="name",
+		)
+		self.assertEqual(tasks, [])

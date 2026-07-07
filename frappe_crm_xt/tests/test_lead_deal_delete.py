@@ -1,16 +1,24 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 
+import unittest
+
 import frappe
-from frappe.tests import UnitTestCase
+from frappe.tests import IntegrationTestCase
 
 from frappe_crm_xt.doc_events.lead_deal_delete import on_trash
 
+# on_trash touches the "Gmail Thread" doctype, which ships with the optional
+# frappe_gmail_thread app. That app is not a declared dependency (hooks.py only
+# requires "crm"), so skip these tests when it is not installed.
+_GMAIL_THREAD_INSTALLED = "frappe_gmail_thread" in frappe.get_installed_apps()
 
-class TestLeadDealDelete(UnitTestCase):
-	def tearDown(self) -> None:
-		frappe.db.rollback()
 
+@unittest.skipUnless(
+	_GMAIL_THREAD_INSTALLED,
+	"frappe_gmail_thread app (Gmail Thread doctype) is not installed",
+)
+class TestLeadDealDelete(IntegrationTestCase):
 	def test_on_trash_removes_contact_dynamic_link(self):
 		"""on_trash drops the Contact -> CRM Deal Dynamic Link row but keeps the Contact"""
 		token = frappe.generate_hash(length=8)

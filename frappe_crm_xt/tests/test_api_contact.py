@@ -2,7 +2,7 @@
 # For license information, please see license.txt
 
 import frappe
-from frappe.tests import UnitTestCase
+from frappe.tests import IntegrationTestCase
 
 from frappe_crm_xt.api.contact import (
 	_build_address_display,
@@ -12,10 +12,7 @@ from frappe_crm_xt.api.contact import (
 )
 
 
-class TestApiContact(UnitTestCase):
-	def tearDown(self) -> None:
-		frappe.db.rollback()
-
+class TestApiContact(IntegrationTestCase):
 	# ─── _build_address_display ────────────────────────────────────────────────
 
 	def test_address_display_for_none(self):

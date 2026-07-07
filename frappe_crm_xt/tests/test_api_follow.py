@@ -1,6 +1,7 @@
 # Copyright (c) 2025, rtCamp and contributors
 # For license information, please see license.txt
 
+import frappe
 from frappe.tests import UnitTestCase
 
 from frappe_crm_xt.api.follow import is_document_followed
@@ -9,9 +10,7 @@ from frappe_crm_xt.api.follow import is_document_followed
 class TestApiFollow(UnitTestCase):
 	def test_is_document_followed_returns_falsy_when_not_following(self):
 		"""is_document_followed returns a falsy value when there is no Document Follow row"""
-		result = is_document_followed(
-			"CRM Lead", f"XT-NoSuchLead-{__import__('frappe').generate_hash(length=8)}"
-		)
+		result = is_document_followed("CRM Lead", f"XT-NoSuchLead-{frappe.generate_hash(length=8)}")
 
 		self.assertFalse(result)
 

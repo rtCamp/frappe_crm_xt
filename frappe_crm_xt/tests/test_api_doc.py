@@ -4,15 +4,12 @@
 from unittest.mock import patch
 
 import frappe
-from frappe.tests import UnitTestCase
+from frappe.tests import IntegrationTestCase
 
 from frappe_crm_xt.api.doc import get_linked_docs_of_document
 
 
-class TestApiDoc(UnitTestCase):
-	def tearDown(self) -> None:
-		frappe.db.rollback()
-
+class TestApiDoc(IntegrationTestCase):
 	def test_unsupported_doctype_passes_rows_through(self):
 		"""For doctypes that aren't CRM Lead/Deal, rows are forwarded unchanged"""
 		upstream_rows = [

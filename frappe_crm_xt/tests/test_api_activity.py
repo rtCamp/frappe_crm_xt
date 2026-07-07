@@ -4,7 +4,7 @@
 from datetime import datetime
 
 import frappe
-from frappe.tests import UnitTestCase
+from frappe.tests import IntegrationTestCase
 
 from frappe_crm_xt.api.activity import (
 	_event_participant_emails,
@@ -12,12 +12,31 @@ from frappe_crm_xt.api.activity import (
 	_note_to_activity,
 	_resolve_reference_doctype,
 	_task_to_activity,
+	get_activities,
+	get_latest_activity,
 )
 
 
-class TestApiActivity(UnitTestCase):
-	def tearDown(self) -> None:
-		frappe.db.rollback()
+class TestApiActivity(IntegrationTestCase):
+	# ─── public entry points ───────────────────────────────────────────────────
+
+	def test_get_activities_returns_five_tuple(self):
+		"""get_activities returns the (activities, calls, notes, tasks, attachments) 5-tuple"""
+		deal = frappe.get_doc({"doctype": "CRM Deal"}).insert(ignore_permissions=True)
+
+		result = get_activities(deal.name)
+
+		self.assertEqual(len(result), 5)
+		activities, calls, notes, tasks, attachments = result
+		self.assertIsInstance(list(activities), list)
+
+	def test_get_latest_activity_returns_none_or_dict(self):
+		"""get_latest_activity returns None (or a dict) for a deal with no activity"""
+		deal = frappe.get_doc({"doctype": "CRM Deal"}).insert(ignore_permissions=True)
+
+		out = get_latest_activity(deal.name)
+
+		self.assertTrue(out is None or isinstance(out, dict))
 
 	# ─── _resolve_reference_doctype ────────────────────────────────────────────
 

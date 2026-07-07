@@ -7,14 +7,11 @@ from frappe_crm_xt.api.search import LINK_PAGE_LENGTH, get_search_results, searc
 
 
 class TestApiSearch(UnitTestCase):
-	def test_link_page_length_default(self):
-		"""The frappe_crm_xt default page length for search_link is 20"""
-		self.assertEqual(LINK_PAGE_LENGTH, 20)
+	def test_search_link_defaults_to_link_page_length(self):
+		"""search_link with page_length=None returns at most LINK_PAGE_LENGTH rows"""
+		rows = search_link(doctype="User", txt="", page_length=None)
 
-	def test_search_link_runs_without_page_length(self):
-		"""search_link returns without raising when page_length is unset (defaulting to LINK_PAGE_LENGTH)"""
-		# Just verify the call path; we don't depend on the result count
-		search_link(doctype="User", txt="", page_length=None)
+		self.assertLessEqual(len(rows), LINK_PAGE_LENGTH)
 
 	def test_search_link_runs_with_explicit_page_length(self):
 		"""search_link honours an explicit page_length"""
