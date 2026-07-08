@@ -1,0 +1,40 @@
+[
+	{
+		"name": "CRM Slack — CRM Deal Inactivity (7 days)",
+		"subject": "🔔 *{{ count }} deal{{ \"\" if count == 1 else \"s\" }} inactive for {{ days }}+ days*",
+		"document_type": "CRM Deal",
+		"channel": "Slack",
+		"event": "Custom",
+		"condition_type": "Python",
+		"condition": null,
+		"filters": null,
+		"message_type": "Markdown",
+		"message": "{%- set deal_url = frappe.utils.get_url() + \"/crm/deals/\" + doc.name -%}\n• *Deal inactive 7+ days* → *<{{ deal_url }}|{{ doc.title or doc.organization or doc.name }}>*\n\t◦ *Deal Owner:* {{ doc.deal_owner or \"—\" }}\n<!--\\n\\n────────\\n\\n-->"
+	},
+	{
+		"name": "CRM Slack — CRM Deal Note Added",
+		"subject": "New note on CRM Deal {{ doc.reference_docname }}",
+		"document_type": "FCRM Note",
+		"channel": "Slack",
+		"event": "New",
+		"method": null,
+		"condition_type": "Python",
+		"condition": "doc.reference_doctype == \"CRM Deal\"",
+		"filters": null,
+		"message_type": "Markdown",
+		"message": "{%- set deal = frappe.db.get_value(\"CRM Deal\", doc.reference_docname, [\"name\",\"title\",\"organization\",\"deal_value\",\"currency\",\"status\",\"sales_stage\",\"expected_closure_date\",\"deal_owner\"], as_dict=True) -%}\n{%- set deal_url = frappe.utils.get_url() + \"/crm/deals/\" + (doc.reference_docname or \"\") -%}\n{%- set deal_title = (deal and deal.title) or doc.reference_docname -%}\n📝 *Note added* → *<{{ deal_url }}|{{ deal_title }}>*\n{% if doc.title %}*{{ doc.title }}*\n{% endif %}{{ frappe.utils.strip_html(doc.content or \"\")[:500] }}\n_added by {{ doc.owner }}_\n{% if deal %}\n• *Title:* {{ deal.title or deal.name or \"—\" }}\n• *Organization:* {{ deal.organization or \"—\" }}\n• *Deal Value:* {% if deal.deal_value %}{{ frappe.utils.fmt_money(deal.deal_value, currency=deal.currency) }} {{ deal.currency or \"\" }}{% else %}—{% endif %}\n• *Status:* {{ deal.status or \"—\" }}{% if deal.status == \"Won\" %} 🏆{% elif deal.status == \"Lost\" %} 😢{% endif %}\n• *Sales Stage:* {{ deal.sales_stage or \"—\" }}\n• *Expected Closure:* {{ frappe.utils.format_date(deal.expected_closure_date) if deal.expected_closure_date else \"—\" }}\n• *Deal Owner:* {{ deal.deal_owner or \"—\" }}\n{%- endif %}"
+	},
+	{
+		"name": "CRM Slack — CRM Deal Updates",
+		"subject": "CRM Slack — CRM Deal Updates",
+		"document_type": "CRM Deal",
+		"channel": "Slack",
+		"event": "Save",
+		"method": "",
+		"condition_type": "Python",
+		"condition": "doc.has_value_changed and (doc.has_value_changed(\"title\") or doc.has_value_changed(\"organization\") or doc.has_value_changed(\"deal_value\") or doc.has_value_changed(\"status\") or doc.has_value_changed(\"sales_stage\") or doc.has_value_changed(\"deal_owner\"))",
+		"filters": null,
+		"message_type": "Markdown",
+		"message": "{%- set before = doc.get_doc_before_save() -%}\n{%- set deal_url = frappe.utils.get_url() + \"/crm/deals/\" + doc.name -%}\n{%- if not before -%}\n🆕 *New deal created* → *<{{ deal_url }}|{{ doc.title or doc.organization or doc.name }}>*\n• *Title:* {{ doc.title or doc.name or \"—\" }}\n• *Organization:* {{ doc.organization or \"—\" }}\n• *Deal Value:* {% if doc.deal_value %}{{ frappe.utils.fmt_money(doc.deal_value, currency=doc.currency) }} {{ doc.currency or \"\" }}{% else %}—{% endif %}\n• *Status:* {{ doc.status or \"—\" }}{% if doc.status == \"Won\" %} 🏆{% elif doc.status == \"Lost\" %} 😢{% endif %}\n• *Sales Stage:* {{ doc.sales_stage or \"—\" }}\n• *Expected Closure:* {{ frappe.utils.format_date(doc.expected_closure_date) if doc.expected_closure_date else \"—\" }}\n• *Deal Owner:* {{ doc.deal_owner or \"—\" }}\n{%- if doc.source %}\n• *Source:* {{ doc.source }}\n{%- endif %}\n{%- else -%}\n✏️ *Deal updated* → *<{{ deal_url }}|{{ doc.title or doc.organization or doc.name }}>*\n• *Title:* {% if doc.title != before.title %}~{{ before.title or before.name or \"—\" }}~ → {{ doc.title or doc.name or \"—\" }}{% else %}{{ doc.title or doc.name or \"—\" }}{% endif %}\n• *Organization:* {% if doc.organization != before.organization %}~{{ before.organization or \"—\" }}~ → {{ doc.organization or \"—\" }}{% else %}{{ doc.organization or \"—\" }}{% endif %}\n• *Deal Value:* {% if doc.deal_value != before.deal_value %}~{% if before.deal_value %}{{ frappe.utils.fmt_money(before.deal_value, currency=before.currency) }} {{ before.currency or \"\" }}{% else %}—{% endif %}~ → {% if doc.deal_value %}{{ frappe.utils.fmt_money(doc.deal_value, currency=doc.currency) }} {{ doc.currency or \"\" }}{% else %}—{% endif %}{% else %}{% if doc.deal_value %}{{ frappe.utils.fmt_money(doc.deal_value, currency=doc.currency) }} {{ doc.currency or \"\" }}{% else %}—{% endif %}{% endif %}\n• *Status:* {% if doc.status != before.status %}~{{ before.status or \"—\" }}~ → {{ doc.status or \"—\" }}{% else %}{{ doc.status or \"—\" }}{% endif %}{% if doc.status == \"Won\" %} 🏆{% elif doc.status == \"Lost\" %} 😢{% endif %}\n• *Sales Stage:* {% if doc.sales_stage != before.sales_stage %}~{{ before.sales_stage or \"—\" }}~ → {{ doc.sales_stage or \"—\" }}{% else %}{{ doc.sales_stage or \"—\" }}{% endif %}\n• *Expected Closure:* {% if doc.expected_closure_date != before.expected_closure_date %}~{{ frappe.utils.format_date(before.expected_closure_date) if before.expected_closure_date else \"—\" }}~ → {{ frappe.utils.format_date(doc.expected_closure_date) if doc.expected_closure_date else \"—\" }}{% else %}{{ frappe.utils.format_date(doc.expected_closure_date) if doc.expected_closure_date else \"—\" }}{% endif %}\n• *Deal Owner:* {% if doc.deal_owner != before.deal_owner %}~{{ before.deal_owner or \"—\" }}~ → {{ doc.deal_owner or \"—\" }}{% else %}{{ doc.deal_owner or \"—\" }}{% endif %}\n{%- if doc.source != before.source %}\n• *Source:* ~{{ before.source or \"—\" }}~ → {{ doc.source or \"—\" }}\n{%- endif %}\n{%- endif -%}"
+	}
+]
