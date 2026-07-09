@@ -6,6 +6,7 @@ Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features wit
 - **[Extensible sidebar](#extensible-sidebar-crm_sidebar-hook)** — any installed Frappe app can inject list views, routes, groups, or separators into the CRM sidebar via the `crm_sidebar` hook.
 - **[Events tab](#events-tab)** — calendar events tab injected into every Lead and Deal page; create, edit, duplicate, and delete Frappe `Event` records linked to the record.
 - **[Event notifications](#event-notifications)** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
+- **[Deal inactivity Slack digest](#deal-inactivity-slack-digest)** — daily scheduler posts a single Slack digest of CRM Deals with no activity (email, note, task, comment, or field edit) for exactly *N* days; entirely authored from a desk-editable `Notification`.
 - **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [`rtcamp/frappe_gmail_thread`](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
 - **[Address management (Deal only)](#address-management)** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel.
 - **[Follow button (eye icon)](#follow-button)** — injected into the Lead/Deal header icon row. Toggles `Document Follow` for the current user; filled eye = following, outline eye = not following.
@@ -50,6 +51,7 @@ Frappe CRM XT ships a **Vite-built Vue 3 IIFE bundle** (`crm_xt_app.js`) that is
 | `api/quotation.py` | Quotation auto-populate helper |
 | `api/search.py` | Global search backend (frappe_search or built-in fallback) |
 | `api/sidebar.py` | Reads `crm_sidebar` hooks from all installed apps and returns merged item list |
+| `api/deal_inactivity.py` | Daily "deal gone quiet" Slack digest scheduler |
 
 ---
 
@@ -100,6 +102,47 @@ Per-event rules can be configured in the `Event Notifications` child table on ea
 | `all_day_event_notifications` | Rules for all-day events |
 
 Each rule specifies: `type` (Notification / Email), `before` (number), `interval` (minutes / hours / days / weeks), and optionally `time` (for all-day events).
+
+---
+
+### Deal Inactivity Slack Digest
+
+A daily scheduler (`cron` 09:00, site time zone) posts a **single Slack digest** listing every CRM Deal that has had **no activity for exactly `INACTIVE_DAYS` (7) days** — one nudge per streak, on the day the gap crosses the threshold. Won/Lost deals are excluded.
+
+"Activity" is the most recent of **all** of the following — a note/task/comment does *not* bump `deal.modified`, so each is checked directly:
+
+| Source | Field / record |
+|--------|----------------|
+| Status / any deal field edit | `deal.modified` |
+| Incoming email | `deal.custom_last_incoming_email_time` |
+| Outgoing email / reply | `deal.last_responded_on` (Gmail-synced) and/or `deal.custom_last_responded_on` (migrated) |
+| Notes | `FCRM Note` |
+| Tasks | `CRM Task` |
+| Comments | `Comment` |
+
+Everything about the alert is authored from a desk-editable **Notification** (`CRM Slack — CRM Deal Inactivity (7 days)`) — no code change is needed to restyle or re-scope it:
+
+| Notification field | Role in the digest |
+|--------------------|--------------------|
+| `enabled` | Feature on/off switch (the scheduler no-ops when disabled) |
+| `subject` | Digest **header** — rendered with `{{ count }}` and `{{ days }}` |
+| `message` | Per-deal **block** — rendered with `{{ doc }}` (the deal) |
+| Condition / Filters | Extra per-deal scoping, honored before sending |
+| Slack Webhook URL | Target Slack channel |
+
+**Dividers via Markdown comments:** any `<!-- ... -->` comment in the message is stripped from the Slack output (like a Markdown comment); the inner text of the first comment becomes the **divider between deal blocks** (`\n` is interpreted as a newline). No comment → blocks are separated by a blank line.
+
+**Scales to large datasets:** instead of scanning every stale deal, the job fetches only deals *touched on the target day* across all activity sources, so cost stays flat even with 100k+ deals.
+
+The Notification is seeded (disabled) by the `create_crm_slack_notifications` patch, alongside two event-driven CRM → Slack notifications:
+
+| Notification | Trigger |
+|--------------|---------|
+| CRM Slack — CRM Deal Inactivity (7 days) | Daily scheduler (this feature) |
+| CRM Slack — CRM Deal Note Added | New `FCRM Note` on a Deal |
+| CRM Slack — CRM Deal Updates | Deal saved (title / status / value / owner / stage change) |
+
+All three ship **disabled**. Point each at a `Slack Webhook URL` (core Frappe integration) and toggle **Enabled** from the desk to activate — the webhook holds a secret, so it is never shipped in the app.
 
 ---
 
