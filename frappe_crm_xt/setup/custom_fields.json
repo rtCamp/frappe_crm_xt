@@ -626,6 +626,12 @@
       "label": "Last Response By",
       "insert_after": "custom_last_incoming_email_time",
       "read_only": 1
+    },
+    {
+      "fieldname":"custom_drive_folder_link",
+      "fieldtype":"Data",
+      "label":"Drive Folder Link",
+      "insert_after":"custom_account_manager"
     }
   ],
   "CRM Organization": [
