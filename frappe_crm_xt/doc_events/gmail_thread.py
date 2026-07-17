@@ -134,8 +134,8 @@ def backfill_parent_from_thread(parent, doc):
 		)
 
 	if not parent.get("sla"):
-		if latest_sent and parent.meta.has_field("custom_last_responded_on"):
-			_set_if_newer(parent, "custom_last_responded_on", latest_sent.date_and_time)
+		if latest_sent and parent.meta.has_field("last_responded_on"):
+			_set_if_newer(parent, "last_responded_on", latest_sent.date_and_time)
 		return
 
 	from frappe.utils import time_diff_in_seconds
@@ -213,15 +213,15 @@ def update_last_response_time(parent, gmail_thread, email):
 	fills the rest on save.
 
 	Gated on the parent having an SLA attached — when no SLA is configured we
-	record only rtcamp's own `custom_last_responded_on` and leave FCRM's default
+	record only rtcamp's own `last_responded_on` and leave FCRM's default
 	SLA fields untouched, skipping all other SLA-related writes (rolling_responses
 	etc.) for safety.
 	"""
 	if not parent.meta.has_field("last_response_time"):
 		return
 	if not parent.get("sla"):
-		if parent.meta.has_field("custom_last_responded_on"):
-			_set_if_newer(parent, "custom_last_responded_on", email.date_and_time)
+		if parent.meta.has_field("last_responded_on"):
+			_set_if_newer(parent, "last_responded_on", email.date_and_time)
 		return
 
 	if parent.meta.has_field("first_responded_on") and not parent.get("first_responded_on"):
