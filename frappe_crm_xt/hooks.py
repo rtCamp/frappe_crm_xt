@@ -78,7 +78,7 @@ scheduler_events = {
 	"daily": ["frappe_crm_xt.api.event.trigger_daily_event_notifications"],
 	"weekly": ["frappe_crm_xt.api.event.trigger_weekly_event_notifications"],
 	"cron": {
-		"0 9 * * *": ["frappe_crm_xt.api.deal_inactivity.notify_inactive_deals"],
+		"0 11 * * *": ["frappe_crm_xt.tasks.deal_inactivity.notify_inactive_deals"],
 	},
 }
 

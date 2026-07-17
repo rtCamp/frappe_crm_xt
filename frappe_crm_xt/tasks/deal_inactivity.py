@@ -1,4 +1,10 @@
-"""Daily Slack digest nudging CRM Deals with no activity for exactly INACTIVE_DAYS."""
+"""Daily Slack digest nudging CRM Deals with no activity for exactly INACTIVE_DAYS.
+
+For every deal that is flagged, a follow-up CRM Task is created for the deal
+owner. If such a task already exists (matched by title + deal) the deal is
+skipped entirely — no duplicate task and no repeat Slack message — so the
+create-task-counts-as-activity cycle cannot loop.
+"""
 
 import json
 import re
@@ -12,6 +18,11 @@ CLOSED_STATUSES = ("Won", "Lost")
 SLACK_TEXT_LIMIT = 38000
 BLOCK_SEPARATOR = "\n\n"
 COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)  # Markdown-style comments, stripped from output
+
+# Follow-up task raised for the deal owner. The title is stable so the same deal
+# is never nudged twice — see `follow_up_task_exists`.
+FOLLOW_UP_TASK_TITLE = "Follow up on inactive deal"
+FOLLOW_UP_DUE_DAYS = 2
 
 
 def notify_inactive_deals():
@@ -52,7 +63,7 @@ def notify_inactive_deals():
 	candidates |= _deals_touched_on("Comment", "reference_name", "creation", day, comment_type="Comment")
 
 	if not candidates:
-		return {"candidates": 0, "deals_notified": 0, "messages": 0}
+		return {"candidates": 0, "deals_notified": 0, "messages": 0, "tasks_created": 0}
 
 	names = list(candidates)
 	deals = frappe.get_all(
@@ -65,6 +76,7 @@ def notify_inactive_deals():
 	comments = _latest_map("Comment", "reference_name", "creation", names, comment_type="Comment")
 
 	blocks = []
+	tasks_created = 0
 	for d in deals:
 		stamps = [
 			d.modified,
@@ -83,6 +95,13 @@ def notify_inactive_deals():
 			deal.last_activity_on = last  # transient, surfaced in the message
 			if not _passes_notification_condition(notification, deal):
 				continue
+			# Already nudged: a follow-up task exists for this deal. Skip so we
+			# don't re-notify or create a duplicate task (avoids the loop where
+			# creating a task counts as fresh activity).
+			if follow_up_task_exists(deal.name):
+				continue
+			_create_follow_up_task(deal, last)
+			tasks_created += 1
 			blocks.append(_render_message(notification, deal))
 		except Exception:
 			frappe.log_error(
@@ -91,10 +110,51 @@ def notify_inactive_deals():
 			)
 
 	if not blocks:
-		return {"candidates": len(deals), "deals_notified": 0, "messages": 0}
+		return {"candidates": len(deals), "deals_notified": 0, "messages": 0, "tasks_created": 0}
 
 	messages = _send_slack_digest(notification, blocks)
-	return {"candidates": len(deals), "deals_notified": len(blocks), "messages": messages}
+	return {
+		"candidates": len(deals),
+		"deals_notified": len(blocks),
+		"messages": messages,
+		"tasks_created": tasks_created,
+	}
+
+
+def follow_up_task_exists(deal_name):
+	"""Return True if a follow-up CRM Task already exists for this deal.
+
+	Matched by the standard follow-up title + the deal reference, so a deal that
+	has already been nudged is not notified (or given another task) again.
+	"""
+	return bool(
+		frappe.db.exists(
+			"CRM Task",
+			{
+				"reference_doctype": "CRM Deal",
+				"reference_docname": deal_name,
+				"title": FOLLOW_UP_TASK_TITLE,
+			},
+		)
+	)
+
+
+def _create_follow_up_task(deal, last_activity):
+	"""Raise a follow-up CRM Task for the deal owner on an inactive deal."""
+	task = frappe.new_doc("CRM Task")
+	task.title = FOLLOW_UP_TASK_TITLE
+	task.status = "Todo"
+	task.priority = "High"
+	task.assigned_to = deal.deal_owner
+	task.due_date = add_days(nowdate(), FOLLOW_UP_DUE_DAYS)
+	task.reference_doctype = "CRM Deal"
+	task.reference_docname = deal.name
+	task.description = (
+		f"This deal has had no activity for {INACTIVE_DAYS} days "
+		f"(last activity on {get_datetime(last_activity).date()}). Please follow up."
+	)
+	task.insert(ignore_permissions=True)
+	return task.name
 
 
 def _render_message(notification, deal):

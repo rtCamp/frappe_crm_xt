@@ -51,7 +51,7 @@ Frappe CRM XT ships a **Vite-built Vue 3 IIFE bundle** (`crm_xt_app.js`) that is
 | `api/quotation.py` | Quotation auto-populate helper |
 | `api/search.py` | Global search backend (frappe_search or built-in fallback) |
 | `api/sidebar.py` | Reads `crm_sidebar` hooks from all installed apps and returns merged item list |
-| `api/deal_inactivity.py` | Daily "deal gone quiet" Slack digest scheduler |
+| `tasks/deal_inactivity.py` | Daily "deal gone quiet" Slack digest + follow-up task scheduler |
 
 ---
 
