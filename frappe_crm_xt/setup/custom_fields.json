@@ -382,9 +382,9 @@
       "read_only": 1
     },
     {
-      "fieldname": "custom_last_response_by",
+      "fieldname": "custom_last_responded_on",
       "fieldtype": "Datetime",
-      "label": "Last Response By",
+      "label": "Last Responded On",
       "insert_after": "custom_last_incoming_email_time",
       "read_only": 1
     },
