@@ -2,9 +2,10 @@
 Three Notifications drive CRM → Slack alerts:
 
   * "CRM Slack — CRM Deal Inactivity (7 days)"  (event: Custom, CRM Deal)
-        Sent by frappe_crm_xt.api.deal_inactivity.notify_inactive_deals (daily
-        cron). Its `enabled` flag is that feature's on/off switch, and the cron
-        honors its Condition/Filters and renders its Message when sending.
+        Drives frappe_crm_xt.tasks.deal_inactivity.notify_inactive_deals (daily
+        cron), which creates a follow-up CRM Task on each inactive deal and posts
+        a Slack digest. Its `enabled` flag is that feature's on/off switch, and the
+        cron honors its Condition/Filters and renders its Message when sending.
   * "CRM Slack — CRM Deal Note Added"           (event: New,  FCRM Note)
   * "CRM Slack — CRM Deal Updates"              (event: Save, CRM Deal)
         Fired automatically by Frappe's document-event machinery on save/insert.
