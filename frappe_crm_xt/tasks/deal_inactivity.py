@@ -33,7 +33,7 @@ def notify_inactive_deals():
 
 	deal_meta = frappe.get_meta("CRM Deal")
 	custom_date_fields = [
-		f for f in ("custom_last_incoming_email_time", "custom_last_responded_on") if deal_meta.has_field(f)
+		f for f in ("custom_last_incoming_email_time", "last_responded_on") if deal_meta.has_field(f)
 	]
 	or_filters = {"modified": ["between", day], "last_responded_on": ["between", day]}
 	for f in custom_date_fields:
@@ -70,7 +70,7 @@ def notify_inactive_deals():
 			d.modified,
 			d.last_responded_on,
 			d.get("custom_last_incoming_email_time"),
-			d.get("custom_last_responded_on"),
+			d.get("last_responded_on"),
 			notes.get(d.name),
 			tasks.get(d.name),
 			comments.get(d.name),
