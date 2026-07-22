@@ -395,9 +395,7 @@
       "label": "Incoming-Email SLA Due",
       "insert_after": "custom_last_response_by",
       "hidden": 1,
-      "read_only": 1,
-      "no_copy": 1,
-      "description": "When the unanswered-incoming-email SLA falls due = incoming time advanced by the configured working days (holiday-aware). A native 'Minutes After' Notification on this field fires the Slack alert; blank when there's nothing pending. Maintained by the Gmail-thread sync."
+      "read_only": 1
     },
     {
       "fieldname": "custom_stage_change_log",

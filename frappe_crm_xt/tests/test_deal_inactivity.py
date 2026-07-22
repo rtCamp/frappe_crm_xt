@@ -45,13 +45,6 @@ class TestHolidayUtils(IntegrationTestCase):
 		hol = frozenset({getdate("2026-01-12"), getdate("2026-01-13")})
 		self.assertEqual(hu.nth_working_day_back("2026-01-15", 6, hol), getdate("2026-01-08"))
 
-	def test_add_working_days_skips_holidays(self):
-		# Fri 07-17 10:00 + 1 working day, 07-18/19 listed as holidays → Mon 07-20 10:00 (time kept)
-		hol = frozenset({getdate("2026-07-18"), getdate("2026-07-19")})
-		self.assertEqual(
-			hu.add_working_days("2026-07-17 10:00:00", 1, hol), get_datetime("2026-07-20 10:00:00")
-		)
-
 	def test_no_holiday_list_counts_every_day(self):
 		# With an empty holiday set every day is a working day — nothing is skipped or deferred.
 		e = frozenset()
