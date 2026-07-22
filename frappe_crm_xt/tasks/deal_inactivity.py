@@ -9,6 +9,8 @@ import re
 import frappe
 from frappe.utils import add_days, get_datetime, getdate, nowdate
 
+from frappe_crm_xt.utils import holiday as hu
+
 SETTINGS = "CRM XT Settings"
 
 # Defaults for blank CRM XT Settings fields.
@@ -16,10 +18,6 @@ DEFAULT_INACTIVE_DAYS = 7  # working days
 DEFAULT_CLOSED_STATUSES = ("Won", "Lost")
 DEFAULT_TASK_TITLE = "Follow up on inactive deal"
 DEFAULT_TASK_PRIORITY = "High"
-
-# Candidate window = last activity in [threshold, threshold + buffer] calendar days.
-# Bounds the query; deals idle beyond the band aren't chased. Overridable in settings.
-DEFAULT_WINDOW_BUFFER_DAYS = 4
 
 # Slack message size cap + the message template's comment-divider syntax.
 SLACK_TEXT_LIMIT = 38000
@@ -48,18 +46,39 @@ def notify_inactive_deals(as_of=None):
 	followup_enabled = bool(settings.get("deal_inactivity_followup_enabled"))
 	use_company_hl = bool(settings.get("deal_inactivity_use_company_holiday_list"))
 	fixed_hl = settings.get("deal_inactivity_holiday_list")
+	weekends = bool(settings.get("deal_inactivity_weekend_holidays"))
 	title_tmpl = settings.get("deal_inactivity_task_title")
 	body_tmpl = settings.get("deal_inactivity_task_body")
 	priority = settings.get("deal_inactivity_task_priority") or DEFAULT_TASK_PRIORITY
-	buffer_days = _cfg_window_buffer(settings)
 
 	today = as_of or nowdate()
 
-	# Bounded window: last activity in [threshold, threshold + buffer_days] calendar days.
-	# The exact working-day check runs per deal below.
+	# Per-run caches (avoid N+1): company → holiday_list, holiday_list → date set.
+	company_hl, holiday_sets = {}, {}
+
+	# EXACT candidate window — no fixed buffer. A deal crosses `threshold` working days on
+	# a single calendar date; holidays only shift where that date sits. Upper bound is
+	# today-threshold (fewest non-working days); lower bound is the earliest such date
+	# across every holiday calendar in use (its (threshold+1)-th working day counting
+	# back). Per deal we then require the count to be EXACTLY `threshold`, so consecutive
+	# working-day runs tile with no gap or overlap and a deal is caught once.
 	high_day = add_days(today, -threshold)
-	low_day = add_days(today, -(threshold + buffer_days))
-	day = [low_day + " 00:00:00", high_day + " 23:59:59"]
+	prefetch_start = add_days(today, -(threshold + hu.MAX_LOOKBACK))
+	cal_lists = set()
+	if fixed_hl:
+		cal_lists.add(fixed_hl)
+	if use_company_hl:
+		cal_lists.update(hl for hl in frappe.get_all("Company", pluck="default_holiday_list") if hl)
+	low_date = getdate(high_day)  # no non-working days → single-day window
+	# Include the no-list calendar ({None}) so deals that resolve to no list are covered
+	# too (weekend-aware when the fallback is on).
+	for hl_name in {None} | cal_lists:
+		hs = hu.holiday_dates(hl_name, prefetch_start, today, holiday_sets) if hl_name else frozenset()
+		# crossing-window low = the (threshold+1)-th working day back on that calendar
+		cal_low = hu.nth_working_day_back(today, threshold + 1, hs, weekends=weekends)
+		if cal_low < low_date:
+			low_date = cal_low
+	day = [f"{low_date} 00:00:00", f"{getdate(high_day)} 23:59:59"]
 
 	deal_meta = frappe.get_meta("CRM Deal")
 	# Deal-level activity date fields that exist in this deployment (all guarded).
@@ -99,21 +118,18 @@ def notify_inactive_deals(as_of=None):
 	tasks = _latest_map("CRM Task", "reference_docname", "modified", names)
 	comments = _latest_map("Comment", "reference_name", "creation", names, comment_type="Comment")
 
-	# Per-run caches (avoid N+1): company → holiday_list, holiday_list → date set.
-	company_hl, holiday_sets = {}, {}
-
 	blocks = []
 	for d in deals:
 		stamps = [d.modified, notes.get(d.name), tasks.get(d.name), comments.get(d.name)]
 		stamps += [d.get(f) for f in date_fields]
 		last = max(get_datetime(s) for s in stamps if s)
 
-		holiday_list = _resolve_holiday_list(d, use_company_hl, fixed_hl, company_hl)
-		holidays = _holiday_dates(holiday_list, low_day, today, holiday_sets)
-		if _is_non_working_day(today, holidays):
-			continue  # skip on the deal's own holiday; caught next working day
-		if not _reached_working_days(last, today, holidays, threshold):
-			continue
+		holiday_list = hu.resolve_holiday_list(d, use_company_hl, fixed_hl, company_hl)
+		holidays = hu.holiday_dates(holiday_list, prefetch_start, today, holiday_sets)
+		if hu.is_non_working_day(today, holidays, weekends):
+			continue  # not on the deal's own holiday — its crossing lands on a working day
+		if hu.working_days_between(last, today, holidays, stop_at=threshold, weekends=weekends) != threshold:
+			continue  # only on the exact day the streak reaches `threshold` working days
 		try:
 			deal = frappe.get_doc("CRM Deal", d.name)
 			deal.last_activity_on = last  # transient, surfaced in the message
@@ -219,18 +235,6 @@ def _cfg_inactive_days(settings):
 	return days if days > 0 else DEFAULT_INACTIVE_DAYS
 
 
-def _cfg_window_buffer(settings):
-	"""Catch-up buffer; honors an explicit 0, falls back to the default only when blank."""
-	v = settings.get("deal_inactivity_window_buffer_days")
-	if v in (None, ""):
-		return DEFAULT_WINDOW_BUFFER_DAYS
-	try:
-		v = int(v)
-	except (TypeError, ValueError):
-		return DEFAULT_WINDOW_BUFFER_DAYS
-	return v if v >= 0 else DEFAULT_WINDOW_BUFFER_DAYS
-
-
 # ─── follow-up task (plain to-do, deduped by title) ─────────────────────────────
 
 
@@ -276,57 +280,6 @@ def _render_task_field(template, deal):
 	# admin-authored via CRM XT Settings (System Manager); trusted surface.
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 	return frappe.render_template(template, get_context(deal))
-
-
-# ─── working-day helpers (non-working = in the resolved Holiday List) ───────────
-
-
-def _reached_working_days(last_dt, today, holidays, threshold):
-	"""Whether ≥ `threshold` working days fall in (last_dt, today]. Empty `holidays` set →
-	every day counts."""
-	if threshold <= 0:
-		return True
-	end = getdate(today)
-	day = add_days(getdate(last_dt), 1)
-	count = 0
-	while getdate(day) <= end:
-		if getdate(day) not in holidays:
-			count += 1
-			if count >= threshold:
-				return True
-		day = add_days(day, 1)
-	return False
-
-
-def _resolve_holiday_list(deal, use_company_hl, fixed_hl, company_hl):
-	"""Deal's Company default (if enabled) → fixed field → None. `company_hl` memoizes lookups."""
-	if use_company_hl:
-		company = deal.get("company")
-		if company:
-			if company not in company_hl:
-				company_hl[company] = frappe.db.get_value("Company", company, "default_holiday_list")
-			if company_hl[company]:
-				return company_hl[company]
-	return fixed_hl or None
-
-
-def _holiday_dates(holiday_list, start, end, cache):
-	"""Holiday dates in [start, end] as a frozenset — one query per list per run (cached)."""
-	if not holiday_list:
-		return frozenset()
-	if holiday_list not in cache:
-		rows = frappe.get_all(
-			"Holiday",
-			filters={"parent": holiday_list, "is_half_day": 0, "holiday_date": ["between", [start, end]]},
-			pluck="holiday_date",
-		)
-		cache[holiday_list] = frozenset(getdate(d) for d in rows)
-	return cache[holiday_list]
-
-
-def _is_non_working_day(date, holidays):
-	"""Whether `date` is in the prefetched holiday set."""
-	return getdate(date) in holidays
 
 
 def _deals_touched_on(doctype, ref_field, date_field, day, comment_type=None):

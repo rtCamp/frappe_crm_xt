@@ -5,9 +5,8 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-# Sanity bounds (not business limits) — guard against typos like 5000.
+# Sanity bound (not a business limit) — guard against typos like 5000.
 MAX_INACTIVITY_DAYS = 365
-MAX_BUFFER_DAYS = 60
 
 
 class CRMXTSettings(Document):
@@ -27,7 +26,10 @@ class CRMXTSettings(Document):
 		deal_inactivity_task_priority: DF.Literal["Low", "Medium", "High"]
 		deal_inactivity_task_title: DF.Data | None
 		deal_inactivity_use_company_holiday_list: DF.Check
-		deal_inactivity_window_buffer_days: DF.Int
+		deal_inactivity_weekend_holidays: DF.Check
+		incoming_alert_enabled: DF.Check
+		incoming_alert_unit: DF.Literal["Working Days", "Hours"]
+		incoming_alert_working_days: DF.Int
 	# end: auto-generated types
 
 	def validate(self):
@@ -39,5 +41,3 @@ class CRMXTSettings(Document):
 					"Inactivity Threshold (Working Days) can be at most {0} (leave blank for the default of 7)."
 				).format(MAX_INACTIVITY_DAYS)
 			)
-		if (self.deal_inactivity_window_buffer_days or 0) > MAX_BUFFER_DAYS:
-			frappe.throw(_("Catch-up Buffer (Days) can be at most {0}.").format(MAX_BUFFER_DAYS))

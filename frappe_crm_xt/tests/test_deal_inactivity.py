@@ -3,9 +3,10 @@
 
 import frappe
 from frappe.tests import IntegrationTestCase
-from frappe.utils import getdate
+from frappe.utils import get_datetime, getdate
 
 from frappe_crm_xt.tasks import deal_inactivity as di
+from frappe_crm_xt.utils import holiday as hu
 
 NOTIF = "CRM Slack — CRM Deal Inactivity (7 days)"
 HL = "_Test DI Holidays"
@@ -13,35 +14,79 @@ HL = "_Test DI Holidays"
 HOLIDAYS = ("2026-07-17", "2026-07-18", "2026-07-19")
 
 
-class TestWorkingDayHelpers(IntegrationTestCase):
-	"""Pure working-day / config helpers — no DB needed."""
+class TestHolidayUtils(IntegrationTestCase):
+	"""Pure working-day helpers (frappe_crm_xt.utils.holiday) — no DB needed."""
 
-	def test_calendar_days_when_no_holidays(self):
-		empty = frozenset()
-		self.assertTrue(di._reached_working_days("2026-01-01", "2026-01-08", empty, 7))  # 7 days after
-		self.assertFalse(di._reached_working_days("2026-01-01", "2026-01-07", empty, 7))  # only 6
+	def test_working_days_count(self):
+		e = frozenset()
+		self.assertEqual(hu.working_days_between("2026-01-01", "2026-01-08", e), 7)  # 7 days after
+		self.assertEqual(hu.working_days_between("2026-01-01", "2026-01-01", e), 0)  # same day
 
-	def test_holidays_do_not_count(self):
+	def test_working_days_excludes_holidays(self):
 		hol = frozenset({getdate("2026-01-03"), getdate("2026-01-04")})
-		# 01-01 → 01-08 is 7 days after, minus 2 holidays = 5 working days
-		self.assertFalse(di._reached_working_days("2026-01-01", "2026-01-08", hol, 7))
-		# two more calendar days reach 7 working days
-		self.assertTrue(di._reached_working_days("2026-01-01", "2026-01-10", hol, 7))
+		self.assertEqual(hu.working_days_between("2026-01-01", "2026-01-08", hol), 5)  # 7 - 2
 
-	def test_counting_excludes_last_includes_today(self):
-		empty = frozenset()
-		self.assertFalse(di._reached_working_days("2026-01-01", "2026-01-01", empty, 1))  # 0 days after
-		self.assertTrue(di._reached_working_days("2026-01-01", "2026-01-02", empty, 1))
-
-	def test_threshold_zero_or_negative(self):
-		self.assertTrue(di._reached_working_days("2026-01-01", "2026-01-01", frozenset(), 0))
-		self.assertTrue(di._reached_working_days("2026-01-01", "2026-01-01", frozenset(), -3))
+	def test_working_days_early_exit(self):
+		# stops counting once it exceeds stop_at (cheap threshold tests)
+		self.assertEqual(hu.working_days_between("2026-01-01", "2026-01-31", frozenset(), stop_at=3), 4)
 
 	def test_is_non_working_day(self):
 		hol = frozenset({getdate("2026-01-03")})
-		self.assertTrue(di._is_non_working_day("2026-01-03", hol))
-		self.assertFalse(di._is_non_working_day("2026-01-02", hol))
-		self.assertFalse(di._is_non_working_day("2026-01-02", frozenset()))
+		self.assertTrue(hu.is_non_working_day("2026-01-03", hol))
+		self.assertFalse(hu.is_non_working_day("2026-01-02", hol))
+		self.assertFalse(hu.is_non_working_day("2026-01-02", frozenset()))
+
+	def test_nth_working_day_back_no_holidays(self):
+		# 6th working day back from 01-15 with no holidays == 01-10
+		self.assertEqual(hu.nth_working_day_back("2026-01-15", 6, frozenset()), getdate("2026-01-10"))
+
+	def test_nth_working_day_back_pushed_by_holidays(self):
+		# holidays 01-12/01-13: working days back 15,14,11,10,09,08 → 6th = 01-08
+		hol = frozenset({getdate("2026-01-12"), getdate("2026-01-13")})
+		self.assertEqual(hu.nth_working_day_back("2026-01-15", 6, hol), getdate("2026-01-08"))
+
+	def test_add_working_days_skips_holidays(self):
+		# Fri 07-17 10:00 + 1 working day, weekend holidays → Mon 07-20 10:00 (time preserved)
+		hol = frozenset({getdate("2026-07-18"), getdate("2026-07-19")})
+		self.assertEqual(
+			hu.add_working_days("2026-07-17 10:00:00", 1, hol), get_datetime("2026-07-20 10:00:00")
+		)
+
+	def test_weekends_flag_no_holiday_list(self):
+		# weekends=True treats Sat/Sun as non-working with an empty holiday set
+		e = frozenset()
+		self.assertTrue(hu.is_non_working_day("2026-07-18", e, weekends=True))  # Sat
+		self.assertFalse(hu.is_non_working_day("2026-07-18", e, weekends=False))
+		# Wed→Wed spans one weekend: 7 calendar - 2 weekend = 5 working
+		self.assertEqual(hu.working_days_between("2026-07-15", "2026-07-22", e, weekends=True), 5)
+		# Fri + 1 working day → Mon (skips the weekend), time preserved
+		self.assertEqual(
+			hu.add_working_days("2026-07-17 09:00:00", 1, e, weekends=True),
+			get_datetime("2026-07-20 09:00:00"),
+		)
+		# nth_working_day_back also honors weekends
+		self.assertEqual(hu.nth_working_day_back("2026-07-20", 1, e, weekends=True), getdate("2026-07-20"))
+		self.assertEqual(hu.nth_working_day_back("2026-07-19", 1, e, weekends=True), getdate("2026-07-17"))
+
+	def test_add_hours_deferred(self):
+		hol = frozenset({getdate("2026-07-18"), getdate("2026-07-19")})
+		# lands on a working day → returned as-is
+		self.assertEqual(
+			hu.add_hours_deferred("2026-07-20 10:00:00", 24, hol), get_datetime("2026-07-21 10:00:00")
+		)
+		# Fri 10:00 + 24h = Sat (holiday) → deferred to Mon, time preserved
+		self.assertEqual(
+			hu.add_hours_deferred("2026-07-17 10:00:00", 24, hol), get_datetime("2026-07-20 10:00:00")
+		)
+		# +48h = Sun (holiday) → still Mon
+		self.assertEqual(
+			hu.add_hours_deferred("2026-07-17 10:00:00", 48, hol), get_datetime("2026-07-20 10:00:00")
+		)
+		# weekends flag defers with no holiday list
+		self.assertEqual(
+			hu.add_hours_deferred("2026-07-17 09:00:00", 24, frozenset(), weekends=True),
+			get_datetime("2026-07-20 09:00:00"),
+		)
 
 	def test_cfg_inactive_days(self):
 		self.assertEqual(di._cfg_inactive_days({}), di.DEFAULT_INACTIVE_DAYS)
@@ -49,19 +94,9 @@ class TestWorkingDayHelpers(IntegrationTestCase):
 		self.assertEqual(di._cfg_inactive_days({"deal_inactivity_days": 0}), di.DEFAULT_INACTIVE_DAYS)
 		self.assertEqual(di._cfg_inactive_days({"deal_inactivity_days": "x"}), di.DEFAULT_INACTIVE_DAYS)
 
-	def test_cfg_window_buffer(self):
-		self.assertEqual(di._cfg_window_buffer({}), di.DEFAULT_WINDOW_BUFFER_DAYS)  # blank → default
-		self.assertEqual(
-			di._cfg_window_buffer({"deal_inactivity_window_buffer_days": 0}), 0
-		)  # explicit 0 honored
-		self.assertEqual(di._cfg_window_buffer({"deal_inactivity_window_buffer_days": 9}), 9)
-		self.assertEqual(
-			di._cfg_window_buffer({"deal_inactivity_window_buffer_days": -2}), di.DEFAULT_WINDOW_BUFFER_DAYS
-		)
-
 
 class TestNotifyInactiveDeals(IntegrationTestCase):
-	"""Integration: notify_inactive_deals(as_of=...) across weekends/holidays + buffer.
+	"""Integration: notify_inactive_deals(as_of=...) — exact working-day crossing.
 	IntegrationTestCase rolls back the DB after each test, so all setup is transient."""
 
 	def setUp(self):
@@ -113,11 +148,11 @@ class TestNotifyInactiveDeals(IntegrationTestCase):
 		s.deal_inactivity_days = 3  # 3 WORKING days
 		s.deal_inactivity_use_company_holiday_list = 0
 		s.deal_inactivity_holiday_list = HL
+		s.deal_inactivity_weekend_holidays = 0  # these tests pin holidays to HL only
 		s.deal_inactivity_followup_enabled = 1
 		s.deal_inactivity_task_priority = "High"
 		s.deal_inactivity_task_title = "_TESTDI: {{ doc.organization_name }}"
 		s.deal_inactivity_task_body = "x"
-		s.deal_inactivity_window_buffer_days = 4
 		s.save(ignore_permissions=True)
 
 	def _deal(self, org, modified):
@@ -137,28 +172,37 @@ class TestNotifyInactiveDeals(IntegrationTestCase):
 			{"reference_doctype": "CRM Deal", "reference_docname": deal, "title": ["like", "_TESTDI:%"]},
 		)
 
-	def test_working_day_threshold_and_buffer(self):
+	def test_flags_on_exact_working_day(self):
 		# as_of Tue 2026-07-21, threshold 3 working days, holidays 07-17/18/19.
-		alpha = self._deal("_TESTDI alpha", "2026-07-15")  # 3 working days → flag
-		gamma = self._deal("_TESTDI gamma", "2026-07-16")  # 5 calendar / 2 working → no
-		eps = self._deal("_TESTDI epsilon", "2026-07-10")  # idle beyond threshold+buffer → not chased
+		alpha = self._deal("_TESTDI alpha", "2026-07-15")  # exactly 3 working days → flag
+		gamma = self._deal("_TESTDI gamma", "2026-07-16")  # only 2 working days → no
+		eps = self._deal("_TESTDI epsilon", "2026-07-10")  # already 8 working days (crossed earlier) → no
 		di.notify_inactive_deals(as_of="2026-07-21")
 		self.assertEqual(self._tasks(alpha), 1)
 		self.assertEqual(self._tasks(gamma), 0)
 		self.assertEqual(self._tasks(eps), 0)
 
-	def test_buffer_widens_window(self):
-		eps = self._deal("_TESTDI epsilon", "2026-07-10")  # idle 11 calendar days
-		s = frappe.get_single("CRM XT Settings")
-		s.deal_inactivity_window_buffer_days = 8  # window now reaches back to 07-10
-		s.save(ignore_permissions=True)
-		di.notify_inactive_deals(as_of="2026-07-21")
+	def test_flags_only_on_the_crossing_day(self):
+		# eps last active 07-10; with these holidays its 3rd working day is 07-13.
+		eps = self._deal("_TESTDI cross", "2026-07-10")
+		di.notify_inactive_deals(as_of="2026-07-12")  # 2 working days → not yet
+		self.assertEqual(self._tasks(eps), 0)
+		di.notify_inactive_deals(as_of="2026-07-13")  # exactly 3 → flag
+		self.assertEqual(self._tasks(eps), 1)
+		di.notify_inactive_deals(as_of="2026-07-14")  # now 4 working days → not again
 		self.assertEqual(self._tasks(eps), 1)
 
-	def test_skips_on_holiday_today(self):
-		alpha = self._deal("_TESTDI onhol", "2026-07-14")  # would qualify on a working day
-		di.notify_inactive_deals(as_of="2026-07-17")  # a holiday in the list
-		self.assertEqual(self._tasks(alpha), 0)
+	def test_holiday_dense_span_still_caught_without_buffer(self):
+		# Fri→Tue across a holiday + weekend: exact window absorbs the non-working days.
+		d = self._deal("_TESTDI dense", "2026-07-16")  # 3rd working day = 07-22 (07-17/18/19 skipped)
+		di.notify_inactive_deals(as_of="2026-07-22")
+		self.assertEqual(self._tasks(d), 1)
+
+	def test_skips_when_run_day_is_a_holiday(self):
+		# reaches 3 working days as of 07-17, but 07-17 is a holiday → skipped
+		d = self._deal("_TESTDI onhol", "2026-07-13")
+		di.notify_inactive_deals(as_of="2026-07-17")
+		self.assertEqual(self._tasks(d), 0)
 
 	def test_dedup_across_runs(self):
 		self._deal("_TESTDI dedup", "2026-07-15")

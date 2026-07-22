@@ -81,6 +81,7 @@
       "fieldname": "title",
       "fieldtype": "Data",
       "label": "Title",
+      "is_required": 1,
       "in_global_search": 1,
       "insert_after": "transaction_date"
     },
@@ -387,6 +388,16 @@
       "label": "Last Response By",
       "insert_after": "custom_last_incoming_email_time",
       "read_only": 1
+    },
+    {
+      "fieldname": "custom_incoming_sla_due",
+      "fieldtype": "Datetime",
+      "label": "Incoming-Email SLA Due",
+      "insert_after": "custom_last_response_by",
+      "hidden": 1,
+      "read_only": 1,
+      "no_copy": 1,
+      "description": "When the unanswered-incoming-email SLA falls due = incoming time advanced by the configured working days (holiday-aware). A native 'Minutes After' Notification on this field fires the Slack alert; blank when there's nothing pending. Maintained by the Gmail-thread sync."
     },
     {
       "fieldname": "custom_stage_change_log",
