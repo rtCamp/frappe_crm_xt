@@ -46,27 +46,20 @@ class TestHolidayUtils(IntegrationTestCase):
 		self.assertEqual(hu.nth_working_day_back("2026-01-15", 6, hol), getdate("2026-01-08"))
 
 	def test_add_working_days_skips_holidays(self):
-		# Fri 07-17 10:00 + 1 working day, weekend holidays → Mon 07-20 10:00 (time preserved)
+		# Fri 07-17 10:00 + 1 working day, 07-18/19 listed as holidays → Mon 07-20 10:00 (time kept)
 		hol = frozenset({getdate("2026-07-18"), getdate("2026-07-19")})
 		self.assertEqual(
 			hu.add_working_days("2026-07-17 10:00:00", 1, hol), get_datetime("2026-07-20 10:00:00")
 		)
 
-	def test_weekends_flag_no_holiday_list(self):
-		# weekends=True treats Sat/Sun as non-working with an empty holiday set
+	def test_no_holiday_list_counts_every_day(self):
+		# With an empty holiday set every day is a working day — nothing is skipped or deferred.
 		e = frozenset()
-		self.assertTrue(hu.is_non_working_day("2026-07-18", e, weekends=True))  # Sat
-		self.assertFalse(hu.is_non_working_day("2026-07-18", e, weekends=False))
-		# Wed→Wed spans one weekend: 7 calendar - 2 weekend = 5 working
-		self.assertEqual(hu.working_days_between("2026-07-15", "2026-07-22", e, weekends=True), 5)
-		# Fri + 1 working day → Mon (skips the weekend), time preserved
+		self.assertFalse(hu.is_non_working_day("2026-07-18", e))  # Sat, but no list → working
+		self.assertEqual(hu.working_days_between("2026-07-15", "2026-07-22", e), 7)  # all 7 count
 		self.assertEqual(
-			hu.add_working_days("2026-07-17 09:00:00", 1, e, weekends=True),
-			get_datetime("2026-07-20 09:00:00"),
-		)
-		# nth_working_day_back also honors weekends
-		self.assertEqual(hu.nth_working_day_back("2026-07-20", 1, e, weekends=True), getdate("2026-07-20"))
-		self.assertEqual(hu.nth_working_day_back("2026-07-19", 1, e, weekends=True), getdate("2026-07-17"))
+			hu.add_hours_deferred("2026-07-17 09:00:00", 24, e), get_datetime("2026-07-18 09:00:00")
+		)  # Fri + 24h = Sat, no deferral
 
 	def test_add_hours_deferred(self):
 		hol = frozenset({getdate("2026-07-18"), getdate("2026-07-19")})
@@ -81,11 +74,6 @@ class TestHolidayUtils(IntegrationTestCase):
 		# +48h = Sun (holiday) → still Mon
 		self.assertEqual(
 			hu.add_hours_deferred("2026-07-17 10:00:00", 48, hol), get_datetime("2026-07-20 10:00:00")
-		)
-		# weekends flag defers with no holiday list
-		self.assertEqual(
-			hu.add_hours_deferred("2026-07-17 09:00:00", 24, frozenset(), weekends=True),
-			get_datetime("2026-07-20 09:00:00"),
 		)
 
 	def test_cfg_inactive_days(self):
@@ -147,8 +135,7 @@ class TestNotifyInactiveDeals(IntegrationTestCase):
 		s.deal_inactivity_notification = NOTIF
 		s.deal_inactivity_days = 3  # 3 WORKING days
 		s.deal_inactivity_use_company_holiday_list = 0
-		s.deal_inactivity_holiday_list = HL
-		s.deal_inactivity_weekend_holidays = 0  # these tests pin holidays to HL only
+		s.deal_inactivity_holiday_list = HL  # these tests pin holidays to this list only
 		s.deal_inactivity_followup_enabled = 1
 		s.deal_inactivity_task_priority = "High"
 		s.deal_inactivity_task_title = "_TESTDI: {{ doc.organization_name }}"

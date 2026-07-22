@@ -1,6 +1,7 @@
 """Daily scheduler: flag CRM Deals idle for N working days — post a Slack digest and,
 optionally, create a follow-up CRM Task. Config lives on the CRM XT Settings doctype;
-holidays come from the resolved Holiday List (per-deal when the Company option is on).
+holidays come from a single resolved Holiday List (the ERPNext CRM Settings company's, when
+the Company option is on) — the same calendar for every deal, never computed per deal.
 """
 
 import json
@@ -46,38 +47,30 @@ def notify_inactive_deals(as_of=None):
 	followup_enabled = bool(settings.get("deal_inactivity_followup_enabled"))
 	use_company_hl = bool(settings.get("deal_inactivity_use_company_holiday_list"))
 	fixed_hl = settings.get("deal_inactivity_holiday_list")
-	weekends = bool(settings.get("deal_inactivity_weekend_holidays"))
 	title_tmpl = settings.get("deal_inactivity_task_title")
 	body_tmpl = settings.get("deal_inactivity_task_body")
 	priority = settings.get("deal_inactivity_task_priority") or DEFAULT_TASK_PRIORITY
 
 	today = as_of or nowdate()
 
-	# Per-run caches (avoid N+1): company → holiday_list, holiday_list → date set.
-	company_hl, holiday_sets = {}, {}
-
-	# EXACT candidate window — no fixed buffer. A deal crosses `threshold` working days on
-	# a single calendar date; holidays only shift where that date sits. Upper bound is
-	# today-threshold (fewest non-working days); lower bound is the earliest such date
-	# across every holiday calendar in use (its (threshold+1)-th working day counting
-	# back). Per deal we then require the count to be EXACTLY `threshold`, so consecutive
-	# working-day runs tile with no gap or overlap and a deal is caught once.
-	high_day = add_days(today, -threshold)
+	# One Holiday List for the whole run — the ERPNext CRM Settings company's (when the
+	# Company option is on) or the fixed list. It is NOT computed per deal, so every deal
+	# counts working days against the same calendar. One `Holiday` query, memoized nowhere
+	# because there is only one list.
 	prefetch_start = add_days(today, -(threshold + hu.MAX_LOOKBACK))
-	cal_lists = set()
-	if fixed_hl:
-		cal_lists.add(fixed_hl)
-	if use_company_hl:
-		cal_lists.update(hl for hl in frappe.get_all("Company", pluck="default_holiday_list") if hl)
-	low_date = getdate(high_day)  # no non-working days → single-day window
-	# Include the no-list calendar ({None}) so deals that resolve to no list are covered
-	# too (weekend-aware when the fallback is on).
-	for hl_name in {None} | cal_lists:
-		hs = hu.holiday_dates(hl_name, prefetch_start, today, holiday_sets) if hl_name else frozenset()
-		# crossing-window low = the (threshold+1)-th working day back on that calendar
-		cal_low = hu.nth_working_day_back(today, threshold + 1, hs, weekends=weekends)
-		if cal_low < low_date:
-			low_date = cal_low
+	holidays = hu.holiday_dates(hu.resolve_holiday_list(use_company_hl, fixed_hl), prefetch_start, today)
+	if hu.is_non_working_day(today, holidays):
+		# Today is a holiday → no streak's crossing working day lands today; nothing to send.
+		return {"candidates": 0, "deals_notified": 0, "messages": 0}
+
+	# EXACT candidate window — no fixed buffer. A deal crosses `threshold` working days on a
+	# single calendar date; holidays only shift where that date sits. Upper bound is
+	# today-threshold (fewest non-working days); lower bound is the (threshold+1)-th working
+	# day counting back on the calendar. Per deal we then require the count to be EXACTLY
+	# `threshold`, so consecutive working-day runs tile with no gap or overlap and a deal is
+	# caught once.
+	high_day = add_days(today, -threshold)
+	low_date = hu.nth_working_day_back(today, threshold + 1, holidays)
 	day = [f"{low_date} 00:00:00", f"{getdate(high_day)} 23:59:59"]
 
 	deal_meta = frappe.get_meta("CRM Deal")
@@ -85,7 +78,6 @@ def notify_inactive_deals(as_of=None):
 	date_fields = [
 		f for f in ("last_responded_on", "custom_last_incoming_email_time") if deal_meta.has_field(f)
 	]
-	has_company = deal_meta.has_field("company")
 	or_filters = {"modified": ["between", day]}
 	for f in date_fields:
 		or_filters[f] = ["between", day]
@@ -107,8 +99,6 @@ def notify_inactive_deals(as_of=None):
 
 	names = list(candidates)
 	fields = ["name", "modified", *date_fields]
-	if has_company:
-		fields.append("company")
 	deals = frappe.get_all(
 		"CRM Deal",
 		filters={"name": ["in", names], "status": ["not in", closed_statuses]},
@@ -124,11 +114,7 @@ def notify_inactive_deals(as_of=None):
 		stamps += [d.get(f) for f in date_fields]
 		last = max(get_datetime(s) for s in stamps if s)
 
-		holiday_list = hu.resolve_holiday_list(d, use_company_hl, fixed_hl, company_hl)
-		holidays = hu.holiday_dates(holiday_list, prefetch_start, today, holiday_sets)
-		if hu.is_non_working_day(today, holidays, weekends):
-			continue  # not on the deal's own holiday — its crossing lands on a working day
-		if hu.working_days_between(last, today, holidays, stop_at=threshold, weekends=weekends) != threshold:
+		if hu.working_days_between(last, today, holidays, stop_at=threshold) != threshold:
 			continue  # only on the exact day the streak reaches `threshold` working days
 		try:
 			deal = frappe.get_doc("CRM Deal", d.name)

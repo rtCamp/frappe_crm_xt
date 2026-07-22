@@ -9,7 +9,6 @@
   "deal_inactivity_days",
   "deal_inactivity_use_company_holiday_list",
   "deal_inactivity_holiday_list",
-  "deal_inactivity_weekend_holidays",
   "followup_section",
   "deal_inactivity_followup_enabled",
   "deal_inactivity_task_priority",
@@ -17,8 +16,7 @@
   "deal_inactivity_task_body",
   "incoming_alert_section",
   "incoming_alert_enabled",
-  "incoming_alert_working_days",
-  "incoming_alert_unit"
+  "incoming_alert_hours"
  ],
  "fields": [
   {
@@ -35,31 +33,24 @@
   },
   {
    "default": "7",
-   "description": "How many working days a deal can sit with no activity before we send a reminder. Holidays and weekends don't count.",
+   "description": "How many working days a deal can sit with no activity before we send a reminder. Holidays in the resolved Holiday List don't count.",
    "fieldname": "deal_inactivity_days",
    "fieldtype": "Int",
    "label": "Inactivity Threshold (Working Days)",
    "non_negative": 1
   },
   {
-   "description": "Use each deal's Company holiday list. If a deal has none, we use the Holiday List below.",
+   "description": "Use the holiday list of the company set in ERPNext CRM Settings (\"Company in ERPNext site\"). If that company has no holiday list, we use the Holiday List below.",
    "fieldname": "deal_inactivity_use_company_holiday_list",
    "fieldtype": "Check",
-   "label": "Use each deal's Company holiday list"
+   "label": "Use the ERPNext CRM Settings company's holiday list"
   },
   {
-   "description": "The holidays to skip when counting working days. Leave blank to count every day (unless weekends are treated as holidays below).",
+   "description": "The holidays to skip when counting working days. Leave blank to count every day.",
    "fieldname": "deal_inactivity_holiday_list",
    "fieldtype": "Link",
    "label": "Holiday List",
    "options": "Holiday List"
-  },
-  {
-   "default": "1",
-   "description": "Skip Saturdays and Sundays when counting working days, even if no Holiday List is set. Works together with any Holiday List above.",
-   "fieldname": "deal_inactivity_weekend_holidays",
-   "fieldtype": "Check",
-   "label": "Treat weekends (Sat & Sun) as holidays"
   },
   {
    "fieldname": "followup_section",
@@ -96,7 +87,7 @@
    "label": "Task Body"
   },
   {
-   "description": "Alert the deal owner when a customer's email hasn't been answered in time. Uses the same holiday settings as above. (An admin sets up the actual Slack message — see the CRM XT README.)",
+   "description": "Alert the deal owner when a customer's email hasn't been answered in time. Uses the same Holiday List as above. (An admin sets up the actual Slack message — see the CRM XT README.)",
    "fieldname": "incoming_alert_section",
    "fieldtype": "Section Break",
    "label": "Incoming Email Alert"
@@ -108,28 +99,19 @@
    "label": "Track unanswered incoming email"
   },
   {
-   "default": "1",
+   "default": "24",
    "depends_on": "eval:doc.incoming_alert_enabled",
-   "description": "How long a customer email can go unanswered before we alert the owner. Choose the unit (working days or hours) below.",
-   "fieldname": "incoming_alert_working_days",
+   "description": "How many calendar hours a customer email can go unanswered before we alert the owner. If the due time lands on a holiday it defers to the next working day, so the alert never fires on a holiday.",
+   "fieldname": "incoming_alert_hours",
    "fieldtype": "Int",
-   "label": "Unanswered After",
+   "label": "Unanswered After (Hours)",
    "non_negative": 1
-  },
-  {
-   "default": "Working Days",
-   "depends_on": "eval:doc.incoming_alert_enabled",
-   "description": "Measure the time above in working days or in hours. Either way, alerts are never sent on a holiday or weekend.",
-   "fieldname": "incoming_alert_unit",
-   "fieldtype": "Select",
-   "label": "Unit",
-   "options": "Working Days\nHours"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-21 00:00:00.000000",
+ "modified": "2026-07-22 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Frappe Crm Xt",
  "name": "CRM XT Settings",
