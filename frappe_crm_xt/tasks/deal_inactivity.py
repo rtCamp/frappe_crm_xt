@@ -121,14 +121,14 @@ def notify_inactive_deals(as_of=None):
 			deal.last_activity_on = last  # transient, surfaced in the message
 			if not _passes_notification_condition(notification, deal):
 				continue
-			title = _render_task_field(title_tmpl, deal) or DEFAULT_TASK_TITLE
+			title = _render_task_field(title_tmpl, deal, threshold) or DEFAULT_TASK_TITLE
 			if _followup_exists(deal.name, title, last):
 				continue  # streak already handled
 			block = _render_message(
-				notification, deal
+				notification, deal, threshold
 			)  # render before side effects (no orphan task on a bad template)
 			if followup_enabled:
-				_create_followup_task(deal, title, _render_task_field(body_tmpl, deal), priority)
+				_create_followup_task(deal, title, _render_task_field(body_tmpl, deal, threshold), priority)
 			blocks.append(block)
 		except Exception:
 			frappe.log_error(
@@ -144,12 +144,13 @@ def notify_inactive_deals(as_of=None):
 	return {"candidates": len(deals), "deals_notified": len(blocks), "messages": messages}
 
 
-def _render_message(notification, deal):
-	"""Render the Notification's message template for one deal (same context as .send())."""
+def _render_message(notification, deal, days):
+	"""Render the Notification's message template for one deal (same context as .send(), plus
+	`days` = the inactivity threshold)."""
 	from frappe.email.doctype.notification.notification import get_context
 
 	context = get_context(deal)
-	context.update({"alert": notification, "comments": None})
+	context.update({"alert": notification, "comments": None, "days": days})
 	# admin-authored template (System Manager); trusted surface, like Notification.send().
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 	return frappe.render_template(notification.message, context)
@@ -257,15 +258,18 @@ def _create_followup_task(deal, title, body, priority):
 	).insert(ignore_permissions=True)
 
 
-def _render_task_field(template, deal):
-	"""Render an admin-authored Jinja title/body template against the deal."""
+def _render_task_field(template, deal, days):
+	"""Render an admin-authored Jinja title/body template against the deal, with `days` = the
+	inactivity threshold available in context."""
 	if not template:
 		return ""
 	from frappe.email.doctype.notification.notification import get_context
 
+	context = get_context(deal)
+	context["days"] = days
 	# admin-authored via CRM XT Settings (System Manager); trusted surface.
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-	return frappe.render_template(template, get_context(deal))
+	return frappe.render_template(template, context)
 
 
 def _deals_touched_on(doctype, ref_field, date_field, day, comment_type=None):

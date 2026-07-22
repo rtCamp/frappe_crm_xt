@@ -25,7 +25,7 @@
    "label": "Deal Inactivity Digest"
   },
   {
-   "description": "The Slack alert to send when deals go quiet. Pick one and make sure it is turned on. Leave blank to switch these reminders off.",
+   "description": "Slack alert sent when deals go quiet. Leave blank to turn these reminders off.",
    "fieldname": "deal_inactivity_notification",
    "fieldtype": "Link",
    "label": "Notification",
@@ -33,20 +33,20 @@
   },
   {
    "default": "7",
-   "description": "How many working days a deal can sit with no activity before we send a reminder. Holidays in the resolved Holiday List don't count.",
+   "description": "Working days with no activity before a deal is flagged.",
    "fieldname": "deal_inactivity_days",
    "fieldtype": "Int",
-   "label": "Inactivity Threshold (Working Days)",
+   "label": "Inactive After (Working Days)",
    "non_negative": 1
   },
   {
-   "description": "Use the holiday list of the company set in ERPNext CRM Settings (\"Company in ERPNext site\"). If that company has no holiday list, we use the Holiday List below.",
+   "description": "Use the company's holiday list (set in ERPNext CRM Settings). Falls back to the Holiday List below.",
    "fieldname": "deal_inactivity_use_company_holiday_list",
    "fieldtype": "Check",
-   "label": "Use the ERPNext CRM Settings company's holiday list"
+   "label": "Use company holiday list"
   },
   {
-   "description": "The holidays to skip when counting working days. Leave blank to count every day.",
+   "description": "Holidays to skip when counting working days. Blank counts every day.",
    "fieldname": "deal_inactivity_holiday_list",
    "fieldtype": "Link",
    "label": "Holiday List",
@@ -58,10 +58,10 @@
    "label": "Follow-up Task"
   },
   {
-   "description": "Also create a follow-up task on each reminded deal. The Slack alert still sends when this is off.",
+   "description": "Also add a task to each flagged deal. Slack alert still sends when off.",
    "fieldname": "deal_inactivity_followup_enabled",
    "fieldtype": "Check",
-   "label": "Create a follow-up task on each flagged deal"
+   "label": "Create a follow-up task"
   },
   {
    "default": "High",
@@ -72,28 +72,29 @@
    "options": "Low\nMedium\nHigh"
   },
   {
-   "default": "Follow up on inactive deal",
+   "default": "Follow up: inactive {{ days }} working days",
    "depends_on": "eval:doc.deal_inactivity_followup_enabled",
-   "description": "Title for the follow-up task. Insert deal details with placeholders, e.g. {{ doc.organization_name }}. The same title won't be created twice for a deal.",
+   "description": "Placeholders allowed, e.g. {{ doc.organization_name }}, {{ days }}. The same title isn't created twice for a deal.",
    "fieldname": "deal_inactivity_task_title",
    "fieldtype": "Data",
    "label": "Task Title"
   },
   {
+   "default": "<p>No activity on this deal for {{ days }} working days — please follow up with the customer.</p>",
    "depends_on": "eval:doc.deal_inactivity_followup_enabled",
-   "description": "Description for the follow-up task. Insert deal details with placeholders like {{ doc.organization_name }}.",
+   "description": "Placeholders allowed, e.g. {{ doc.organization_name }}, {{ days }}.",
    "fieldname": "deal_inactivity_task_body",
    "fieldtype": "Text Editor",
    "label": "Task Body"
   },
   {
-   "description": "Alert the deal owner when a customer's email hasn't been answered in time. Uses the same Holiday List as above. (An admin sets up the actual Slack message — see the CRM XT README.)",
+   "description": "Alert the deal owner when a customer email goes unanswered too long. Uses the Holiday List above.",
    "fieldname": "incoming_alert_section",
    "fieldtype": "Section Break",
    "label": "Incoming Email Alert"
   },
   {
-   "description": "Start tracking how long incoming customer emails go unanswered. Turn off to stop tracking. (Whether the alert actually sends is controlled by the Notification.)",
+   "description": "Track how long incoming emails stay unanswered. The Notification controls sending.",
    "fieldname": "incoming_alert_enabled",
    "fieldtype": "Check",
    "label": "Track unanswered incoming email"
@@ -101,7 +102,7 @@
   {
    "default": "24",
    "depends_on": "eval:doc.incoming_alert_enabled",
-   "description": "How many calendar hours a customer email can go unanswered before we alert the owner. If the due time lands on a holiday it defers to the next working day, so the alert never fires on a holiday.",
+   "description": "Hours unanswered before alerting. Defers off holidays, so it never fires on one.",
    "fieldname": "incoming_alert_hours",
    "fieldtype": "Int",
    "label": "Unanswered After (Hours)",
