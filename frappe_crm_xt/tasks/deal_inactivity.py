@@ -1,9 +1,3 @@
-"""Daily scheduler: flag CRM Deals idle for N working days — post a Slack digest and,
-optionally, create a follow-up CRM Task. Config lives on the CRM XT Settings doctype;
-holidays come from a single resolved Holiday List (the ERPNext CRM Settings company's, when
-the Company option is on) — the same calendar for every deal, never computed per deal.
-"""
-
 import json
 import re
 
@@ -53,28 +47,16 @@ def notify_inactive_deals(as_of=None):
 
 	today = as_of or nowdate()
 
-	# One Holiday List for the whole run — the ERPNext CRM Settings company's (when the
-	# Company option is on) or the fixed list. It is NOT computed per deal, so every deal
-	# counts working days against the same calendar. One `Holiday` query, memoized nowhere
-	# because there is only one list.
 	prefetch_start = add_days(today, -(threshold + hu.MAX_LOOKBACK))
 	holidays = hu.holiday_dates(hu.resolve_holiday_list(use_company_hl, fixed_hl), prefetch_start, today)
 	if hu.is_non_working_day(today, holidays):
-		# Today is a holiday → no streak's crossing working day lands today; nothing to send.
-		return {"candidates": 0, "deals_notified": 0, "messages": 0}
+		return {"candidates": 0, "deals_notified": 0, "messages": 0}  # today is a holiday
 
-	# EXACT candidate window — no fixed buffer. A deal crosses `threshold` working days on a
-	# single calendar date; holidays only shift where that date sits. Upper bound is
-	# today-threshold (fewest non-working days); lower bound is the (threshold+1)-th working
-	# day counting back on the calendar. Per deal we then require the count to be EXACTLY
-	# `threshold`, so consecutive working-day runs tile with no gap or overlap and a deal is
-	# caught once.
 	high_day = add_days(today, -threshold)
 	low_date = hu.nth_working_day_back(today, threshold + 1, holidays)
 	day = [f"{low_date} 00:00:00", f"{getdate(high_day)} 23:59:59"]
 
 	deal_meta = frappe.get_meta("CRM Deal")
-	# Deal-level activity date fields that exist in this deployment (all guarded).
 	date_fields = [
 		f for f in ("last_responded_on", "custom_last_incoming_email_time") if deal_meta.has_field(f)
 	]
@@ -210,9 +192,6 @@ def _passes_notification_condition(notification, deal):
 	return True
 
 
-# ─── settings-backed config ─────────────────────────────────────────────────────
-
-
 def _cfg_inactive_days(settings):
 	"""Working-day threshold; DEFAULT_INACTIVE_DAYS when blank."""
 	try:
@@ -220,9 +199,6 @@ def _cfg_inactive_days(settings):
 	except (TypeError, ValueError):
 		days = 0
 	return days if days > 0 else DEFAULT_INACTIVE_DAYS
-
-
-# ─── follow-up task (plain to-do, deduped by title) ─────────────────────────────
 
 
 def _followup_exists(deal_name, title, last):
