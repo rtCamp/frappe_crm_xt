@@ -13,7 +13,7 @@ HOLIDAYS = ("2026-07-18", "2026-07-19", "2026-07-25", "2026-07-26")  # weekends 
 
 class TestIncomingSlaDue(IntegrationTestCase):
 	"""incoming_sla.refresh_incoming_due(deal): maintains custom_incoming_sla_due =
-	incoming email time advanced by N working days (holiday-aware), or blank."""
+	incoming email time advanced by N calendar hours (holiday-aware), or blank."""
 
 	def setUp(self):
 		self.owner = (
@@ -41,11 +41,9 @@ class TestIncomingSlaDue(IntegrationTestCase):
 		# Baseline settings (reset before every test since it's a shared Single).
 		s = frappe.get_single("CRM XT Settings")
 		s.incoming_alert_enabled = 1
-		s.incoming_alert_working_days = 1
-		s.incoming_alert_unit = "Working Days"
+		s.incoming_alert_hours = 24
 		s.deal_inactivity_use_company_holiday_list = 0
 		s.deal_inactivity_holiday_list = HL
-		s.deal_inactivity_weekend_holidays = 0
 		s.save(ignore_permissions=True)
 
 	def _deal(self, org, incoming=None, response=None, status="Open"):
@@ -66,36 +64,53 @@ class TestIncomingSlaDue(IntegrationTestCase):
 	def _due(self, name):
 		return frappe.db.get_value("CRM Deal", name, "custom_incoming_sla_due")
 
-	def test_sets_due_next_working_day(self):
-		d = self._deal("a", incoming="2026-07-20 10:00:00")  # Mon → due Tue same time
+	def test_sets_due_after_24h(self):
+		d = self._deal("a", incoming="2026-07-20 10:00:00")  # Mon +24h = Tue 10:00 (working)
 		iss.refresh_incoming_due(d)
 		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-21 10:00:00"))
 
-	def test_holiday_aware_pushes_past_weekend(self):
-		d = self._deal("b", incoming="2026-07-17 09:30:00")  # Fri; 07-18/19 are holidays → due Mon
+	def test_defers_off_holiday(self):
+		# Fri 09:30 + 24h = Sat 09:30 (07-18 is a listed holiday) → deferred to Mon 09:30
+		d = self._deal("b", incoming="2026-07-17 09:30:00")
 		iss.refresh_incoming_due(d)
 		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-20 09:30:00"))
 
-	def test_multi_working_day_threshold(self):
-		s = frappe.get_single("CRM XT Settings")
-		s.incoming_alert_working_days = 3
-		s.save(ignore_permissions=True)
-		d = self._deal("c", incoming="2026-07-16 08:00:00")  # Thu; skip 18/19 → Fri,Mon,Tue = 07-21
+	def test_48h_still_defers_to_monday(self):
+		# Fri 10:00 + 48h = Sun 10:00 (07-19 is a listed holiday) → deferred to Mon 10:00
+		d = self._deal("c", incoming="2026-07-17 10:00:00")
 		iss.refresh_incoming_due(d)
-		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-21 08:00:00"))
+		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-20 10:00:00"))
+
+	def test_larger_hours_threshold(self):
+		s = frappe.get_single("CRM XT Settings")
+		s.incoming_alert_hours = 72
+		s.save(ignore_permissions=True)
+		# Thu 08:00 + 72h = Sun 07-19 08:00 (holiday) → deferred to Mon 07-20 08:00
+		d = self._deal("d", incoming="2026-07-16 08:00:00")
+		iss.refresh_incoming_due(d)
+		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-20 08:00:00"))
+
+	def test_no_holiday_list_no_deferral(self):
+		# No Holiday List resolved → every day counts, so a Saturday landing is NOT deferred.
+		s = frappe.get_single("CRM XT Settings")
+		s.deal_inactivity_holiday_list = None
+		s.save(ignore_permissions=True)
+		d = self._deal("e", incoming="2026-07-17 09:00:00")  # Fri + 24h = Sat 09:00, kept as-is
+		iss.refresh_incoming_due(d)
+		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-18 09:00:00"))
 
 	def test_answered_clears_due(self):
-		d = self._deal("d", incoming="2026-07-20 10:00:00", response="2026-07-20 12:00:00")
+		d = self._deal("f", incoming="2026-07-20 10:00:00", response="2026-07-20 12:00:00")
 		iss.refresh_incoming_due(d)
 		self.assertIsNone(self._due(d.name))
 
 	def test_closed_clears_due(self):
-		d = self._deal("e", incoming="2026-07-20 10:00:00", status="Won")
+		d = self._deal("g", incoming="2026-07-20 10:00:00", status="Won")
 		iss.refresh_incoming_due(d)
 		self.assertIsNone(self._due(d.name))
 
 	def test_disabled_clears_due(self):
-		d = self._deal("f", incoming="2026-07-20 10:00:00")
+		d = self._deal("h", incoming="2026-07-20 10:00:00")
 		iss.refresh_incoming_due(d)
 		self.assertIsNotNone(self._due(d.name))
 		s = frappe.get_single("CRM XT Settings")
@@ -105,49 +120,11 @@ class TestIncomingSlaDue(IntegrationTestCase):
 		iss.refresh_incoming_due(d)
 		self.assertIsNone(self._due(d.name))
 
-	def test_weekend_fallback_without_holiday_list(self):
-		s = frappe.get_single("CRM XT Settings")
-		s.deal_inactivity_holiday_list = None
-		s.deal_inactivity_weekend_holidays = 1
-		s.save(ignore_permissions=True)
-		d = self._deal("g", incoming="2026-07-17 09:00:00")  # Fri, no HL, weekend fallback → Mon
-		iss.refresh_incoming_due(d)
-		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-20 09:00:00"))
-
-	def test_hours_mode_plain(self):
-		s = frappe.get_single("CRM XT Settings")
-		s.incoming_alert_unit = "Hours"
-		s.incoming_alert_working_days = 24
-		s.save(ignore_permissions=True)
-		d = self._deal("i", incoming="2026-07-20 10:00:00")  # Mon +24h = Tue 10:00 (working)
-		iss.refresh_incoming_due(d)
-		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-21 10:00:00"))
-
-	def test_hours_mode_defers_off_weekend(self):
-		s = frappe.get_single("CRM XT Settings")
-		s.incoming_alert_unit = "Hours"
-		s.incoming_alert_working_days = 24
-		s.save(ignore_permissions=True)
-		# Fri 10:00 + 24h = Sat 10:00 (holiday) → deferred to Mon 10:00
-		d = self._deal("j", incoming="2026-07-17 10:00:00")
-		iss.refresh_incoming_due(d)
-		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-20 10:00:00"))
-
-	def test_hours_mode_48h_still_defers_to_monday(self):
-		s = frappe.get_single("CRM XT Settings")
-		s.incoming_alert_unit = "Hours"
-		s.incoming_alert_working_days = 48
-		s.save(ignore_permissions=True)
-		# Fri 10:00 + 48h = Sun 10:00 (holiday) → deferred to Mon 10:00
-		d = self._deal("k", incoming="2026-07-17 10:00:00")
-		iss.refresh_incoming_due(d)
-		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-20 10:00:00"))
-
 	def test_newer_incoming_pushes_due(self):
-		d = self._deal("h", incoming="2026-07-20 10:00:00")
+		d = self._deal("i", incoming="2026-07-20 10:00:00")
 		iss.refresh_incoming_due(d)
 		self.assertEqual(get_datetime(self._due(d.name)), get_datetime("2026-07-21 10:00:00"))
-		# a newer incoming email advances the due to the next working day after it
+		# a newer incoming email advances the due to 24h after it
 		frappe.db.set_value(
 			"CRM Deal",
 			d.name,

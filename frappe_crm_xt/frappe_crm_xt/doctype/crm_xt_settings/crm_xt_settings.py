@@ -26,10 +26,8 @@ class CRMXTSettings(Document):
 		deal_inactivity_task_priority: DF.Literal["Low", "Medium", "High"]
 		deal_inactivity_task_title: DF.Data | None
 		deal_inactivity_use_company_holiday_list: DF.Check
-		deal_inactivity_weekend_holidays: DF.Check
 		incoming_alert_enabled: DF.Check
-		incoming_alert_unit: DF.Literal["Working Days", "Hours"]
-		incoming_alert_working_days: DF.Int
+		incoming_alert_hours: DF.Int
 	# end: auto-generated types
 
 	def validate(self):

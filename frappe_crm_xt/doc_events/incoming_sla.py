@@ -1,7 +1,7 @@
 """Maintains CRM Deal `custom_incoming_sla_due`: the moment an unanswered incoming email
-falls due = the incoming-email time advanced by the configured amount — either N **working
-days** or N calendar **hours** (`incoming_alert_unit`) — always holiday-aware, so the due lands
-on a working day (a Fri incoming with the weekend off falls on Mon, not Sat).
+falls due = the incoming-email time advanced by the configured number of calendar **hours** —
+always holiday-aware, so if the due lands on a holiday it defers to the next working day (a Fri
+incoming + 24h that lands on a listed Saturday falls on Mon, not Sat).
 
 The actual alert is sent by a *native* Frappe Notification with event "Minutes After" on this
 field — Frappe's offset scheduler (every 5 min) fires it and dedups via its own
@@ -9,8 +9,8 @@ field — Frappe's offset scheduler (every 5 min) fires it and dedups via its ow
 
 Called from the Gmail-thread sync (doc_events/gmail_thread.py), the single writer of the
 incoming/response timestamps — some of those writes use db_set and bypass doc-event hooks,
-so a CRM Deal hook wouldn't reliably see them. Config lives on CRM XT Settings and is shared
-with the deal-inactivity digest (threshold, holiday list, weekend fallback).
+so a CRM Deal hook wouldn't reliably see them. Config lives on CRM XT Settings and shares the
+deal-inactivity digest's Holiday List.
 """
 
 import frappe
@@ -19,7 +19,7 @@ from frappe.utils import add_days, get_datetime, getdate
 from frappe_crm_xt.utils import holiday as hu
 
 SETTINGS = "CRM XT Settings"
-DEFAULT_WORKING_DAYS = 1
+DEFAULT_HOURS = 24
 CLOSED_STATUSES = ("Won", "Lost")
 DUE = "custom_incoming_sla_due"
 INCOMING = "custom_last_incoming_email_time"
@@ -60,31 +60,25 @@ def _compute_due(parent):
 	if responses and max(responses) > incoming:
 		return None
 
-	amount = _cfg_amount(settings)
-	unit = settings.get("incoming_alert_unit") or "Working Days"
-	weekends = bool(settings.get("deal_inactivity_weekend_holidays"))
+	hours = _cfg_hours(settings)
 	holiday_list = hu.resolve_holiday_list(
-		parent,
 		bool(settings.get("deal_inactivity_use_company_holiday_list")),
 		settings.get("deal_inactivity_holiday_list"),
-		{},
 	)
 	start = getdate(incoming)
 	# Prefetch holidays over a range that covers however far the due could land.
-	span_days = amount if unit != "Hours" else (amount // 24 + 2)
+	span_days = hours // 24 + 2
 	holidays = hu.holiday_dates(holiday_list, start, add_days(start, span_days + hu.MAX_LOOKBACK))
-	if unit == "Hours":
-		return hu.add_hours_deferred(incoming, amount, holidays, weekends=weekends)
-	return hu.add_working_days(incoming, amount, holidays, weekends=weekends)
+	return hu.add_hours_deferred(incoming, hours, holidays)
 
 
-def _cfg_amount(settings):
-	"""Unanswered-after amount (in the configured unit); DEFAULT_WORKING_DAYS when blank."""
+def _cfg_hours(settings):
+	"""Unanswered-after amount in calendar hours; DEFAULT_HOURS when blank."""
 	try:
-		n = int(settings.get("incoming_alert_working_days") or 0)
+		n = int(settings.get("incoming_alert_hours") or 0)
 	except (TypeError, ValueError):
 		n = 0
-	return n if n > 0 else DEFAULT_WORKING_DAYS
+	return n if n > 0 else DEFAULT_HOURS
 
 
 def _same(a, b):
