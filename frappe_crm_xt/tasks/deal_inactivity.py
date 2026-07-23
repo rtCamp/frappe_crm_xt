@@ -20,21 +20,27 @@ BLOCK_SEPARATOR = "\n\n"
 COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)
 
 
+def _skipped(reason):
+	"""Consistent 'nothing sent' result — notify_inactive_deals always returns this shape."""
+	return {"candidates": 0, "deals_notified": 0, "messages": 0, "reason": reason}
+
+
 def notify_inactive_deals(as_of=None):
 	"""Scheduler entry (daily); runs only when a Notification is selected and enabled.
+	Always returns a dict: {candidates, deals_notified, messages, reason}.
 
 	`as_of` ("YYYY-MM-DD") overrides today for backfill/tests; the scheduler passes none.
 	"""
 	if not frappe.db.exists("DocType", SETTINGS):
-		return
+		return _skipped("settings doctype missing")
 	settings = frappe.get_cached_doc(SETTINGS)
 
 	notification_name = settings.get("deal_inactivity_notification")
 	if not notification_name or not frappe.db.exists("Notification", notification_name):
-		return  # off until a Notification is chosen
+		return _skipped("no notification selected")
 	notification = frappe.get_doc("Notification", notification_name)
 	if not notification.enabled:
-		return
+		return _skipped("notification disabled")
 
 	threshold = _cfg_inactive_days(settings)  # working days
 	closed_statuses = DEFAULT_CLOSED_STATUSES
@@ -50,7 +56,7 @@ def notify_inactive_deals(as_of=None):
 	prefetch_start = add_days(today, -(threshold + hu.MAX_LOOKBACK))
 	holidays = hu.holiday_dates(hu.resolve_holiday_list(use_company_hl, fixed_hl), prefetch_start, today)
 	if hu.is_non_working_day(today, holidays):
-		return {"candidates": 0, "deals_notified": 0, "messages": 0}  # today is a holiday
+		return _skipped("today is a holiday")
 
 	high_day = add_days(today, -threshold)
 	low_date = hu.nth_working_day_back(today, threshold + 1, holidays)
@@ -77,7 +83,7 @@ def notify_inactive_deals(as_of=None):
 	candidates |= _deals_touched_on("CRM Task", "reference_docname", "modified", day)
 	candidates |= _deals_touched_on("Comment", "reference_name", "creation", day, comment_type="Comment")
 	if not candidates:
-		return {"candidates": 0, "deals_notified": 0, "messages": 0}
+		return _skipped("no candidates in window")
 
 	names = list(candidates)
 	fields = ["name", "modified", *date_fields]
@@ -119,11 +125,16 @@ def notify_inactive_deals(as_of=None):
 			)
 
 	if not blocks:
-		return {"candidates": len(deals), "deals_notified": 0, "messages": 0}
+		return {
+			"candidates": len(deals),
+			"deals_notified": 0,
+			"messages": 0,
+			"reason": "no deals crossed threshold",
+		}
 
 	# Digest needs a webhook; follow-up tasks are created regardless.
 	messages = _send_slack_digest(notification, blocks, threshold) if notification.slack_webhook_url else 0
-	return {"candidates": len(deals), "deals_notified": len(blocks), "messages": messages}
+	return {"candidates": len(deals), "deals_notified": len(blocks), "messages": messages, "reason": "ok"}
 
 
 def _render_message(notification, deal, days):

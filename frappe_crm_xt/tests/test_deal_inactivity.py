@@ -195,5 +195,7 @@ class TestNotifyInactiveDeals(IntegrationTestCase):
 		s.deal_inactivity_notification = None
 		s.save(ignore_permissions=True)
 		alpha = self._deal("_TESTDI off", "2026-07-15")
-		self.assertIsNone(di.notify_inactive_deals(as_of="2026-07-21"))
+		res = di.notify_inactive_deals(as_of="2026-07-21")
+		self.assertEqual(res["deals_notified"], 0)
+		self.assertEqual(res["reason"], "no notification selected")
 		self.assertEqual(self._tasks(alpha), 0)

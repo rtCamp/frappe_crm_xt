@@ -52,7 +52,7 @@
    "fieldname": "deal_inactivity_holiday_list",
    "fieldtype": "Link",
    "label": "Holiday List",
-   "options": "CRM Holiday List"
+   "options": "Holiday List"
   },
   {
    "fieldname": "followup_section",

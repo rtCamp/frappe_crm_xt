@@ -100,4 +100,5 @@ def add_hours_deferred(from_dt, hours, holidays):
 			title="Holiday deferral cap hit",
 			message=f"add_hours_deferred hit the {MAX_LOOKBACK}-day cap from {due}.",
 		)
-	return get_datetime(f"{getdate(d)} {due.strftime('%H:%M:%S')}")
+	# Keep `due`'s time-of-day (incl. microseconds); only move the date to the working day.
+	return due.replace(year=d.year, month=d.month, day=d.day)
