@@ -144,7 +144,6 @@ def _render_message(notification, deal, days):
 
 	context = get_context(deal)
 	context.update({"alert": notification, "comments": None, "days": days})
-	# admin-authored template (System Manager); trusted surface, like Notification.send().
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 	return frappe.render_template(notification.message, context)
 
@@ -163,7 +162,6 @@ def _send_slack_digest(notification, blocks, threshold):
 	blocks = [COMMENT_RE.sub("", b).strip() for b in blocks]
 
 	n = len(blocks)
-	# admin-authored subject; same trusted surface.
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 	header = frappe.render_template(notification.subject or "", {"count": n, "days": threshold})
 
@@ -254,7 +252,6 @@ def _render_task_field(template, deal, days):
 
 	context = get_context(deal)
 	context["days"] = days
-	# admin-authored via CRM XT Settings (System Manager); trusted surface.
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 	return frappe.render_template(template, context)
 

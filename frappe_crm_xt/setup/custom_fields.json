@@ -90,7 +90,8 @@
       "fieldtype": "Link",
       "label": "Internal Company",
       "options": "Company",
-      "insert_after": "title"
+      "insert_after": "title",
+      "ignore_user_permissions": 1
     },
     {
       "fieldname": "country",
@@ -492,7 +493,8 @@
       "fieldtype": "Link",
       "label": "Company",
       "options": "Company",
-      "insert_after": "country"
+      "insert_after": "country",
+      "ignore_user_permissions": 1
     },
     {
       "fieldname": "custom_column_break_org_1",

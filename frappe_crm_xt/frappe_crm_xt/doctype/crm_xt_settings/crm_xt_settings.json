@@ -75,7 +75,7 @@
    "options": "Low\nMedium\nHigh"
   },
   {
-   "default": "Follow up: inactive {{ days }} working days",
+   "default": "Follow up on inactive deal",
    "depends_on": "eval:doc.deal_inactivity_followup_enabled",
    "description": "Placeholders allowed, e.g. {{ doc.organization_name }}, {{ days }}. The same title isn't created twice for a deal.",
    "fieldname": "deal_inactivity_task_title",
