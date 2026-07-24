@@ -2,6 +2,8 @@ import frappe
 from frappe.core.utils import get_parent_doc
 from frappe.utils import get_datetime
 
+from frappe_crm_xt.doc_events.incoming_sla import refresh_incoming_due
+
 
 def validate(doc, method):
 	update_sales_user_in_thread(doc)
@@ -58,7 +60,9 @@ def on_update(doc, method):
 			# Re-link / status flip: walk the full thread so first_responded_on
 			# lands on the *earliest* historical sent email, not whichever
 			# happened to be latest.
-			return backfill_parent_from_thread(parent, doc)
+			backfill_parent_from_thread(parent, doc)
+			refresh_incoming_due(parent)
+			return
 
 		doc_before_save = doc.get_doc_before_save()
 		if not doc_before_save:
@@ -74,6 +78,9 @@ def on_update(doc, method):
 			update_last_response_time(parent, doc, last_email)
 		else:
 			update_last_incoming_email_time(parent, last_email)
+		# keep the unanswered-incoming SLA-due datetime in step with the timestamps
+		# these writes just touched (native "Minutes After" Notification fires off it).
+		refresh_incoming_due(parent)
 	except Exception:
 		frappe.log_error(
 			title="Error in on_update of Gmail Thread",

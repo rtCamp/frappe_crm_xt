@@ -1,48 +1,80 @@
-"""Daily Slack digest nudging CRM Deals with no activity for exactly INACTIVE_DAYS."""
-
 import json
 import re
 
 import frappe
-from frappe.utils import add_days, date_diff, get_datetime, nowdate
+from frappe.utils import add_days, get_datetime, getdate, nowdate
 
-NOTIFICATION = "CRM Slack — CRM Deal Inactivity (7 days)"
-INACTIVE_DAYS = 7
-CLOSED_STATUSES = ("Won", "Lost")
+from frappe_crm_xt.utils import holiday as hu
+
+SETTINGS = "CRM XT Settings"
+
+# Defaults for blank CRM XT Settings fields.
+DEFAULT_INACTIVE_DAYS = 7  # working days
+DEFAULT_CLOSED_STATUSES = ("Won", "Lost")
+DEFAULT_TASK_TITLE = "Follow up on inactive deal"
+DEFAULT_TASK_PRIORITY = "High"
+
+# Slack message size cap + the message template's comment-divider syntax.
 SLACK_TEXT_LIMIT = 38000
 BLOCK_SEPARATOR = "\n\n"
-COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)  # Markdown-style comments, stripped from output
+COMMENT_RE = re.compile(r"<!--(.*?)-->", re.DOTALL)
 
 
-def notify_inactive_deals():
-	"""Scheduler entry point (daily). Gated by the Notification's `enabled` flag."""
-	if not frappe.db.exists("Notification", NOTIFICATION):
-		frappe.log_error(
-			title="Deal inactivity alert not configured",
-			message=f"Notification {NOTIFICATION!r} not found; deal-inactivity digest skipped.",
-		)
-		return
+def _skipped(reason):
+	"""Consistent 'nothing sent' result — notify_inactive_deals always returns this shape."""
+	return {"candidates": 0, "deals_notified": 0, "messages": 0, "reason": reason}
 
-	notification = frappe.get_doc("Notification", NOTIFICATION)
-	if not notification.enabled or not notification.slack_webhook_url:
-		return
 
-	# Only deals touched on target_day can have their gap cross exactly INACTIVE_DAYS today.
-	target_day = add_days(nowdate(), -INACTIVE_DAYS)
-	day = [target_day + " 00:00:00", target_day + " 23:59:59"]
+def notify_inactive_deals(as_of=None):
+	"""Scheduler entry (daily); runs only when a Notification is selected and enabled.
+	Always returns a dict: {candidates, deals_notified, messages, reason}.
+
+	`as_of` ("YYYY-MM-DD") overrides today for backfill/tests; the scheduler passes none.
+	"""
+	if not frappe.db.exists("DocType", SETTINGS):
+		return _skipped("settings doctype missing")
+	settings = frappe.get_cached_doc(SETTINGS)
+
+	notification_name = settings.get("deal_inactivity_notification")
+	if not notification_name or not frappe.db.exists("Notification", notification_name):
+		return _skipped("no notification selected")
+	notification = frappe.get_doc("Notification", notification_name)
+	if not notification.enabled:
+		return _skipped("notification disabled")
+
+	threshold = _cfg_inactive_days(settings)  # working days
+	closed_statuses = DEFAULT_CLOSED_STATUSES
+	followup_enabled = bool(settings.get("deal_inactivity_followup_enabled"))
+	use_company_hl = bool(settings.get("deal_inactivity_use_company_holiday_list"))
+	fixed_hl = settings.get("deal_inactivity_holiday_list")
+	title_tmpl = settings.get("deal_inactivity_task_title")
+	body_tmpl = settings.get("deal_inactivity_task_body")
+	priority = settings.get("deal_inactivity_task_priority") or DEFAULT_TASK_PRIORITY
+
+	today = as_of or nowdate()
+
+	prefetch_start = add_days(today, -(threshold + hu.MAX_LOOKBACK))
+	holidays = hu.holiday_dates(hu.resolve_holiday_list(use_company_hl, fixed_hl), prefetch_start, today)
+	if hu.is_non_working_day(today, holidays):
+		return _skipped("today is a holiday")
+
+	high_day = add_days(today, -threshold)
+	low_date = hu.nth_working_day_back(today, threshold + 1, holidays)
+	day = [f"{low_date} 00:00:00", f"{getdate(high_day)} 23:59:59"]
 
 	deal_meta = frappe.get_meta("CRM Deal")
-	custom_date_fields = [
-		f for f in ("custom_last_incoming_email_time", "last_responded_on") if deal_meta.has_field(f)
+	date_fields = [
+		f for f in ("last_responded_on", "custom_last_incoming_email_time") if deal_meta.has_field(f)
 	]
-	or_filters = {"modified": ["between", day], "last_responded_on": ["between", day]}
-	for f in custom_date_fields:
+	or_filters = {"modified": ["between", day]}
+	for f in date_fields:
 		or_filters[f] = ["between", day]
 
+	# Notes/tasks/comments don't bump deal.modified, so gather from every source.
 	candidates = set(
 		frappe.get_all(
 			"CRM Deal",
-			filters={"status": ["not in", CLOSED_STATUSES]},
+			filters={"status": ["not in", closed_statuses]},
 			or_filters=or_filters,
 			pluck="name",
 		)
@@ -50,15 +82,15 @@ def notify_inactive_deals():
 	candidates |= _deals_touched_on("FCRM Note", "reference_docname", "modified", day)
 	candidates |= _deals_touched_on("CRM Task", "reference_docname", "modified", day)
 	candidates |= _deals_touched_on("Comment", "reference_name", "creation", day, comment_type="Comment")
-
 	if not candidates:
-		return {"candidates": 0, "deals_notified": 0, "messages": 0}
+		return _skipped("no candidates in window")
 
 	names = list(candidates)
+	fields = ["name", "modified", *date_fields]
 	deals = frappe.get_all(
 		"CRM Deal",
-		filters={"name": ["in", names], "status": ["not in", CLOSED_STATUSES]},
-		fields=["name", "modified", "last_responded_on", *custom_date_fields],
+		filters={"name": ["in", names], "status": ["not in", closed_statuses]},
+		fields=fields,
 	)
 	notes = _latest_map("FCRM Note", "reference_docname", "modified", names)
 	tasks = _latest_map("CRM Task", "reference_docname", "modified", names)
@@ -66,24 +98,26 @@ def notify_inactive_deals():
 
 	blocks = []
 	for d in deals:
-		stamps = [
-			d.modified,
-			d.last_responded_on,
-			d.get("custom_last_incoming_email_time"),
-			d.get("last_responded_on"),
-			notes.get(d.name),
-			tasks.get(d.name),
-			comments.get(d.name),
-		]
+		stamps = [d.modified, notes.get(d.name), tasks.get(d.name), comments.get(d.name)]
+		stamps += [d.get(f) for f in date_fields]
 		last = max(get_datetime(s) for s in stamps if s)
-		if date_diff(nowdate(), last) != INACTIVE_DAYS:
-			continue
+
+		if hu.working_days_between(last, today, holidays, stop_at=threshold) != threshold:
+			continue  # only on the exact day the streak reaches `threshold` working days
 		try:
 			deal = frappe.get_doc("CRM Deal", d.name)
 			deal.last_activity_on = last  # transient, surfaced in the message
 			if not _passes_notification_condition(notification, deal):
 				continue
-			blocks.append(_render_message(notification, deal))
+			title = _render_task_field(title_tmpl, deal, threshold) or DEFAULT_TASK_TITLE
+			if _followup_exists(deal.name, title, last):
+				continue  # streak already handled
+			block = _render_message(
+				notification, deal, threshold
+			)  # render before side effects (no orphan task on a bad template)
+			if followup_enabled:
+				_create_followup_task(deal, title, _render_task_field(body_tmpl, deal, threshold), priority)
+			blocks.append(block)
 		except Exception:
 			frappe.log_error(
 				title="Deal inactivity alert failed",
@@ -91,29 +125,34 @@ def notify_inactive_deals():
 			)
 
 	if not blocks:
-		return {"candidates": len(deals), "deals_notified": 0, "messages": 0}
+		return {
+			"candidates": len(deals),
+			"deals_notified": 0,
+			"messages": 0,
+			"reason": "no deals crossed threshold",
+		}
 
-	messages = _send_slack_digest(notification, blocks)
-	return {"candidates": len(deals), "deals_notified": len(blocks), "messages": messages}
+	# Digest needs a webhook; follow-up tasks are created regardless.
+	messages = _send_slack_digest(notification, blocks, threshold) if notification.slack_webhook_url else 0
+	return {"candidates": len(deals), "deals_notified": len(blocks), "messages": messages, "reason": "ok"}
 
 
-def _render_message(notification, deal):
-	"""Render the Notification's message template for one deal (same context as .send())."""
+def _render_message(notification, deal, days):
+	"""Render the Notification's message template for one deal (same context as .send(), plus
+	`days` = the inactivity threshold)."""
 	from frappe.email.doctype.notification.notification import get_context
 
 	context = get_context(deal)
-	context.update({"alert": notification, "comments": None})
-	# message is admin-authored (System Manager only); trusted template surface, like frappe's Notification.send().
+	context.update({"alert": notification, "comments": None, "days": days})
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
 	return frappe.render_template(notification.message, context)
 
 
-def _send_slack_digest(notification, blocks):
-	"""Post the blocks as one Slack message under a header; split only if over the size cap."""
+def _send_slack_digest(notification, blocks, threshold):
+	"""Post the blocks under one header, splitting into more messages only past the size cap."""
 	from frappe.integrations.doctype.slack_webhook_url.slack_webhook_url import send_slack_message
 
-	# A Markdown comment supplies the divider between blocks (its inner text, with \n
-	# unescaped); all comments are stripped from the output.
+	# First message-comment supplies the block divider (\n unescaped); comments are stripped.
 	separator = BLOCK_SEPARATOR
 	for b in blocks:
 		m = COMMENT_RE.search(b)
@@ -123,9 +162,8 @@ def _send_slack_digest(notification, blocks):
 	blocks = [COMMENT_RE.sub("", b).strip() for b in blocks]
 
 	n = len(blocks)
-	# subject is admin-authored (System Manager only); same trusted template surface.
 	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
-	header = frappe.render_template(notification.subject or "", {"count": n, "days": INACTIVE_DAYS})
+	header = frappe.render_template(notification.subject or "", {"count": n, "days": threshold})
 
 	posts, current = [], None
 	for block in blocks:
@@ -163,8 +201,63 @@ def _passes_notification_condition(notification, deal):
 	return True
 
 
+def _cfg_inactive_days(settings):
+	"""Working-day threshold; DEFAULT_INACTIVE_DAYS when blank."""
+	try:
+		days = int(settings.get("deal_inactivity_days") or 0)
+	except (TypeError, ValueError):
+		days = 0
+	return days if days > 0 else DEFAULT_INACTIVE_DAYS
+
+
+def _followup_exists(deal_name, title, last):
+	"""Whether a same-title follow-up task exists for this streak (created since `last`)."""
+	return bool(
+		frappe.get_all(
+			"CRM Task",
+			filters={
+				"reference_doctype": "CRM Deal",
+				"reference_docname": deal_name,
+				"title": title,
+				"creation": [">=", get_datetime(last)],
+			},
+			limit=1,
+			ignore_permissions=True,
+		)
+	)
+
+
+def _create_followup_task(deal, title, body, priority):
+	"""Plain follow-up CRM Task — no dates/calendar fields, so never a calendar task."""
+	frappe.get_doc(
+		{
+			"doctype": "CRM Task",
+			"title": title,
+			"description": body or None,
+			"reference_doctype": "CRM Deal",
+			"reference_docname": deal.name,
+			"assigned_to": deal.get("deal_owner") or None,
+			"status": "Todo",
+			"priority": priority,
+		}
+	).insert(ignore_permissions=True)
+
+
+def _render_task_field(template, deal, days):
+	"""Render an admin-authored Jinja title/body template against the deal, with `days` = the
+	inactivity threshold available in context."""
+	if not template:
+		return ""
+	from frappe.email.doctype.notification.notification import get_context
+
+	context = get_context(deal)
+	context["days"] = days
+	# nosemgrep: frappe-semgrep-rules.rules.security.frappe-ssti
+	return frappe.render_template(template, context)
+
+
 def _deals_touched_on(doctype, ref_field, date_field, day, comment_type=None):
-	"""Set of CRM Deal names with a note/task/comment dated within the `day` [start, end] range."""
+	"""CRM Deal names with a note/task/comment dated within the `day` window."""
 	filters = {
 		"reference_doctype": "CRM Deal",
 		ref_field: ["is", "set"],
@@ -176,7 +269,7 @@ def _deals_touched_on(doctype, ref_field, date_field, day, comment_type=None):
 
 
 def _latest_map(doctype, ref_field, date_field, deal_names, comment_type=None):
-	"""{deal_name: latest activity timestamp} for the given deals — one grouped query."""
+	"""{deal: latest activity timestamp} across the given deals — one grouped query."""
 	if not deal_names:
 		return {}
 	from frappe.query_builder.functions import Max

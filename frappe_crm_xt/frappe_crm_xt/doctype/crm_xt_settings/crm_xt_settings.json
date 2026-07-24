@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "creation": "2026-07-22 22:47:46.535297",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "deal_inactivity_section",
+  "deal_inactivity_notification",
+  "deal_inactivity_days",
+  "column_break_nrwz",
+  "deal_inactivity_use_company_holiday_list",
+  "deal_inactivity_holiday_list",
+  "followup_section",
+  "deal_inactivity_followup_enabled",
+  "deal_inactivity_task_priority",
+  "deal_inactivity_task_title",
+  "deal_inactivity_task_body",
+  "gmail_thread_reminder",
+  "incoming_alert_enabled",
+  "incoming_alert_hours"
+ ],
+ "fields": [
+  {
+   "fieldname": "deal_inactivity_section",
+   "fieldtype": "Section Break",
+   "label": "Deal Inactivity Slack Digest"
+  },
+  {
+   "description": "Slack alert sent when deals go quiet. Leave blank to turn these reminders off.",
+   "fieldname": "deal_inactivity_notification",
+   "fieldtype": "Link",
+   "label": "Notification",
+   "options": "Notification"
+  },
+  {
+   "default": "7",
+   "description": "Working days with no activity before a deal is flagged.",
+   "fieldname": "deal_inactivity_days",
+   "fieldtype": "Int",
+   "label": "Inactive After (Working Days)",
+   "non_negative": 1
+  },
+  {
+   "default": "0",
+   "description": "Use the company's holiday list (set in ERPNext CRM Settings). Falls back to the Holiday List below.",
+   "fieldname": "deal_inactivity_use_company_holiday_list",
+   "fieldtype": "Check",
+   "label": "Use company holiday list"
+  },
+  {
+   "description": "Holidays to skip when counting working days. Blank counts every day.",
+   "fieldname": "deal_inactivity_holiday_list",
+   "fieldtype": "Link",
+   "label": "Holiday List",
+   "options": "Holiday List"
+  },
+  {
+   "fieldname": "followup_section",
+   "fieldtype": "Section Break",
+   "label": "Follow-up Deal Task"
+  },
+  {
+   "default": "0",
+   "description": "Also add a task to each flagged deal. Slack alert still sends when off.",
+   "fieldname": "deal_inactivity_followup_enabled",
+   "fieldtype": "Check",
+   "label": "Create a follow-up task"
+  },
+  {
+   "default": "High",
+   "depends_on": "eval:doc.deal_inactivity_followup_enabled",
+   "fieldname": "deal_inactivity_task_priority",
+   "fieldtype": "Select",
+   "label": "Task Priority",
+   "options": "Low\nMedium\nHigh"
+  },
+  {
+   "default": "Follow up on inactive deal",
+   "depends_on": "eval:doc.deal_inactivity_followup_enabled",
+   "description": "Placeholders allowed, e.g. {{ doc.organization_name }}, {{ days }}. The same title isn't created twice for a deal.",
+   "fieldname": "deal_inactivity_task_title",
+   "fieldtype": "Data",
+   "label": "Task Title"
+  },
+  {
+   "default": "<p>No activity on this deal for {{ days }} working days \u2014 please follow up with the customer.</p>",
+   "depends_on": "eval:doc.deal_inactivity_followup_enabled",
+   "description": "Placeholders allowed, e.g. {{ doc.organization_name }}, {{ days }}.",
+   "fieldname": "deal_inactivity_task_body",
+   "fieldtype": "Text Editor",
+   "label": "Task Body"
+  },
+  {
+   "default": "0",
+   "description": "Creates a date-time entry for next hours to trigger notification when the email comes.",
+   "fieldname": "incoming_alert_enabled",
+   "fieldtype": "Check",
+   "label": "Track unanswered incoming email"
+  },
+  {
+   "default": "24",
+   "depends_on": "eval:doc.incoming_alert_enabled",
+   "description": "Hours unanswered before alerting. Defers off holidays, so it never fires on one.",
+   "fieldname": "incoming_alert_hours",
+   "fieldtype": "Int",
+   "label": "Unanswered After (Hours)",
+   "non_negative": 1
+  },
+  {
+   "fieldname": "gmail_thread_reminder",
+   "fieldtype": "Section Break",
+   "label": "Gmail Thread Reminder"
+  },
+  {
+   "fieldname": "column_break_nrwz",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2026-07-22 23:43:31.593104",
+ "modified_by": "Administrator",
+ "module": "Frappe Crm Xt",
+ "name": "CRM XT Settings",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}
