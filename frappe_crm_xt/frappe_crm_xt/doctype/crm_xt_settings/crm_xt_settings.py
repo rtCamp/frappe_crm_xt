@@ -5,8 +5,9 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-# Sanity bound (not a business limit) — guard against typos like 5000.
+# Sanity bounds (not business limits) — guard against typos like 5000 / 100000.
 MAX_INACTIVITY_DAYS = 365
+MAX_INCOMING_HOURS = 2160  # 90 days, in hours
 
 
 class CRMXTSettings(Document):
@@ -38,4 +39,10 @@ class CRMXTSettings(Document):
 				_(
 					"Inactivity Threshold (Working Days) can be at most {0} (leave blank for the default of 7)."
 				).format(MAX_INACTIVITY_DAYS)
+			)
+		if (self.incoming_alert_hours or 0) > MAX_INCOMING_HOURS:
+			frappe.throw(
+				_(
+					"Unanswered After (Hours) can be at most {0} (90 days); leave blank for the default of 24."
+				).format(MAX_INCOMING_HOURS)
 			)
