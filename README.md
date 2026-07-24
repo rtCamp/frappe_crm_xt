@@ -7,7 +7,7 @@ Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features wit
 - **[Events tab](#events-tab)** — calendar events tab injected into every Lead and Deal page; create, edit, duplicate, and delete Frappe `Event` records linked to the record.
 - **[Event notifications](#event-notifications)** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
 - **[Deal inactivity follow-ups & Slack digest](#deal-inactivity-follow-ups--slack-digest)** — daily scheduler flags every CRM Deal with no activity (email, note, task, comment, or field edit) for *N* **working days** (holidays in the resolved Holiday List don't count), posts a single Slack digest, and optionally creates a plain follow-up CRM Task. Configured from the **CRM XT Settings** doctype (notification, working-day threshold, holiday list / the ERPNext CRM Settings company's holiday list, follow-up toggle + Jinja task title/body).
-- **[Incoming-email SLA alert](#incoming-email-sla-alert)** — stamps a holiday-aware **due datetime** (`custom_incoming_sla_due`) on each deal = incoming-email time + a configurable number of **calendar hours** (default 24), maintained by the Gmail-thread sync. A **native Frappe Notification** (event *"Minutes After"* on that field) then posts a Slack channel alert — Frappe's own offset scheduler fires and dedups it, so this app writes no scheduler. Shares the deal-inactivity Holiday List and the `utils/holiday` helper.
+- **[Gmail Thread Reminder (incoming-email SLA)](#gmail-thread-reminder-incoming-email-sla)** — stamps a holiday-aware **due datetime** (`custom_incoming_sla_due`) on each deal = incoming-email time + a configurable number of **calendar hours** (default 24), maintained by the Gmail-thread sync. A **native Frappe Notification** (event *"Minutes After"* on that field) then posts a Slack channel alert — Frappe's own offset scheduler fires and dedups it, so this app writes no scheduler. Shares the deal-inactivity Holiday List and the `utils/holiday` helper.
 - **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [`rtcamp/frappe_gmail_thread`](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
 - **[Address management (Deal only)](#address-management)** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel.
 - **[Follow button (eye icon)](#follow-button)** — injected into the Lead/Deal header icon row. Toggles `Document Follow` for the current user; filled eye = following, outline eye = not following.
@@ -177,9 +177,9 @@ All three ship **disabled**. Point each at a `Slack Webhook URL` (core Frappe in
 
 ---
 
-### Incoming-email SLA alert
+### Gmail Thread Reminder (incoming-email SLA)
 
-Nudges the **deal owner** on Slack when an **incoming email** has gone **unanswered for N hours** (default 24, holiday-aware). This app does **no scheduling or sending** for it — it stamps a due datetime on the deal and lets Frappe's native Notification engine trigger.
+Nudges the **deal owner** on Slack when an **incoming email** on the Gmail thread has gone **unanswered for N hours** (default 24, holiday-aware). This app does **no scheduling or sending** for it — it stamps a due datetime on the deal and lets Frappe's native Notification engine trigger.
 
 **How it works:**
 
@@ -187,7 +187,7 @@ Nudges the **deal owner** on Slack when an **incoming email** has gone **unanswe
 2. **Maintained by the Gmail-thread sync** — `doc_events/incoming_sla.refresh_incoming_due`, called from `doc_events/gmail_thread.on_update` (the single writer of the incoming/response timestamps; some writes `db_set` past doc-event hooks, so a plain CRM Deal hook would miss them). The field is **cleared** when a reply lands after the incoming email, the deal closes (Won/Lost), or tracking is turned off.
 3. **Trigger & dedup are Frappe's** — configure a **Notification** on **CRM Deal** with event **"Minutes After"**, datetime field **`custom_incoming_sla_due`**, minutes offset **≥ 10** (use `10`), channel **Slack** + a Slack Webhook URL. Frappe's offset scheduler (every 5 min) fires it once when `now` crosses `due + offset` and dedups via the Notification's own `datetime_last_run`. A newer incoming email recomputes the due datetime, so the alert **re-arms** on its own. Reference the owner in the message with plain `{{ doc.deal_owner }}` if you want it named.
 
-**Config (CRM XT Settings → "Incoming Email Alert"):**
+**Config (CRM XT Settings → "Gmail Thread Reminder"):**
 
 | Field | Role | Default |
 |-------|------|---------|

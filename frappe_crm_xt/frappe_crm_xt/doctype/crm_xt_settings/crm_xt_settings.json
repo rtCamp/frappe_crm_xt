@@ -109,7 +109,7 @@
   {
    "fieldname": "gmail_thread_reminder",
    "fieldtype": "Section Break",
-   "label": "Gmail Thread Reminder "
+   "label": "Gmail Thread Reminder"
   },
   {
    "fieldname": "column_break_nrwz",
