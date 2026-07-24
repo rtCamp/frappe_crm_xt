@@ -32,12 +32,10 @@ class CRMXTSettings(Document):
 	# end: auto-generated types
 
 	def validate(self):
-		# Field-level non_negative already blocks negatives; enforce an upper sanity cap.
-		# 0/blank is allowed and means "use the code default" (see deal_inactivity._cfg_*).
 		if (self.deal_inactivity_days or 0) > MAX_INACTIVITY_DAYS:
 			frappe.throw(
 				_(
-					"Inactivity Threshold (Working Days) can be at most {0} (leave blank for the default of 7)."
+					"Inactivity After (Working Days) can be at most {0} (leave blank for the default of 7)."
 				).format(MAX_INACTIVITY_DAYS)
 			)
 		if (self.incoming_alert_hours or 0) > MAX_INCOMING_HOURS:
