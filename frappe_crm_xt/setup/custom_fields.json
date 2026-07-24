@@ -138,10 +138,17 @@
       "insert_after": "closed_date"
     },
     {
+      "fieldname": "custom_slack_channel_link",
+      "fieldtype": "Data",
+      "label": "Slack Channel Link",
+      "insert_after": "custom_drive_folder_link",
+      "description": "Link to the deal's Slack channel, e.g. https://rtcamp.slack.com/archives/C0B1V93ANHL"
+    },
+    {
       "fieldname": "custom_timezone",
       "fieldtype": "Data",
       "label": "Timezone",
-      "insert_after": "custom_drive_folder_link"
+      "insert_after": "custom_slack_channel_link"
     },
     {
       "fieldname": "custom_key_account",
