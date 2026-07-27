@@ -141,8 +141,7 @@
       "fieldname": "custom_slack_channel_link",
       "fieldtype": "Data",
       "label": "Slack Channel Link",
-      "insert_after": "custom_drive_folder_link",
-      "description": "Link to the deal's Slack channel, e.g. https://rtcamp.slack.com/archives/C0B1V93ANHL"
+      "insert_after": "custom_drive_folder_link"
     },
     {
       "fieldname": "custom_timezone",
