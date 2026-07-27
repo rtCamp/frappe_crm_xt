@@ -120,7 +120,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-27 10:47:21.417248",
+ "modified": "2026-07-27 10:50:24.087524",
  "modified_by": "Administrator",
  "module": "Frappe Crm Xt",
  "name": "CRM XT Settings",
@@ -136,11 +136,13 @@
    "write": 1
   },
   {
+   "create": 1,
    "email": 1,
    "print": 1,
    "read": 1,
    "role": "Sales Manager",
-   "share": 1
+   "share": 1,
+   "write": 1
   }
  ],
  "row_format": "Dynamic",
