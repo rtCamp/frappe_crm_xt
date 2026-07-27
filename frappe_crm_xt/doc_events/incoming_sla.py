@@ -1,0 +1,88 @@
+"""Maintains CRM Deal `custom_incoming_sla_due`: the moment an unanswered incoming email
+falls due = the incoming-email time advanced by the configured number of calendar **hours** —
+always holiday-aware, so if the due lands on a holiday it defers to the next working day (a Fri
+incoming + 24h that lands on a listed Saturday falls on Mon, not Sat).
+
+The actual alert is sent by a *native* Frappe Notification with event "Minutes After" on this
+field — Frappe's offset scheduler (every 5 min) fires it and dedups via its own
+`datetime_last_run`. This module only keeps the datetime correct; it does no sending.
+
+Called from the Gmail-thread sync (doc_events/gmail_thread.py), the single writer of the
+incoming/response timestamps — some of those writes use db_set and bypass doc-event hooks,
+so a CRM Deal hook wouldn't reliably see them. Config lives on CRM XT Settings and shares the
+deal-inactivity digest's Holiday List.
+"""
+
+import frappe
+from frappe.utils import add_days, get_datetime, getdate
+
+from frappe_crm_xt.utils import holiday as hu
+
+SETTINGS = "CRM XT Settings"
+DEFAULT_HOURS = 24
+CLOSED_STATUSES = ("Won", "Lost")
+DUE = "custom_incoming_sla_due"
+INCOMING = "custom_last_incoming_email_time"
+RESPONSE_FIELDS = ("last_responded_on", "custom_last_response_by")
+
+
+def refresh_incoming_due(parent):
+	"""(Re)compute or clear `custom_incoming_sla_due` on a CRM Deal from its current
+	incoming-email / reply timestamps. Writes only when the value changes."""
+	if getattr(parent, "doctype", None) != "CRM Deal" or not parent.meta.has_field(DUE):
+		return
+	due = _compute_due(parent)
+	if _same(parent.get(DUE), due):
+		return
+	parent.db_set(DUE, due, update_modified=False)
+
+
+def _compute_due(parent):
+	"""The SLA-due datetime, or None when nothing is pending (feature off, no incoming
+	email, already answered, or deal closed)."""
+	if not parent.meta.has_field(INCOMING):
+		return None
+	if not frappe.db.exists("DocType", SETTINGS):
+		return None
+	settings = frappe.get_cached_doc(SETTINGS)
+	if not settings.get("incoming_alert_enabled"):
+		return None
+
+	incoming = parent.get(INCOMING)
+	if not incoming or parent.get("status") in CLOSED_STATUSES:
+		return None
+	incoming = get_datetime(incoming)
+
+	# answered — a reply strictly after the incoming email clears the clock
+	responses = [
+		get_datetime(parent.get(f)) for f in RESPONSE_FIELDS if parent.meta.has_field(f) and parent.get(f)
+	]
+	if responses and max(responses) > incoming:
+		return None
+
+	hours = _cfg_hours(settings)
+	holiday_list = hu.resolve_holiday_list(
+		bool(settings.get("deal_inactivity_use_company_holiday_list")),
+		settings.get("deal_inactivity_holiday_list"),
+	)
+	start = getdate(incoming)
+	# Prefetch holidays over a range that covers however far the due could land.
+	span_days = hours // 24 + 2
+	holidays = hu.holiday_dates(holiday_list, start, add_days(start, span_days + hu.MAX_LOOKBACK))
+	return hu.add_hours_deferred(incoming, hours, holidays)
+
+
+def _cfg_hours(settings):
+	"""Unanswered-after amount in calendar hours; DEFAULT_HOURS when blank."""
+	try:
+		n = int(settings.get("incoming_alert_hours") or 0)
+	except (TypeError, ValueError):
+		n = 0
+	return n if n > 0 else DEFAULT_HOURS
+
+
+def _same(a, b):
+	"""Datetime-equality tolerant of None and str/datetime mix."""
+	a = get_datetime(a) if a else None
+	b = get_datetime(b) if b else None
+	return a == b

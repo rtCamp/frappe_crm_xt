@@ -81,6 +81,7 @@
       "fieldname": "title",
       "fieldtype": "Data",
       "label": "Title",
+      "is_required": 1,
       "in_global_search": 1,
       "insert_after": "transaction_date"
     },
@@ -89,7 +90,8 @@
       "fieldtype": "Link",
       "label": "Internal Company",
       "options": "Company",
-      "insert_after": "title"
+      "insert_after": "title",
+      "ignore_user_permissions": 1
     },
     {
       "fieldname": "country",
@@ -136,10 +138,16 @@
       "insert_after": "closed_date"
     },
     {
+      "fieldname": "custom_slack_channel_link",
+      "fieldtype": "Data",
+      "label": "Slack Channel Link",
+      "insert_after": "custom_drive_folder_link"
+    },
+    {
       "fieldname": "custom_timezone",
       "fieldtype": "Data",
       "label": "Timezone",
-      "insert_after": "custom_drive_folder_link"
+      "insert_after": "custom_slack_channel_link"
     },
     {
       "fieldname": "custom_key_account",
@@ -389,6 +397,14 @@
       "read_only": 1
     },
     {
+      "fieldname": "custom_incoming_sla_due",
+      "fieldtype": "Datetime",
+      "label": "Incoming-Email SLA Due",
+      "insert_after": "custom_last_response_by",
+      "hidden": 1,
+      "read_only": 1
+    },
+    {
       "fieldname": "custom_stage_change_log",
       "fieldtype": "Table",
       "label": "Stage Change Log",
@@ -483,7 +499,8 @@
       "fieldtype": "Link",
       "label": "Company",
       "options": "Company",
-      "insert_after": "country"
+      "insert_after": "country",
+      "ignore_user_permissions": 1
     },
     {
       "fieldname": "custom_column_break_org_1",

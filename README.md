@@ -6,7 +6,8 @@ Extensions for [Frappe CRM](https://github.com/frappe/crm) that add features wit
 - **[Extensible sidebar](#extensible-sidebar-crm_sidebar-hook)** — any installed Frappe app can inject list views, routes, groups, or separators into the CRM sidebar via the `crm_sidebar` hook.
 - **[Events tab](#events-tab)** — calendar events tab injected into every Lead and Deal page; create, edit, duplicate, and delete Frappe `Event` records linked to the record.
 - **[Event notifications](#event-notifications)** — scheduler sends in-browser realtime alerts and optional emails to event owners and participants before their events.
-- **[Deal inactivity Slack digest](#deal-inactivity-slack-digest)** — daily scheduler posts a single Slack digest of CRM Deals with no activity (email, note, task, comment, or field edit) for exactly *N* days; entirely authored from a desk-editable `Notification`.
+- **[Deal inactivity follow-ups & Slack digest](#deal-inactivity-follow-ups--slack-digest)** — daily scheduler flags every CRM Deal with no activity (email, note, task, comment, or field edit) for *N* **working days** (holidays in the resolved Holiday List don't count), posts a single Slack digest, and optionally creates a plain follow-up CRM Task. Configured from the **CRM XT Settings** doctype (notification, working-day threshold, holiday list / the ERPNext CRM Settings company's holiday list, follow-up toggle + Jinja task title/body).
+- **[Gmail Thread Reminder (incoming-email SLA)](#gmail-thread-reminder-incoming-email-sla)** — stamps a holiday-aware **due datetime** (`custom_incoming_sla_due`) on each deal = incoming-email time + a configurable number of **calendar hours** (default 24), maintained by the Gmail-thread sync. A **native Frappe Notification** (event *"Minutes After"* on that field) then posts a Slack channel alert — Frappe's own offset scheduler fires and dedups it, so this app writes no scheduler. Shares the deal-inactivity Holiday List and the `utils/holiday` helper.
 - **Gmail thread activities** — activity entries on Lead/Deal records resolve Gmail threads via [`rtcamp/frappe_gmail_thread`](https://github.com/rtCamp/frappe_gmail_thread) *(optional)*.
 - **[Address management (Deal only)](#address-management)** — add, create, link, and unlink `Address` records directly from Deal forms via an inline HTML panel.
 - **[Follow button (eye icon)](#follow-button)** — injected into the Lead/Deal header icon row. Toggles `Document Follow` for the current user; filled eye = following, outline eye = not following.
@@ -51,7 +52,9 @@ Frappe CRM XT ships a **Vite-built Vue 3 IIFE bundle** (`crm_xt_app.js`) that is
 | `api/quotation.py` | Quotation auto-populate helper |
 | `api/search.py` | Global search backend (frappe_search or built-in fallback) |
 | `api/sidebar.py` | Reads `crm_sidebar` hooks from all installed apps and returns merged item list |
-| `api/deal_inactivity.py` | Daily "deal gone quiet" Slack digest scheduler |
+| `tasks/deal_inactivity.py` | Daily "deal gone quiet" scheduler — creates follow-up tasks + posts the Slack digest, holiday-aware |
+| `doc_events/incoming_sla.py` | Maintains `custom_incoming_sla_due` (incoming-email SLA) so a native "Minutes After" Notification can alert the owner |
+| `utils/holiday.py` | Shared working-day / holiday helpers (used by the digest and the SLA-due field) |
 
 ---
 
@@ -105,9 +108,37 @@ Each rule specifies: `type` (Notification / Email), `before` (number), `interval
 
 ---
 
-### Deal Inactivity Slack Digest
+### Deal Inactivity Follow-ups & Slack Digest
 
-A daily scheduler (`cron` 09:00, site time zone) posts a **single Slack digest** listing every CRM Deal that has had **no activity for exactly `INACTIVE_DAYS` (7) days** — one nudge per streak, on the day the gap crosses the threshold. Won/Lost deals are excluded.
+A daily scheduler (`cron` 14:00 / 2 PM, site time zone) processes every CRM Deal that has had **no activity for the configured number of WORKING days (default 7)** and flags it once per idle streak. For each such deal it:
+
+1. **adds the deal to a single Slack digest**, and
+2. (when *Create follow-up task* is on) **creates a plain follow-up CRM Task** on the deal (`Todo`, configured priority, assigned to the deal owner — no dates, no calendar sync).
+
+Won/Lost deals are skipped.
+
+**Working-days against one calendar:** the threshold counts only **working days** — days that are *not* in the resolved Holiday List. A single list applies to every deal (see below), so its holidays and weekly-offs don't add to the total: a deal idle Fri→Tue across a listed Sat/Sun (and any other listed holiday) has only accrued the working days in between. A deal is never nudged *on* a non-working day; it surfaces on the next working day. Non-working days come **only** from the resolved Holiday List (which normally includes its weekly-offs) — **if no Holiday List is resolved, every day counts (plain calendar days)**.
+
+**Dedup is by the follow-up task's title:** a CRM Task with the (rendered) title, created since the deal's last activity, marks the streak as handled — so keep *Create follow-up task* enabled for once-per-streak behaviour on the digest. No hidden marker fields are used.
+
+**Exact candidate window (no buffer):** each run considers only deals whose last activity falls in the *exact* calendar band that crosses `threshold` working days **today** — computed from the working-day sequence, so listed holidays stretch the band precisely (its lower bound is the `threshold+1`-th working day counting back). Per deal we then require the count to be **exactly** `threshold`, so consecutive working-day runs *tile* with no gap or overlap: a deal is flagged once, on its crossing working day, and never re-visited — no duplication and no dedup flag needed. The one gap: if the cron does **not run on a given working day** (scheduler downtime), that day's crossings are skipped (there is no buffer to re-scan them next day).
+
+**Query cost:** per run it's one bounded candidate query, one grouped-`MAX` per activity source, and — for the working-day count — **one `Holiday` query** for the single resolved list (dates prefetched into an in-memory set; membership checks are then pure Python) plus at most **one `Company` lookup** for the ERPNext CRM Settings company. No per-day or per-deal holiday round-trips.
+
+**Configuration lives on the `CRM XT Settings` single doctype** (editable by **System Manager** and **Sales Manager**). A future in-app *CRM XT* settings tab can read/write it; today it is editable from its desk form. Blank fields fall back to the defaults shown:
+
+| Field | Role | Default |
+|-------|------|---------|
+| Notification | Link → **Notification** whose subject/message/Slack webhook drive the digest; its own `enabled` flag is the master on/off switch. **Blank ⇒ feature off.** | — |
+| Inactivity Threshold (Working Days) | Working days of silence before a deal is nudged (holidays in the resolved Holiday List don't count). | `7` |
+| Use the ERPNext CRM Settings company's holiday list | When on, **all** deals are evaluated against the `default_holiday_list` of the company set in **ERPNext CRM Settings** ("Company in ERPNext site"); falls back to the Holiday List below if that company has none. The list is **not** computed per deal. | off |
+| Holiday List | Fixed calendar of non-working days for the skip/catch-up. No list resolved at all ⇒ every day counts (plain calendar days). | — |
+| Create a follow-up task | Enables per-deal follow-up CRM Task creation. Digest still sends when off. | off |
+| Task Priority | Priority of the follow-up task (`Low` / `Medium` / `High`). | `High` |
+| Task Title | **Jinja** template rendered per deal (`{{ doc }}` = the CRM Deal). | `Follow up on inactive deal` |
+| Task Body | **Jinja** template for the task description. | — |
+
+Excluded statuses (Won/Lost) and internal constants (Slack size ceiling, comment-divider syntax) stay in code.
 
 "Activity" is the most recent of **all** of the following — a note/task/comment does *not* bump `deal.modified`, so each is checked directly:
 
@@ -120,19 +151,19 @@ A daily scheduler (`cron` 09:00, site time zone) posts a **single Slack digest**
 | Tasks | `CRM Task` |
 | Comments | `Comment` |
 
-Everything about the alert is authored from a desk-editable **Notification** (`CRM Slack — CRM Deal Inactivity (7 days)`) — no code change is needed to restyle or re-scope it:
+The digest itself is authored from the **Notification** selected in CRM XT Settings (the app seeds `CRM Slack — CRM Deal Inactivity (7 days)`, disabled) — no code change is needed to restyle or re-scope it:
 
 | Notification field | Role in the digest |
 |--------------------|--------------------|
-| `enabled` | Feature on/off switch (the scheduler no-ops when disabled) |
+| `enabled` | Master on/off switch for the whole routine — digest **and** tasks (the scheduler no-ops when disabled or when no Notification is selected) |
 | `subject` | Digest **header** — rendered with `{{ count }}` and `{{ days }}` |
 | `message` | Per-deal **block** — rendered with `{{ doc }}` (the deal) |
-| Condition / Filters | Extra per-deal scoping, honored before sending |
-| Slack Webhook URL | Target Slack channel |
+| Condition / Filters | Extra per-deal scoping, honored before creating a task or sending |
+| Slack Webhook URL | Target Slack channel. Optional — with no webhook the follow-up tasks are still created; only the Slack post is skipped. |
 
 **Dividers via Markdown comments:** any `<!-- ... -->` comment in the message is stripped from the Slack output (like a Markdown comment); the inner text of the first comment becomes the **divider between deal blocks** (`\n` is interpreted as a newline). No comment → blocks are separated by a blank line.
 
-**Scales to large datasets:** instead of scanning every stale deal, the job fetches only deals *touched on the target day* across all activity sources, so cost stays flat even with 100k+ deals.
+**Scales to large datasets:** instead of scanning every stale deal, the job fetches only deals whose last activity falls in the *exact* holiday-aware band that crosses `threshold` working days today (lower bound = the `threshold+1`-th working day back), so cost stays flat even with 100k+ deals.
 
 The Notification is seeded (disabled) by the `create_crm_slack_notifications` patch, alongside two event-driven CRM → Slack notifications:
 
@@ -143,6 +174,27 @@ The Notification is seeded (disabled) by the `create_crm_slack_notifications` pa
 | CRM Slack — CRM Deal Updates | Deal saved (title / status / value / owner / stage change) |
 
 All three ship **disabled**. Point each at a `Slack Webhook URL` (core Frappe integration) and toggle **Enabled** from the desk to activate — the webhook holds a secret, so it is never shipped in the app.
+
+---
+
+### Gmail Thread Reminder (incoming-email SLA)
+
+Nudges the **deal owner** on Slack when an **incoming email** on the Gmail thread has gone **unanswered for N hours** (default 24, holiday-aware). This app does **no scheduling or sending** for it — it stamps a due datetime on the deal and lets Frappe's native Notification engine trigger.
+
+**How it works:**
+
+1. **Due field** — `custom_incoming_sla_due` (hidden) = `custom_last_incoming_email_time` advanced by the configured number of **calendar hours**, then — if that lands on a holiday in the resolved list — deferred to the next working day (`utils/holiday.add_hours_deferred`), so the alert never fires on a holiday (a Fri incoming + 24h landing on a listed Sat falls on Mon, never Sat). It reuses the digest's Holiday List.
+2. **Maintained by the Gmail-thread sync** — `doc_events/incoming_sla.refresh_incoming_due`, called from `doc_events/gmail_thread.on_update` (the single writer of the incoming/response timestamps; some writes `db_set` past doc-event hooks, so a plain CRM Deal hook would miss them). The field is **cleared** when a reply lands after the incoming email, the deal closes (Won/Lost), or tracking is turned off.
+3. **Trigger & dedup are Frappe's** — configure a **Notification** on **CRM Deal** with event **"Minutes After"**, datetime field **`custom_incoming_sla_due`**, minutes offset **≥ 10** (use `10`), channel **Slack** + a Slack Webhook URL. Frappe's offset scheduler (every 5 min) fires it once when `now` crosses `due + offset` and dedups via the Notification's own `datetime_last_run`. A newer incoming email recomputes the due datetime, so the alert **re-arms** on its own. Reference the owner in the message with plain `{{ doc.deal_owner }}` if you want it named.
+
+**Config (CRM XT Settings → "Gmail Thread Reminder"):**
+
+| Field | Role | Default |
+|-------|------|---------|
+| Track unanswered incoming email | Maintain the `custom_incoming_sla_due` field. Off ⇒ stop stamping it (pending ones clear on the next email sync). | off |
+| Unanswered After (Hours) | Calendar hours after the incoming email before it falls due. If the due lands on a listed holiday the alert **defers to the next working day**, so it never fires on a holiday. | `24` |
+
+The Notification's own **Enabled** flag is the on/off for actually sending. Nothing is seeded — create the Notification yourself so the webhook secret is never shipped.
 
 ---
 

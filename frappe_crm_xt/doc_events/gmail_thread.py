@@ -2,6 +2,8 @@ import frappe
 from frappe.core.utils import get_parent_doc
 from frappe.utils import get_datetime
 
+from frappe_crm_xt.doc_events.incoming_sla import refresh_incoming_due
+
 
 def validate(doc, method):
 	update_sales_user_in_thread(doc)
@@ -58,7 +60,9 @@ def on_update(doc, method):
 			# Re-link / status flip: walk the full thread so first_responded_on
 			# lands on the *earliest* historical sent email, not whichever
 			# happened to be latest.
-			return backfill_parent_from_thread(parent, doc)
+			backfill_parent_from_thread(parent, doc)
+			refresh_incoming_due(parent)
+			return
 
 		doc_before_save = doc.get_doc_before_save()
 		if not doc_before_save:
@@ -74,6 +78,9 @@ def on_update(doc, method):
 			update_last_response_time(parent, doc, last_email)
 		else:
 			update_last_incoming_email_time(parent, last_email)
+		# keep the unanswered-incoming SLA-due datetime in step with the timestamps
+		# these writes just touched (native "Minutes After" Notification fires off it).
+		refresh_incoming_due(parent)
 	except Exception:
 		frappe.log_error(
 			title="Error in on_update of Gmail Thread",
@@ -134,8 +141,8 @@ def backfill_parent_from_thread(parent, doc):
 		)
 
 	if not parent.get("sla"):
-		if latest_sent and parent.meta.has_field("custom_last_responded_on"):
-			_set_if_newer(parent, "custom_last_responded_on", latest_sent.date_and_time)
+		if latest_sent and parent.meta.has_field("last_responded_on"):
+			_set_if_newer(parent, "last_responded_on", latest_sent.date_and_time)
 		return
 
 	from frappe.utils import time_diff_in_seconds
@@ -213,15 +220,15 @@ def update_last_response_time(parent, gmail_thread, email):
 	fills the rest on save.
 
 	Gated on the parent having an SLA attached — when no SLA is configured we
-	record only rtcamp's own `custom_last_responded_on` and leave FCRM's default
+	record only rtcamp's own `last_responded_on` and leave FCRM's default
 	SLA fields untouched, skipping all other SLA-related writes (rolling_responses
 	etc.) for safety.
 	"""
 	if not parent.meta.has_field("last_response_time"):
 		return
 	if not parent.get("sla"):
-		if parent.meta.has_field("custom_last_responded_on"):
-			_set_if_newer(parent, "custom_last_responded_on", email.date_and_time)
+		if parent.meta.has_field("last_responded_on"):
+			_set_if_newer(parent, "last_responded_on", email.date_and_time)
 		return
 
 	if parent.meta.has_field("first_responded_on") and not parent.get("first_responded_on"):
