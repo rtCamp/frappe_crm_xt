@@ -578,7 +578,7 @@ function _showEventsOverlay(doctype, docname) {
   overlay.setAttribute('data-xt-events-overlay', '')
   overlay.style.cssText =
     'position:absolute;inset:0;z-index:19;overflow:hidden;' +
-    'background:var(--surface-white,#ffffff);'
+    'background:var(--surface-base,#ffffff);'
   panel.appendChild(overlay)
   _xtEventsEl = overlay
 
@@ -677,7 +677,7 @@ function _showNotification(message, type = 'info') {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: var(--surface-gray-6, #1f2937);
+    background: var(--surface-gray-9, #1f2937);
     color: white;
     padding: 8px 16px;
     border-radius: 6px;

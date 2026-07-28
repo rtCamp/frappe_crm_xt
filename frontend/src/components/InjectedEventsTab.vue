@@ -1,10 +1,10 @@
 <template>
-  <div class="flex h-full flex-col overflow-hidden bg-surface-white">
+  <div class="flex h-full flex-col overflow-hidden bg-surface-base">
     <!-- ── Header ── -->
     <div
-      class="mx-4 my-3 flex items-center justify-between text-lg font-medium sm:mx-10 sm:mb-4 sm:mt-8"
+      class="mx-4 my-3 flex items-center justify-between text-lg-medium sm:mx-10 sm:mb-4 sm:mt-8"
     >
-      <div class="flex h-8 items-center text-xl font-semibold text-ink-gray-8">
+      <div class="flex h-8 items-center text-2xl-semibold text-ink-gray-8">
         {{ _t('Events') }}
       </div>
       <Button variant="solid" @click="openEvent(null)">
@@ -36,11 +36,11 @@
         >
           <!-- Left: timeline connector + calendar icon -->
           <div
-            class="z-0 relative flex justify-center before:absolute before:left-[50%] before:-z-[1] before:top-0 before:border-l before:border-outline-gray-modals"
+            class="z-0 relative flex justify-center before:absolute before:left-[50%] before:-z-[1] before:top-0 before:border-l before:border-outline-elevation-2"
             :class="i !== events.length - 1 ? 'before:h-full' : 'before:h-4'"
           >
             <div
-              class="flex h-8 w-7 items-center justify-center bg-surface-white text-ink-gray-8"
+              class="flex h-8 w-7 items-center justify-center bg-surface-base text-ink-gray-8"
             >
               <svg
                 viewBox="0 0 24 24"
@@ -89,7 +89,7 @@
 
             <!-- Event card -->
             <div
-              class="flex gap-2 border cursor-pointer border-outline-gray-modals rounded-lg bg-surface-cards px-2.5 py-2.5 text-ink-gray-9"
+              class="flex gap-2 border cursor-pointer border-outline-elevation-2 rounded-lg bg-surface-elevation-1 px-2.5 py-2.5 text-ink-gray-9"
               @click="openEvent(event)"
             >
               <!-- Color bar -->
@@ -164,7 +164,7 @@
     <!-- ── Empty state (matches PR exactly) ── -->
     <div
       v-else
-      class="flex h-full flex-1 flex-col items-center justify-center gap-3 text-xl font-medium text-ink-gray-4"
+      class="flex h-full flex-1 flex-col items-center justify-center gap-3 text-2xl-medium text-ink-gray-4"
     >
       <svg
         viewBox="0 0 24 24"

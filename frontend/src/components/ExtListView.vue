@@ -1,20 +1,18 @@
 <template>
-  <div class="flex h-full flex-col overflow-hidden bg-surface-white">
+  <div class="flex h-full flex-col overflow-hidden bg-surface-base">
     <!-- ── Header ── matches FCRM AppHeader + LayoutHeader ─────────────────── -->
     <div class="flex border-b pr-5">
       <header
         class="flex h-10.5 flex-1 items-center justify-between py-[7px] sm:pl-5 pl-2"
       >
         <div class="flex items-center gap-2">
-          <span class="px-0.5 py-1 text-lg font-medium text-ink-gray-5">{{
+          <span class="px-0.5 py-1 text-lg-medium text-ink-gray-5">{{
             doctype
           }}</span>
           <span class="mx-0.5 text-base text-ink-gray-4" aria-hidden="true"
             >/</span
           >
-          <span class="px-0.5 py-1 text-lg font-medium text-ink-gray-7"
-            >List</span
-          >
+          <span class="px-0.5 py-1 text-lg-medium text-ink-gray-7">List</span>
         </div>
         <div class="flex items-center gap-2">
           <Button
@@ -142,7 +140,7 @@
               <span>Sort</span>
               <template v-if="sortValues.length" #suffix>
                 <div
-                  class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-surface-white pt-px text-xs font-medium text-ink-gray-8 shadow-sm"
+                  class="flex h-5 w-5 items-center justify-center rounded-[5px] bg-surface-base pt-px text-xs-medium text-ink-gray-8 shadow-sm"
                 >
                   {{ sortValues.length }}
                 </div>
@@ -151,7 +149,7 @@
           </template>
           <template #body="{ close }">
             <div
-              class="my-2 min-w-72 rounded-lg bg-surface-modal shadow-2xl ring-black ring-opacity-5 focus:outline-none"
+              class="my-2 min-w-72 rounded-lg bg-surface-elevation-2 shadow-2xl ring-black ring-opacity-5 focus:outline-none"
             >
               <div class="p-2">
                 <div v-if="sortValues.length" class="mb-3 flex flex-col gap-2">
@@ -251,7 +249,7 @@
           </template>
           <template #body="{ close }">
             <div
-              class="my-2 min-w-72 rounded-lg bg-surface-modal shadow-2xl ring-black ring-opacity-5 focus:outline-none"
+              class="my-2 min-w-72 rounded-lg bg-surface-elevation-2 shadow-2xl ring-black ring-opacity-5 focus:outline-none"
             >
               <div class="p-2">
                 <div class="mb-2 max-h-64 overflow-y-auto">
@@ -385,7 +383,7 @@
           class="!h-6.5 inline-flex items-center justify-center gap-2 transition-colors focus:outline-none shrink-0 text-ink-gray-8 bg-surface-gray-2 hover:bg-surface-gray-3 active:bg-surface-gray-4 focus-visible:ring focus-visible:ring-outline-gray-3 h-7 text-base px-2 rounded"
           :class="
             pageLengthCount === size
-              ? '!bg-surface-white text-ink-gray-8 shadow'
+              ? '!bg-surface-base text-ink-gray-8 shadow'
               : '!text-ink-gray-5'
           "
           type="button"
