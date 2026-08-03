@@ -7,8 +7,10 @@ import frappe
 from frappe.tests import IntegrationTestCase
 
 from frappe_crm_xt.api.activity import (
+	_deferred_version_grouping,
 	_event_participant_emails,
 	_event_to_activity,
+	_group_versions,
 	_note_to_activity,
 	_resolve_reference_doctype,
 	_task_to_activity,
@@ -141,6 +143,109 @@ class TestApiActivity(IntegrationTestCase):
 
 		self.assertEqual(out["owner"], "Administrator")
 		self.assertEqual(out["data"]["value"], "Untitled task")
+
+	# ─── version grouping ──────────────────────────────────────────────────────
+
+	@staticmethod
+	def _row(owner, label, value, minute, activity_type="added"):
+		return {
+			"activity_type": activity_type,
+			"creation": datetime(2026, 1, 1, 10, minute),
+			"owner": owner,
+			"data": {"field_label": label, "value": value},
+		}
+
+	def test_task_run_collapses_into_one_expandable_row(self):
+		"""Consecutive same-owner rows fold into one 'Show +N changes' entry"""
+		rows = [self._row("wp@example.com", "Task", f"Task {i}", i) for i in range(5)]
+
+		out = _group_versions(rows)
+
+		self.assertEqual(len(out), 1)
+		# The frontend renders "Show +{len(other_versions) + 1} changes from <user>".
+		self.assertEqual(len(out[0]["other_versions"]), 4)
+		self.assertEqual(out[0]["owner"], "wp@example.com")
+
+	def test_different_owners_are_not_merged(self):
+		"""A run by another owner starts its own group"""
+		rows = [
+			self._row("wp@example.com", "Task", "A", 0),
+			self._row("wp@example.com", "Task", "B", 1),
+			self._row("bob@example.com", "Task", "C", 2),
+		]
+
+		out = _group_versions(rows)
+
+		self.assertEqual(len(out), 2)
+		self.assertEqual(out[0]["owner"], "wp@example.com")
+		self.assertEqual(len(out[0]["other_versions"]), 1)
+		self.assertNotIn("other_versions", out[1])
+
+	def test_lone_row_stays_ungrouped(self):
+		"""A single activity keeps its detailed one-liner"""
+		out = _group_versions([self._row("wp@example.com", "Task", "Solo", 0)])
+
+		self.assertEqual(len(out), 1)
+		self.assertNotIn("other_versions", out[0])
+		self.assertEqual(out[0]["data"]["value"], "Solo")
+
+	def test_non_version_activities_pass_through(self):
+		"""Comments and emails are never folded into a version group"""
+		rows = [
+			self._row("wp@example.com", "Task", "A", 0),
+			self._row("wp@example.com", None, None, 1, activity_type="comment"),
+		]
+
+		out = _group_versions(rows)
+
+		self.assertIn("comment", [r["activity_type"] for r in out])
+
+	def test_deferred_grouping_restores_upstream(self):
+		"""The context manager puts crm's real grouper back afterwards"""
+		import crm.api.activities as upstream
+
+		original = upstream.handle_multiple_versions
+		with _deferred_version_grouping():
+			self.assertIsNot(upstream.handle_multiple_versions, original)
+		self.assertIs(upstream.handle_multiple_versions, original)
+
+	def test_deferred_grouping_restores_on_error(self):
+		"""An exception inside the block still restores the real grouper"""
+		import crm.api.activities as upstream
+
+		original = upstream.handle_multiple_versions
+		with self.assertRaises(ValueError), _deferred_version_grouping():
+			raise ValueError("boom")
+		self.assertIs(upstream.handle_multiple_versions, original)
+
+	def test_task_burst_groups_end_to_end(self):
+		"""A real deal with a batch of tasks yields one collapsible row"""
+		deal = frappe.get_doc({"doctype": "CRM Deal"}).insert(ignore_permissions=True)
+		for i in range(5):
+			frappe.get_doc(
+				{
+					"doctype": "CRM Task",
+					"title": f"Bulk task {i}",
+					"reference_doctype": "CRM Deal",
+					"reference_docname": deal.name,
+				}
+			).insert(ignore_permissions=True)
+
+		activities, *_ = get_activities(deal.name)
+
+		# `creation` rows carry a plain string in `data`, so guard the lookup.
+		def is_task_row(activity):
+			data = activity.get("data")
+			return isinstance(data, dict) and data.get("field_label") == "Task"
+
+		task_rows = [a for a in activities if is_task_row(a)]
+		self.assertEqual(len(task_rows), 1, "the 5 tasks should collapse into one row")
+		self.assertEqual(len(task_rows[0]["other_versions"]), 4)
+		# Every task is still reachable once expanded.
+		titles = [task_rows[0]["data"]["value"]] + [
+			o["data"]["value"] for o in task_rows[0]["other_versions"]
+		]
+		self.assertCountEqual(titles, [f"Bulk task {i}" for i in range(5)])
 
 	# ─── _event_participant_emails ─────────────────────────────────────────────
 
