@@ -179,9 +179,10 @@ def _group_task_versions(activities: list[dict]) -> list[dict]:
 	run: list[dict] = []
 
 	def flush():
-		if run:
-			grouped.append(parse_grouped_versions(run.copy()))
-			run.clear()
+		if not run:
+			return
+		grouped.append(run[0] if len(run) == 1 else parse_grouped_versions(run.copy()))
+		run.clear()
 
 	for activity in activities:
 		if not _is_task_activity(activity):
@@ -189,7 +190,7 @@ def _group_task_versions(activities: list[dict]) -> list[dict]:
 			grouped.append(activity)
 			continue
 
-		if run and run[0].get("owner") and activity.get("owner") == run[0]["owner"]:
+		if run and activity.get("owner") == run[0].get("owner"):
 			run.append(activity)
 		else:
 			flush()
