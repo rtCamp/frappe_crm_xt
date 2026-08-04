@@ -7,6 +7,253 @@
  * inside their .vue components.
  */
 
+/* ── frappe-ui design-token aliases (works on any CRM version) ───────────────
+ *
+ * frappe-ui renamed a handful of tokens between 0.1.x (crm <= ~1.74) and 1.x
+ * (crm >= ~1.75):
+ *
+ *   0.1.x                    1.x
+ *   --surface-white          --surface-base
+ *   --surface-cards          --surface-elevation-1
+ *   --surface-modal          --surface-elevation-2
+ *   --surface-selected       --surface-elevation-3
+ *   --surface-menu-bar       --surface-sidebar
+ *   --outline-gray-modals    --outline-elevation-2
+ *   --text-ink-white         --ink-base
+ *
+ * We rely on the host CRM's stylesheet for these utilities, and it only ships
+ * the generation it was built with — so a class from the *other* generation has
+ * no rule at all. That is why dialogs and popovers showed up with a transparent
+ * background when our bundle and the host CRM were built against different
+ * frappe-ui versions. Below, each spelling is defined in terms of the other
+ * generation's variable, so whichever one the host provides, the colour resolves.
+ *
+ * Two details make this safe for the CRM itself:
+ *   - every selector is wrapped in `:where()`, which has zero specificity, so if
+ *     the host defines the class its own rule always wins — these only fill gaps;
+ *   - the value formats differ (0.1.x stores RGB channels, 1.x whole colours), so
+ *     0.1.x variables are read through `rgb()` and 1.x ones used directly. The
+ *     literal fallback is the token's 1.x value, for the case where neither
+ *     variable exists.
+ */
+
+/* 1.x spellings, resolved from the 0.1.x variables a crm <= 1.74 host provides. */
+:where(
+    .bg-surface-base,
+    .focus\:bg-surface-base:focus,
+    .after\:bg-surface-base::after
+  ) {
+  background-color: rgb(var(--surface-white, 255 255 255));
+}
+:where(.bg-surface-elevation-1) {
+  background-color: rgb(var(--surface-cards, 255 255 255));
+}
+:where(.bg-surface-elevation-2) {
+  background-color: rgb(var(--surface-modal, 255 255 255));
+}
+:where(.bg-surface-elevation-3) {
+  background-color: rgb(var(--surface-selected, 255 255 255));
+}
+:where(.bg-surface-sidebar, .hover\:bg-surface-sidebar:hover) {
+  background-color: rgb(var(--surface-menu-bar, 249 249 249));
+}
+:where(.fill-surface-base) {
+  fill: rgb(var(--surface-white, 255 255 255));
+}
+:where(.fill-surface-elevation-2) {
+  fill: rgb(var(--surface-modal, 255 255 255));
+}
+:where(.text-ink-base, .hover\:text-ink-base:hover) {
+  color: rgb(var(--text-ink-white, 255 255 255));
+}
+:where(
+    .border-outline-elevation-2,
+    .hover\:border-outline-elevation-2:hover,
+    .before\:border-outline-elevation-2::before
+  ) {
+  border-color: rgb(var(--outline-gray-modals, 241 241 241));
+}
+:where(.divide-outline-elevation-2) > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--outline-gray-modals, 241 241 241));
+}
+
+/* 0.1.x spellings, resolved from the 1.x variables a crm >= 1.75 host provides.
+ * These are whole colours, so no rgb() wrapper. */
+:where(.bg-surface-white) {
+  background-color: var(--surface-base, #ffffff);
+}
+:where(.text-ink-white) {
+  color: var(--ink-base, #ffffff);
+}
+:where(.border-outline-gray-modals) {
+  border-color: var(--outline-elevation-2, #ededed);
+}
+
+/* Dark mode for the gap case only: the host defines neither variable (its CSS
+ * purged the class), so the light literals above would be wrong. */
+[data-theme='dark'] :where(.bg-surface-base, .focus\:bg-surface-base:focus) {
+  background-color: rgb(var(--surface-white, 32 32 32));
+}
+[data-theme='dark'] :where(.bg-surface-elevation-1) {
+  background-color: rgb(var(--surface-cards, 39 39 39));
+}
+[data-theme='dark'] :where(.bg-surface-elevation-2) {
+  background-color: rgb(var(--surface-modal, 43 43 43));
+}
+[data-theme='dark'] :where(.bg-surface-elevation-3) {
+  background-color: rgb(var(--surface-selected, 60 60 60));
+}
+[data-theme='dark'] :where(.text-ink-base, .hover\:text-ink-base:hover) {
+  color: rgb(var(--text-ink-white, 32 32 32));
+}
+[data-theme='dark']
+  :where(
+    .border-outline-elevation-2,
+    .hover\:border-outline-elevation-2:hover
+  ) {
+  border-color: rgb(var(--outline-gray-modals, 60 60 60));
+}
+[data-theme='dark'] :where(.bg-surface-white) {
+  background-color: var(--surface-base, #0f0f0f);
+}
+[data-theme='dark'] :where(.text-ink-white) {
+  color: var(--ink-base, #0f0f0f);
+}
+[data-theme='dark'] :where(.border-outline-gray-modals) {
+  border-color: var(--outline-elevation-2, #343434);
+}
+
+/* ── frappe-ui token aliases, part 2: the shifted numeric steps ───────────────
+ *
+ * The same 1.x migration also *renumbered* several ramps, so these class names
+ * exist only in 1.x and have no rule on a crm <= 1.74 host:
+ *
+ *   1.x                    0.1.x            1.x                0.1.x
+ *   surface-gray-8/9/10    gray-5/6/7       ink-red-5/6/8      ink-red-2/3/4
+ *   surface-<accent>-7/8/9 <accent>-5/6/7   outline-gray-7     outline-gray-5
+ *
+ * Deliberately no literal fallback here: these variables exist only on a 0.1.x
+ * host. On a 1.x host the variable holds a whole colour (`oklch(...)`), so
+ * `rgb(var(...))` would be invalid — but there the host ships the class itself and
+ * wins the cascade (our `:where()` selectors have specificity 0), and where the
+ * host purged the class the element is unstyled either way. Nothing regresses.
+ */
+:where(.bg-surface-gray-8) {
+  background-color: rgb(var(--surface-gray-5));
+}
+:where(.bg-surface-gray-9) {
+  background-color: rgb(var(--surface-gray-6));
+}
+:where(.bg-surface-gray-10) {
+  background-color: rgb(var(--surface-gray-7));
+}
+:where(.bg-surface-red-3) {
+  background-color: rgb(var(--surface-red-3));
+}
+:where(.bg-surface-red-7) {
+  background-color: rgb(var(--surface-red-5));
+}
+:where(.bg-surface-violet-2) {
+  background-color: rgb(var(--surface-violet-1));
+}
+/* 1.x added a translucent surface family; 0.1.x has no equivalent, so use the
+ * closest opaque step. */
+:where(.bg-surface-alpha-gray-2) {
+  background-color: rgb(var(--surface-gray-2));
+}
+:where(.active\:bg-surface-gray-8:active) {
+  background-color: rgb(var(--surface-gray-5));
+}
+:where(.active\:bg-surface-red-9:active) {
+  background-color: rgb(var(--surface-red-6));
+}
+:where(.focus\:bg-surface-gray-2:focus) {
+  background-color: rgb(var(--surface-gray-2));
+}
+:where(.focus-within\:bg-surface-gray-3:focus-within) {
+  background-color: rgb(var(--surface-gray-3));
+}
+:where(.hover\:bg-surface-gray-9:hover) {
+  background-color: rgb(var(--surface-gray-6));
+}
+:where(.hover\:bg-surface-red-8:hover) {
+  background-color: rgb(var(--surface-red-6));
+}
+:where(.enabled\:hover\:bg-surface-gray-9:enabled:hover) {
+  background-color: rgb(var(--surface-gray-6));
+}
+.group:hover :where(.group-hover\:enabled\:bg-surface-gray-9:enabled) {
+  background-color: rgb(var(--surface-gray-6));
+}
+:where(.fill-surface-gray-10) {
+  fill: rgb(var(--surface-gray-7));
+}
+
+:where(.text-ink-amber-6) {
+  color: rgb(var(--text-ink-amber-3));
+}
+:where(.text-ink-blue-6) {
+  color: rgb(var(--text-ink-blue-3));
+}
+:where(.text-ink-blue-8) {
+  color: rgb(var(--text-ink-blue-4));
+}
+:where(.text-ink-green-5) {
+  color: rgb(var(--text-ink-green-2));
+}
+:where(.text-ink-green-6) {
+  color: rgb(var(--text-ink-green-3));
+}
+:where(.text-ink-red-5) {
+  color: rgb(var(--text-ink-red-2));
+}
+:where(.text-ink-red-6) {
+  color: rgb(var(--text-ink-red-3));
+}
+:where(.text-ink-red-8) {
+  color: rgb(var(--text-ink-red-4));
+}
+/* 1.x accent-8 ink has no 0.1.x counterpart (those ramps stop at 3/4) — pin to
+ * their darkest old step. `ink-gray-700` is a stray Tailwind-scale name in
+ * frappe-ui's own TextEditor markup, valid in neither generation. */
+:where(.text-ink-amber-8) {
+  color: rgb(var(--text-ink-amber-3));
+}
+:where(.text-ink-green-8) {
+  color: rgb(var(--text-ink-green-3));
+}
+:where(.text-ink-violet-8) {
+  color: rgb(var(--text-ink-violet-1));
+}
+:where(.text-ink-gray-700) {
+  color: rgb(var(--text-ink-gray-7));
+}
+
+:where(.border-outline-green-3) {
+  border-color: rgb(var(--outline-green-2));
+}
+:where(.focus\:border-outline-gray-8:focus) {
+  border-color: rgb(var(--outline-gray-5));
+}
+:where(.hover\:border-outline-gray-7:hover) {
+  border-color: rgb(var(--outline-gray-5));
+}
+:where(.active\:border-outline-gray-6:active) {
+  border-color: rgb(var(--outline-gray-5));
+}
+:where(.hover\:border-outline-red-3:hover) {
+  border-color: rgb(var(--outline-red-2));
+}
+:where(.active\:border-outline-red-3:active) {
+  border-color: rgb(var(--outline-red-2));
+}
+:where(.divide-outline-gray-2) > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--outline-gray-2));
+}
+:where(.divide-ink-gray-6) > :not([hidden]) ~ :not([hidden]) {
+  border-color: rgb(var(--text-ink-gray-6));
+}
+
 /* Dialog fade transition */
 .crm-xt-fade-enter-active,
 .crm-xt-fade-leave-active {
