@@ -9,6 +9,8 @@ from frappe.tests import IntegrationTestCase
 from frappe_crm_xt.api.activity import (
 	_event_participant_emails,
 	_event_to_activity,
+	_group_task_versions,
+	_is_task_activity,
 	_note_to_activity,
 	_resolve_reference_doctype,
 	_task_to_activity,
@@ -141,6 +143,114 @@ class TestApiActivity(IntegrationTestCase):
 
 		self.assertEqual(out["owner"], "Administrator")
 		self.assertEqual(out["data"]["value"], "Untitled task")
+
+	# ─── _group_task_versions ──────────────────────────────────────────────────
+
+	@staticmethod
+	def _task_row(owner, value, minute):
+		"""A row shaped like the ones _task_to_activity injects."""
+		return {
+			"activity_type": "added",
+			"creation": datetime(2026, 1, 1, 10, minute),
+			"owner": owner,
+			"data": {"field": "task", "field_label": "Task", "value": value},
+		}
+
+	@staticmethod
+	def _other_row(owner, minute, field="status", activity_type="changed"):
+		"""Any non-task row: a field change, comment, note, event..."""
+		return {
+			"activity_type": activity_type,
+			"creation": datetime(2026, 1, 1, 10, minute),
+			"owner": owner,
+			"data": {"field": field, "field_label": field.title(), "value": "x"},
+		}
+
+	def test_task_run_collapses_into_one_expandable_row(self):
+		"""Consecutive same-owner task rows fold into one 'Show +N changes' entry"""
+		rows = [self._task_row("wp@example.com", f"Task {i}", i) for i in range(5)]
+
+		out = _group_task_versions(rows)
+
+		self.assertEqual(len(out), 1)
+		# The frontend renders "Show +{len(other_versions) + 1} changes from <user>".
+		self.assertEqual(len(out[0]["other_versions"]), 4)
+		self.assertEqual(out[0]["owner"], "wp@example.com")
+
+	def test_lone_task_row_is_returned_untouched(self):
+		"""A single task keeps its plain row -- no other_versions key is added"""
+		row = self._task_row("wp@example.com", "Solo", 0)
+
+		out = _group_task_versions([row])
+
+		self.assertEqual(len(out), 1)
+		self.assertIs(out[0], row)
+		self.assertNotIn("other_versions", out[0])
+		self.assertEqual(out[0]["data"]["value"], "Solo")
+
+	def test_different_owners_are_not_merged(self):
+		"""A task by another owner starts its own group"""
+		rows = [
+			self._task_row("wp@example.com", "A", 0),
+			self._task_row("wp@example.com", "B", 1),
+			self._task_row("bob@example.com", "C", 2),
+		]
+
+		out = _group_task_versions(rows)
+
+		self.assertEqual(len(out), 2)
+		self.assertEqual(out[0]["owner"], "wp@example.com")
+		self.assertEqual(len(out[0]["other_versions"]), 1)
+		self.assertNotIn("other_versions", out[1])
+
+	def test_tasks_with_the_same_missing_owner_still_group(self):
+		"""Grouping is owner equality, not owner truthiness"""
+		rows = [self._task_row(None, "A", 0), self._task_row(None, "B", 1)]
+
+		out = _group_task_versions(rows)
+
+		self.assertEqual(len(out), 1)
+		self.assertEqual(len(out[0]["other_versions"]), 1)
+
+	def test_non_task_rows_pass_through_and_break_the_run(self):
+		"""Field changes/comments are never folded into a task group"""
+		rows = [
+			self._task_row("wp@example.com", "A", 0),
+			self._other_row("wp@example.com", 1),
+			self._task_row("wp@example.com", "B", 2),
+		]
+
+		out = _group_task_versions(rows)
+
+		self.assertEqual(len(out), 3)
+		self.assertEqual(out[1]["data"]["field"], "status")
+		for row in out:
+			self.assertNotIn("other_versions", row)
+
+	def test_upstream_groups_are_left_alone(self):
+		"""Groups FCRM already built are passed through untouched"""
+		upstream = self._other_row("wp@example.com", 0)
+		upstream["other_versions"] = [self._other_row("wp@example.com", 1)]
+
+		out = _group_task_versions([upstream, self._task_row("wp@example.com", "A", 2)])
+
+		self.assertEqual(len(out), 2)
+		self.assertIs(out[0], upstream)
+		self.assertEqual(len(out[0]["other_versions"]), 1)
+
+	def test_empty_input(self):
+		"""No activities in, no activities out"""
+		self.assertEqual(_group_task_versions([]), [])
+
+	# ─── _is_task_activity ─────────────────────────────────────────────────────
+
+	def test_is_task_activity_discriminates_on_field(self):
+		"""Only rows whose data.field is 'task' are groupable"""
+		self.assertTrue(_is_task_activity(self._task_row("a@b.com", "T", 0)))
+		self.assertFalse(_is_task_activity(self._other_row("a@b.com", 0)))
+		# `creation` activities carry a plain string in `data`.
+		self.assertFalse(_is_task_activity({"activity_type": "creation", "data": "created this deal"}))
+		self.assertFalse(_is_task_activity({"activity_type": "added"}))
 
 	# ─── _event_participant_emails ─────────────────────────────────────────────
 
