@@ -11,7 +11,15 @@ import { ref, onMounted, h, createApp } from 'vue'
 import SearchDialog from './SearchDialog.vue'
 import ExtListView from './ExtListView.vue'
 import InjectedEventsTab from './InjectedEventsTab.vue'
-import { getLucideIcon } from '../lucideIcons.js'
+import {
+  ROW_TEMPLATE_LABEL,
+  cloneNativeRow,
+  cloneNativeSectionLabel,
+  findNativeRow,
+  isSidebarCollapsed,
+  lucideIconInner,
+  setLabelCollapsed,
+} from '../utils/sidebarRow.js'
 
 const showSearch = ref(false)
 const sidebarItems = ref([])
@@ -102,7 +110,14 @@ function findItemForDoctype(items, doctype) {
 const _extShim = {
   name: 'CrmXtListView',
   render() {
-    return h('div', { style: 'height:100%;overflow:hidden;' })
+    // FCRM's DesktopLayout renders this route inside
+    // `div.flex-1.flex.flex-col.h-full.overflow-auto`, below AppHeader — in both
+    // crm 1.74 and 1.81. `height: 100%` therefore resolved to the *full* column
+    // height, so our view was AppHeader-height too tall and the column scrolled
+    // (list header stuck to the top, bottom of the list cut off). Sizing as a flex
+    // child instead fills exactly the space the header leaves; `min-h-0` lets our
+    // inner `overflow-hidden`/scroll areas shrink rather than push the page.
+    return h('div', { class: 'flex-1 min-h-0 overflow-hidden' })
   },
   mounted() {
     this._mountApp(this.$route?.params?.doctype || '')
@@ -171,31 +186,28 @@ function injectFCRMRoute() {
   }
 }
 
-// ── Lucide icon renderer ─────────────────────────────────────────────────────
-// getLucideIcon(name) returns a complete <svg>…</svg> string from lucide-static.
-// We strip the outer <svg> tag and re-wrap with our own so we can control
-// class, size, and stroke-width to match FCRM's sidebar icon style.
-const _svgInnerCache = {}
-function lucideIconInner(name) {
-  if (_svgInnerCache[name]) return _svgInnerCache[name]
-  const raw = getLucideIcon(name)
-  // Extract everything between the first > and last </svg>
-  const inner = raw
-    .replace(/^[\s\S]*?<svg[^>]*>/, '')
-    .replace(/<\/svg>\s*$/, '')
-  _svgInnerCache[name] = inner
-  return inner
-}
+// Sidebar rows are cloned from the CRM's own markup — see utils/sidebarRow.js
+// for why, and for the version differences it absorbs.
+const _findNativeRow = () => findNativeRow(document)
+const _cloneNativeRow = cloneNativeRow
 
 // ── Sidebar collapse sync ────────────────────────────────────────────────────
-// Walk up from the Call Logs button to find the sidebar root div that switches
-// between w-12 (collapsed) and w-[220px] (expanded).
+// crm <= 1.74 toggles w-12 / w-[220px] classes on the sidebar root; crm >= 1.75
+// uses frappe-ui's Sidebar, which sets an inline width instead — so measure.
 let _sidebarEl = null
 
 function _findSidebarEl() {
+  // Drop the cache if the SPA replaced the sidebar (route change, layout swap):
+  // a detached node measures 0 and its MutationObserver is dead.
+  if (_sidebarEl && !_sidebarEl.isConnected) _sidebarEl = null
   if (_sidebarEl) return _sidebarEl
+  const modern = document.querySelector('[data-slot="sidebar"]')
+  if (modern) {
+    _sidebarEl = modern
+    return modern
+  }
   const span = Array.from(document.querySelectorAll('span')).find(
-    (s) => s.textContent.trim() === 'Call Logs',
+    (s) => s.textContent.trim() === ROW_TEMPLATE_LABEL,
   )
   if (!span) return null
   let el = span.parentElement
@@ -213,7 +225,7 @@ function _findSidebarEl() {
 }
 
 function _isSidebarCollapsed() {
-  return _findSidebarEl()?.classList.contains('w-12') ?? false
+  return isSidebarCollapsed(_findSidebarEl())
 }
 
 // Apply or remove collapsed styles to all our custom injected elements.
@@ -231,15 +243,21 @@ function _syncCollapse() {
     }
   })
 
-  // Label spans
-  document.querySelectorAll('[data-xt-label]').forEach((s) => {
-    if (collapsed) {
-      s.classList.remove('ml-2', 'w-auto', 'opacity-100')
-      s.classList.add('ml-0', 'w-0', 'overflow-hidden', 'opacity-0')
-    } else {
-      s.classList.remove('ml-0', 'w-0', 'overflow-hidden', 'opacity-0')
-      s.classList.add('ml-2', 'w-auto', 'opacity-100')
-    }
+  // Label elements. Nav rows slide their label, section labels only fade — the
+  // element records which, so we never add a margin the CRM itself doesn't set.
+  document.querySelectorAll('[data-xt-label]').forEach((el) => {
+    setLabelCollapsed(el, collapsed)
+  })
+
+  // Cloned rows: mirror what frappe-ui's SidebarItem does itself on collapse —
+  // centre the icon on the rail instead of keeping it left-padded, and grow the
+  // icon holder to the row height so it reads as a rail button.
+  document.querySelectorAll('[data-xt-link]').forEach((el) => {
+    el.classList.toggle('pl-2', !collapsed)
+    el.classList.toggle('justify-center', collapsed)
+  })
+  document.querySelectorAll('[data-xt-icon]').forEach((el) => {
+    el.classList.toggle('size-7', collapsed)
   })
 
   // Group chevrons and ⌘K badge — hide in collapsed mode
@@ -252,9 +270,24 @@ function _syncCollapse() {
     el.style.display = collapsed ? 'none' : ''
   })
 
-  // Group children — force-close when sidebar collapses
+  // Group headers: on the rail the label is hidden (handled above), so show the
+  // divider rule in its place — otherwise the header is just a 28px empty gap.
+  document.querySelectorAll('[data-xt-divider]').forEach((el) => {
+    el.style.display = collapsed ? 'flex' : 'none'
+  })
+
+  // Group children. The CRM's own sections keep their rows on the collapsed rail
+  // (icons only), so ours do too — previously we force-hid them, which left the
+  // group as an empty gap with no icons. When the sidebar expands again, the
+  // group's own open/closed state (aria-expanded on its header) takes over.
   document.querySelectorAll('[data-xt-children]').forEach((el) => {
-    if (collapsed) el.style.display = 'none'
+    if (collapsed) {
+      el.style.display = 'flex'
+      return
+    }
+    const header = el.parentElement?.querySelector('[aria-expanded]')
+    el.style.display =
+      header?.getAttribute('aria-expanded') === 'true' ? 'flex' : 'none'
   })
 }
 
@@ -263,33 +296,15 @@ function _setupCollapseObserver() {
   if (!sidebar) return
   new MutationObserver(_syncCollapse).observe(sidebar, {
     attributes: true,
-    attributeFilter: ['class'],
+    // `style` matters from crm 1.81 on, where the width is inline, not a class.
+    attributeFilter: ['class', 'style'],
   })
   _syncCollapse()
 }
 
 // ── Build a sidebar nav button (shared by top-level and group children) ──────
-function _makeSidebarBtn(item, callLogsBtn) {
-  const btn = document.createElement('button')
-  btn.className = callLogsBtn.className
-  btn.setAttribute('aria-label', item.label)
-  const isRoute = item.type === 'route'
-  const icon = item.icon || (isRoute ? 'external-link' : 'list')
-  btn.innerHTML = `
-    <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
-      <div class="flex items-center truncate">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-          class="flex items-center size-4 text-ink-gray-8">
-          ${lucideIconInner(icon)}
-        </svg>
-        <span data-xt-label
-          class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
-        >${item.label}</span>
-      </div>
-    </div>
-  `
-  btn.addEventListener('click', () => {
+function _sidebarItemAction(item) {
+  return () => {
     if (item.type === 'list_view' && item.doctype) {
       const path = `/crm/xt/list/${encodeURIComponent(item.doctype)}`
       window.history.pushState({}, '', path)
@@ -299,19 +314,30 @@ function _makeSidebarBtn(item, callLogsBtn) {
       if (url.startsWith('http')) window.open(url, '_blank')
       else window.location.href = url
     }
+  }
+}
+
+function _makeSidebarBtn(item) {
+  const isRoute = item.type === 'route'
+  const icon = item.icon || (isRoute ? 'external-link' : 'list')
+  // Clone a native row so it matches whatever this CRM version renders. The caller
+  // has already established that a template exists (it uses the same row as its
+  // insertion anchor), so there is no markup fallback to maintain here.
+  return _cloneNativeRow(_findNativeRow(), {
+    label: item.label,
+    icon,
+    onClick: _sidebarItemAction(item),
   })
-  return btn
 }
 
 // ── Inject custom sidebar buttons below "Call Logs" ──────────────────────────
 function injectCustomSidebarBtns() {
   if (!sidebarItems.value.length) return
 
-  // Find "Call Logs" as the anchor
-  const callLogsSpan = Array.from(document.querySelectorAll('span')).find(
-    (s) => s.textContent.trim() === 'Call Logs' && s.closest('button'),
-  )
-  const callLogsBtn = callLogsSpan?.closest('button')
+  // Anchor + row template: the "Call Logs" row. From crm 1.81 this is a
+  // `div[data-slot="sidebar-item"]` wrapping a link, not a <button> — requiring a
+  // <button> here is why no custom items appeared at all on 1.81.
+  const callLogsBtn = _findNativeRow()
   if (!callLogsBtn) return
 
   let anchor = callLogsBtn
@@ -341,17 +367,27 @@ function injectCustomSidebarBtns() {
 
     // ── Group (collapsible section) ──────────────────────────────────────────
     if (item.type === 'group') {
+      // Mirror the CRM's own section markup exactly:
+      //   <div> <div data-slot="sidebar-label" class="mb-1 mt-4"> <nav class="flex flex-col gap-1">
+      // A bare wrapper is deliberate — giving it `flex flex-col gap-1` added 4px on
+      // top of the label's own `mb-1`, so our group sat lower than "Public Views".
       const wrapper = document.createElement('div')
       wrapper.id = id
-      wrapper.className = 'flex flex-col'
+      wrapper.classList.add('crm-xt')
 
-      // Header button
+      // Header row. The CRM's own collapsible sections (crm >= 1.81) render a
+      // `div[data-slot="sidebar-label"]` with a leading chevron — clone that when
+      // present so our group header reads as one of them.
       const icon = item.icon || 'folder'
-      const headerBtn = document.createElement('button')
-      headerBtn.className = callLogsBtn.className
-      headerBtn.setAttribute('aria-label', item.label)
-      headerBtn.setAttribute('aria-expanded', 'false')
-      headerBtn.innerHTML = `
+      const nativeLabel = document.querySelector('[data-slot="sidebar-label"]')
+      let headerBtn
+      if (nativeLabel) {
+        headerBtn = cloneNativeSectionLabel(nativeLabel, { label: item.label })
+      } else {
+        headerBtn = document.createElement('button')
+        headerBtn.className = callLogsBtn.className
+        headerBtn.classList.add('crm-xt')
+        headerBtn.innerHTML = `
         <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
           <div class="flex items-center truncate">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
@@ -359,7 +395,7 @@ function injectCustomSidebarBtns() {
               class="flex items-center size-4 text-ink-gray-8">
               ${lucideIconInner(icon)}
             </svg>
-            <span data-xt-label
+            <span data-xt-label="margin"
               class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
             >${item.label}</span>
           </div>
@@ -370,11 +406,15 @@ function injectCustomSidebarBtns() {
           </svg>
         </div>
       `
+      }
+      headerBtn.setAttribute('aria-label', item.label)
+      headerBtn.setAttribute('aria-expanded', 'false')
 
-      // Children container (hidden by default)
-      const childrenEl = document.createElement('div')
+      // Children container (hidden by default) — a <nav> with the same classes the
+      // CRM uses for a section's rows.
+      const childrenEl = document.createElement('nav')
       childrenEl.setAttribute('data-xt-children', '')
-      childrenEl.className = 'flex-col pl-2'
+      childrenEl.className = 'flex flex-col gap-1'
       childrenEl.style.display = 'none'
 
       // Build child items
@@ -386,7 +426,7 @@ function injectCustomSidebarBtns() {
           childrenEl.appendChild(hr)
           return
         }
-        const childBtn = _makeSidebarBtn(child, callLogsBtn)
+        const childBtn = _makeSidebarBtn(child)
         childrenEl.appendChild(childBtn)
       })
 
@@ -396,13 +436,19 @@ function injectCustomSidebarBtns() {
         const expanded = headerBtn.getAttribute('aria-expanded') === 'true'
         headerBtn.setAttribute('aria-expanded', String(!expanded))
         const chevron = headerBtn.querySelector('.crm-xt-chevron')
+        // A cloned native chevron points right and the CRM rotates it 90°; our
+        // fallback chevron already points down, so it flips 180°.
+        const openRotation = chevron?.classList.contains('lucide-chevron-right')
+          ? 'rotate(90deg)'
+          : 'rotate(180deg)'
         if (!expanded) {
           childrenEl.style.display = 'flex'
-          if (chevron) chevron.style.transform = 'rotate(180deg)'
+          if (chevron) chevron.style.transform = openRotation
         } else {
           childrenEl.style.display = 'none'
           if (chevron) chevron.style.transform = ''
         }
+        _syncCollapse()
       })
 
       wrapper.appendChild(headerBtn)
@@ -413,7 +459,7 @@ function injectCustomSidebarBtns() {
     }
 
     // ── list_view / route ────────────────────────────────────────────────────
-    const btn = _makeSidebarBtn(item, callLogsBtn)
+    const btn = _makeSidebarBtn(item)
     btn.id = id
     anchor.insertAdjacentElement('afterend', btn)
     anchor = btn
@@ -441,10 +487,35 @@ function injectSidebarBtn() {
   )
   const modKey = isMac ? '⌘' : 'Ctrl'
 
+  const kbdSuffix = `
+    <span data-xt-hide-collapsed class="ml-auto mr-2 flex items-center gap-1">
+      <kbd class="text-[0.65rem] text-ink-gray-5">${modKey}</kbd>
+      <kbd class="text-xs text-ink-gray-5">K</kbd>
+    </span>`
+
+  // Same reasoning as the nav rows: clone a native row so Search sits flush with
+  // the CRM's own items on any version.
+  const template = _findNativeRow()
+  if (template) {
+    const row = _cloneNativeRow(template, {
+      label: 'Search',
+      icon: 'search',
+      suffix: kbdSuffix,
+      onClick: () => {
+        showSearch.value = true
+      },
+    })
+    row.id = 'crm-xt-search-btn'
+    container.insertBefore(row, notifBtn.nextSibling)
+    _syncCollapse()
+    return
+  }
+
   const btn = document.createElement('button')
   btn.id = 'crm-xt-search-btn'
   btn.className =
     'flex h-7.5 cursor-pointer items-center rounded text-ink-gray-8 duration-300 ease-in-out focus:outline-none focus:transition-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-outline-gray-3 hover:bg-surface-gray-2 relative mx-2 my-[1.5px]'
+  btn.classList.add('crm-xt')
   btn.setAttribute('aria-label', 'Search')
   btn.innerHTML = `
     <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
@@ -454,7 +525,7 @@ function injectSidebarBtn() {
           class="flex items-center size-4 text-ink-gray-8">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <span data-xt-label
+        <span data-xt-label="margin"
           class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
         >Search</span>
       </div>
