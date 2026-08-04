@@ -30,5 +30,8 @@
   },
   "optionalDependencies": {
     "@rollup/rollup-darwin-arm64": "^4.60.3"
+  },
+  "resolutions": {
+    "echarts": "6.1.0"
   }
 }
