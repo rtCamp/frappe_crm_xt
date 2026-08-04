@@ -3,6 +3,7 @@
 *.egg-info
 *.swp
 __pycache__
+.ruff_cache
 dev-dist
 tags
 node_modules
