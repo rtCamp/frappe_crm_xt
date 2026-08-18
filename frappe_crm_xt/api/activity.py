@@ -85,6 +85,7 @@ def get_activities(name: str):
 		activities.append(_task_to_activity(task, task_owner_map.get(task.get("name")), is_lead))
 
 	activities.sort(key=lambda x: x.get("creation", "") or "", reverse=True)
+	activities = _group_task_versions(activities)
 
 	for note in notes:
 		note["modified"] = note_map.get(note["name"]) or note.get("creation")
@@ -156,6 +157,47 @@ def _note_to_activity(note: dict, posting_datetime, is_lead: bool) -> dict:
 		},
 		"is_lead": is_lead,
 	}
+
+
+def _is_task_activity(activity: dict) -> bool:
+	data = activity.get("data")
+	return isinstance(data, dict) and data.get("field") == "task"
+
+
+def _group_task_versions(activities: list[dict]) -> list[dict]:
+	"""Collapse consecutive same-owner task rows into one merged entry.
+
+	Upstream already grouped the field-change versions it knows about before we
+	got the timeline; those groups are left exactly as they are (no flattening,
+	no regrouping). Only the task rows we inject here are merged, so a user
+	adding a batch of tasks shows a single collapsible "Show +7 changes from
+	<user>" entry instead of burying the rest of the timeline.
+	"""
+	from crm.api.activities import parse_grouped_versions
+
+	grouped: list[dict] = []
+	run: list[dict] = []
+
+	def flush():
+		if not run:
+			return
+		grouped.append(run[0] if len(run) == 1 else parse_grouped_versions(run.copy()))
+		run.clear()
+
+	for activity in activities:
+		if not _is_task_activity(activity):
+			flush()
+			grouped.append(activity)
+			continue
+
+		if run and activity.get("owner") == run[0].get("owner"):
+			run.append(activity)
+		else:
+			flush()
+			run.append(activity)
+
+	flush()
+	return grouped
 
 
 def _task_to_activity(task: dict, owner: str | None, is_lead: bool) -> dict:
