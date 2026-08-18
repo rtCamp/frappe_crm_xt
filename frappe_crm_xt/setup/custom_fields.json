@@ -416,8 +416,7 @@
       "fieldname": "custom_start_datetime",
       "fieldtype": "Datetime",
       "label": "Start Date & Time",
-      "insert_after": "due_date",
-      "description": "Start of the calendar event. Stored in the system timezone; shown in each user's own timezone."
+      "insert_after": "due_date"
     },
     {
       "fieldname": "custom_calendar_sync_section",
@@ -430,7 +429,6 @@
       "fieldname": "custom_sync_with_calendar",
       "fieldtype": "Check",
       "label": "Sync with Calendar",
-      "description": "When checked, a Frappe Event is created on this task and linked to your calendar.",
       "insert_after": "custom_calendar_sync_section"
     },
     {
@@ -447,8 +445,7 @@
       "label": "Google Calendar",
       "options": "Google Calendar",
       "insert_after": "custom_event_participants",
-      "depends_on": "eval:doc.custom_sync_with_calendar",
-      "description": "The connected Google Calendar to push this event to. The calendar must be authorized with Push enabled."
+      "depends_on": "eval:doc.custom_sync_with_calendar"
     }
   ],
   "CRM Deal Status": [
