@@ -1,12 +1,5 @@
 <template>
   <div class="flex h-full flex-col overflow-hidden bg-surface-base">
-    <!-- ── Header ─────────────────────────────────────────────────────────────
-         FCRM's own pages don't draw a header bar: `LayoutHeader` teleports their
-         header into the `#app-header` slot that AppHeader already renders at the
-         top of the content column. Drawing our own bar there instead left two
-         stacked bordered bars — the CRM's (empty) and ours. So teleport into
-         `#app-header` when it exists, and only fall back to our own bar on a CRM
-         old enough not to have that slot. -->
     <component
       :is="appHeaderSlot ? Teleport : 'div'"
       :to="appHeaderSlot || undefined"
@@ -444,15 +437,11 @@ import ExtListRows from './ExtListRows.vue'
 
 const __ = typeof window.__ === 'function' ? window.__ : (s) => s
 
-// FCRM's AppHeader renders an empty `#app-header` slot for the active page's
-// header (see the template above). Resolved once here — our route is only rendered
-// after the layout is mounted, so the element already exists.
 const appHeaderSlot = ref(
   typeof document === 'undefined'
     ? null
     : document.querySelector('#app-header'),
 )
-// On a deep link the layout can mount after us, so re-check once we're mounted.
 onMounted(() => {
   if (!appHeaderSlot.value)
     appHeaderSlot.value = document.querySelector('#app-header')

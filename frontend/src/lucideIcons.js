@@ -93,7 +93,6 @@ const ICONS = {
   'circle-check': circleCheck,
   flag: flag,
   bookmark: bookmark,
-  // Used by our own injected rows: the Cmd+K Search row and the default group icon.
   search: search,
   folder: folder,
 }

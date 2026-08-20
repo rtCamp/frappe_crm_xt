@@ -7,36 +7,6 @@
  * inside their .vue components.
  */
 
-/* ── frappe-ui design-token aliases (works on any CRM version) ───────────────
- *
- * This bundle ships its own frappe-ui but takes the *utility CSS* for its design
- * tokens from the host CRM's stylesheet — and that stylesheet only contains what
- * the host itself uses, built against the frappe-ui version the host pinned. Two
- * consequences, both of which left our dialogs and popovers unstyled (the
- * "transparent popup" bug):
- *
- *   1. frappe-ui 1.x (crm >= ~1.75) renamed tokens — surface-white -> surface-base,
- *      surface-modal -> surface-elevation-2, surface-cards -> surface-elevation-1,
- *      surface-selected -> surface-elevation-3, surface-menu-bar -> surface-sidebar,
- *      outline-gray-modals -> outline-elevation-2, ink-white -> ink-base — and
- *      renumbered several ramps (surface-gray-5 -> 8, ink-red-2 -> 5, ...).
- *   2. Tailwind purging means even a valid class is absent whenever the CRM's own
- *      markup happens not to use it.
- *
- * Each rule below names the 1.x token first and falls back to its 0.1.x
- * counterpart, then to a literal, so the colour resolves on either host. Both
- * generations store whole colours (0.1.x `#fff`, 1.x `oklch(...)`), so a single
- * chain serves both, and because the variables are the host's own, dark mode and
- * any theme customisation follow automatically — no duplicate dark-mode rules.
- *
- * Every selector is wrapped in `:where()`, which has zero specificity: whenever the
- * host ships the class its own rule wins, so this can only ever fill gaps and never
- * restyles the CRM itself. Verified against the stylesheets crm 1.74.1 and crm
- * 1.81.0 actually produce: 97 token classes used, 0 unstyled on either.
- *
- * Regenerate after changing components or bumping frappe-ui — see git history for
- * the throwaway script; the rules are plain CSS by design, with no build step.
- */
 .group:hover :where(.group-hover\:enabled\:bg-surface-gray-9:enabled) {
   background-color: var(
     --surface-gray-9,
@@ -142,8 +112,6 @@
     var(--outline-green-2, oklch(0.872 0.084 155.952))
   );
 }
-/* Used by the divider rule our cloned group header carries (frappe-ui's own
- * SidebarLabel divider); the CRM's stylesheet purges it, so supply it here. */
 :where(.border-ink-gray-3) {
   border-color: var(--ink-gray-3, oklch(0.83 0 0));
 }
