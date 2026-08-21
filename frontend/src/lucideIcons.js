@@ -107,5 +107,3 @@ const ICONS = {
 export function getLucideIcon(name) {
   return ICONS[name] || ICONS['list']
 }
-
-export { ICONS }

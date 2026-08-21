@@ -521,22 +521,6 @@ const operatorMap = {
   timespan: 'timespan',
 }
 
-const oppositeOperatorMap = {
-  is: 'is',
-  '=': 'equals',
-  '!=': 'not equals',
-  LIKE: 'like',
-  'NOT LIKE': 'not like',
-  '>': '>',
-  '<': '<',
-  '>=': '>=',
-  '<=': '<=',
-  in: 'in',
-  'not in': 'not in',
-  between: 'between',
-  timespan: 'timespan',
-}
-
 function apply() {
   const obj = {}
   for (const f of filterList.value) {

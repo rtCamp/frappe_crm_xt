@@ -7,7 +7,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, h, createApp } from 'vue'
+import { ref, onMounted, onUnmounted, h, createApp } from 'vue'
 import SearchDialog from './SearchDialog.vue'
 import ExtListView from './ExtListView.vue'
 import InjectedEventsTab from './InjectedEventsTab.vue'
@@ -15,6 +15,7 @@ import {
   cloneNativeRow,
   cloneNativeSectionLabel,
   findNativeRow,
+  findNativeSectionLabel,
   findSidebarEl,
   isSidebarCollapsed,
   lucideIconInner,
@@ -28,12 +29,6 @@ const sidebarItems = ref([])
 function onNavigate(route) {
   showSearch.value = false
   const path = route.path || ''
-  // The CRM SPA is mounted under /crm/* and owns those routes. Anything else
-  // (e.g. /app/lead/<name> for ERP Lead, or any Frappe Desk doctype URL) lives
-  // outside the SPA — we must do a real page load. history.pushState only
-  // updates the URL while leaving the SPA mounted, and the SPA router then
-  // can't resolve the external path, so navigation looks broken (e.g. ERP
-  // Lead search results were ending up at /crm/desk/Lead).
   if (!path.startsWith('/crm/')) {
     window.location.href = path
     return
@@ -96,17 +91,6 @@ function findItemForDoctype(items, doctype) {
   return null
 }
 
-// ── Shim component injected into FCRM's router ──────────────────────────────
-// Problem: our bundle ships its own Vue copy.  If we register ExtListView
-// directly, FCRM's renderer runs the component but the reactive refs it
-// creates belong to our Vue instance — FCRM's renderer never subscribed to
-// them so updates are invisible and the view stays blank.
-//
-// Solution: register a thin "shim" component (plain options-API object)
-// that FCRM's Vue renders as a bare div.  In mounted() we create our own
-// Vue app (our Vue instance) and mount ExtListView inside that div.
-// Vue 3 VNodes are interoperable (they're plain objects keyed on
-// __v_isVNode), so our h() output renders fine inside FCRM's Vue renderer.
 const _extShim = {
   name: 'CrmXtListView',
   render() {
@@ -247,14 +231,30 @@ function _syncCollapse() {
   })
 }
 
+let _collapseObserver = null
+let _collapseObserverTarget = null
+
 function _setupCollapseObserver() {
   const sidebar = _findSidebarEl()
   if (!sidebar) return
-  new MutationObserver(_syncCollapse).observe(sidebar, {
+  if (_collapseObserverTarget === sidebar) {
+    _syncCollapse()
+    return
+  }
+  _collapseObserver?.disconnect()
+  _collapseObserver = new MutationObserver(_syncCollapse)
+  _collapseObserver.observe(sidebar, {
     attributes: true,
     attributeFilter: ['class', 'style'],
   })
+  _collapseObserverTarget = sidebar
   _syncCollapse()
+}
+
+function _teardownCollapseObserver() {
+  _collapseObserver?.disconnect()
+  _collapseObserver = null
+  _collapseObserverTarget = null
 }
 
 // ── Build a sidebar nav button (shared by top-level and group children) ──────
@@ -321,7 +321,7 @@ function injectCustomSidebarBtns() {
       wrapper.classList.add('crm-xt')
 
       const icon = item.icon || 'folder'
-      const nativeLabel = document.querySelector('[data-slot="sidebar-label"]')
+      const nativeLabel = findNativeSectionLabel(document)
       let headerBtn
       if (nativeLabel) {
         headerBtn = cloneNativeSectionLabel(nativeLabel, { label: item.label })
@@ -733,7 +733,6 @@ window.$toast = {
 }
 
 // ── Follow button injection ──────────────────────────────────────────────────
-let _followBtn = null
 let _followState = {}
 
 async function _loadFollowState(doctype, docname) {
@@ -852,17 +851,11 @@ function _updateFollowBtnIcon(btn, isFollowing) {
 
 function _tryInjectFollowBtn() {
   const docInfo = _getCurrentDocInfo()
-  if (!docInfo) {
-    _followBtn = null
-    return
-  }
+  if (!docInfo) return
 
   // Re-use existing button if it still exists in DOM
   let existing = document.querySelector('[data-xt-follow-btn]')
-  if (existing && existing.parentElement) {
-    _followBtn = existing
-    return
-  }
+  if (existing && existing.parentElement) return
 
   // Find the icon row by looking for a container with exactly 4 small icon buttons
   // (email, link, paperclip, delete) which is the standard FCRM lead/deal icon row
@@ -931,13 +924,12 @@ function _tryInjectFollowBtn() {
 
   // Append to icon row
   iconRow.appendChild(btn)
-  _followBtn = btn
 }
 
 // ── Tab Change Detection ────────────────────────────────────────────────────
 // Re-inject follow button when tabs are switched (Activity, Todos, Attachments, etc.)
 function setupTabObserver() {
-  const observer = new MutationObserver((mutations) => {
+  const observer = new MutationObserver(() => {
     // Check if follow button exists
     const existing = document.querySelector('[data-xt-follow-btn]')
 
@@ -955,20 +947,20 @@ function setupTabObserver() {
     attributeOldValue: false,
     characterData: false,
   })
+
+  return observer
 }
 
 // ── Mount ───────────────────────────────────────────────────────────────────
 onMounted(() => {
   // Only set up follow button injection on detail pages
-  let isOnDetailPage = !!_getCurrentDocInfo()
-  let tabObserverId = null
+  const isOnDetailPage = !!_getCurrentDocInfo()
   let pollInterval = null
+  let tabObserver = null
 
   function setupFollowButtonHandlers() {
     // Setup tab observer to re-inject button on tab changes
-    if (!tabObserverId) {
-      setupTabObserver()
-    }
+    tabObserver = setupTabObserver()
 
     // Polling mechanism to ensure button always exists (fallback)
     // Only run this on detail pages
@@ -985,25 +977,19 @@ onMounted(() => {
     }
   }
 
-  function cleanupFollowButtonHandlers() {
-    if (pollInterval) {
-      clearInterval(pollInterval)
-      pollInterval = null
-    }
-  }
-
   // Only initialize if on a detail page
   if (isOnDetailPage) {
     setupFollowButtonHandlers()
   }
 
   // Keyboard shortcut
-  document.addEventListener('keydown', (e) => {
+  const onKeydown = (e) => {
     if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault()
       showSearch.value = !showSearch.value
     }
-  })
+  }
+  document.addEventListener('keydown', onKeydown)
 
   // Global API
   window.crmXt = {
@@ -1019,8 +1005,10 @@ onMounted(() => {
   loadSidebarItems() // fetches items → injects custom buttons + FCRM route
 
   // Re-inject on navigation (FCRM rebuilds sidebar on route changes)
-  window.addEventListener('popstate', () =>
-    setTimeout(() => {
+  let reinjectTimer = null
+  const onPopstate = () => {
+    clearTimeout(reinjectTimer)
+    reinjectTimer = setTimeout(() => {
       injectSidebarBtn()
       injectCustomSidebarBtns()
       _tryInjectEventsTab()
@@ -1028,8 +1016,9 @@ onMounted(() => {
       if (_getCurrentDocInfo()) {
         _tryInjectFollowBtn()
       }
-    }, 250),
-  )
+    }, 250)
+  }
+  window.addEventListener('popstate', onPopstate)
 
   // MutationObserver: re-inject if FCRM Vue router rebuilds the sidebar
   const obs = new MutationObserver(() => {
@@ -1050,5 +1039,16 @@ onMounted(() => {
     }
   })
   obs.observe(document.body, { childList: true, subtree: true })
+
+  onUnmounted(() => {
+    obs.disconnect()
+    tabObserver?.disconnect()
+    _teardownCollapseObserver()
+    clearInterval(pollInterval)
+    clearTimeout(reinjectTimer)
+    document.removeEventListener('keydown', onKeydown)
+    window.removeEventListener('popstate', onPopstate)
+    if (window.crmXt) delete window.crmXt
+  })
 })
 </script>

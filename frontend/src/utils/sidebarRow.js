@@ -1,6 +1,6 @@
 import { getLucideIcon } from '../lucideIcons.js'
 
-export const ROW_TEMPLATE_LABEL = 'Call Logs'
+const ROW_TEMPLATE_LABEL = 'Call Logs'
 
 const _svgInnerCache = {}
 
@@ -28,14 +28,14 @@ function isOurs(el) {
 
 export function findNativeRow(doc = document, labelText = ROW_TEMPLATE_LABEL) {
   const label = Array.from(doc.querySelectorAll('span')).find(
-    (s) => s.textContent.trim() === labelText,
+    (s) => s.textContent.trim() === labelText && !isOurs(s),
   )
   const row =
     label &&
     (label.closest('[data-slot="sidebar-item"]') ||
       label.closest('button') ||
       label.closest('a'))
-  if (row) return row
+  if (row && !isOurs(row)) return row
   const sidebar = findSidebarEl(doc)
   const modern = Array.from(
     (sidebar || doc).querySelectorAll('[data-slot="sidebar-item"]'),
@@ -46,6 +46,14 @@ export function findNativeRow(doc = document, labelText = ROW_TEMPLATE_LABEL) {
     (el) => !isOurs(el) && el.querySelector('span'),
   )
   return legacy.length ? legacy[legacy.length - 1] : null
+}
+export function findNativeSectionLabel(doc = document) {
+  const scope = findSidebarEl(doc) || doc
+  return (
+    Array.from(scope.querySelectorAll('[data-slot="sidebar-label"]')).find(
+      (el) => !isOurs(el),
+    ) || null
+  )
 }
 
 function rowLabelParts(row) {
@@ -58,7 +66,21 @@ function rowLabelParts(row) {
   return { wrapper: wrapper || textEl, textEl }
 }
 
-export function swapRowIcon(row, icon) {
+function buildIconSvg(doc, icon, className) {
+  const svg = doc.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('fill', 'none')
+  svg.setAttribute('stroke', 'currentColor')
+  svg.setAttribute('stroke-width', '1.5')
+  svg.setAttribute('stroke-linecap', 'round')
+  svg.setAttribute('stroke-linejoin', 'round')
+  svg.setAttribute('class', className)
+  svg.innerHTML = lucideIconInner(icon)
+  return svg
+}
+
+function swapRowIcon(row, icon) {
+  const doc = row.ownerDocument
   const lucideSpan = Array.from(row.querySelectorAll('span')).find((s) =>
     Array.from(s.classList).some((c) => c.startsWith('lucide-')),
   )
@@ -66,22 +88,15 @@ export function swapRowIcon(row, icon) {
     Array.from(lucideSpan.classList)
       .filter((c) => c.startsWith('lucide-'))
       .forEach((c) => lucideSpan.classList.remove(c))
-    lucideSpan.classList.add(`lucide-${icon}`)
+    lucideSpan.textContent = ''
+    lucideSpan.appendChild(buildIconSvg(doc, icon, 'size-4'))
     return true
   }
   const svg = row.querySelector('svg')
   if (!svg) return false
-  const doc = row.ownerDocument
-  const replacement = doc.createElementNS('http://www.w3.org/2000/svg', 'svg')
-  replacement.setAttribute('viewBox', '0 0 24 24')
-  replacement.setAttribute('fill', 'none')
-  replacement.setAttribute('stroke', 'currentColor')
-  replacement.setAttribute('stroke-width', '1.5')
-  replacement.setAttribute('stroke-linecap', 'round')
-  replacement.setAttribute('stroke-linejoin', 'round')
-  replacement.setAttribute('class', svg.getAttribute('class') || 'size-4')
-  replacement.innerHTML = lucideIconInner(icon)
-  svg.replaceWith(replacement)
+  svg.replaceWith(
+    buildIconSvg(doc, icon, svg.getAttribute('class') || 'size-4'),
+  )
   return true
 }
 
@@ -106,6 +121,10 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
   const row = template.cloneNode(true)
   row.removeAttribute('id')
   row.classList.add('crm-xt')
+  row
+    .querySelectorAll('[accesskey]')
+    .forEach((el) => el.removeAttribute('accesskey'))
+  row.removeAttribute('accesskey')
   row.setAttribute('data-state', 'inactive')
   row.classList.remove('bg-surface-elevation-3', 'shadow-sm', 'text-ink-gray-8')
   row
