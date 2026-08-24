@@ -13,7 +13,7 @@
     "@vueuse/core": "^14.3.0",
     "frappe-ui": "1.0.0-beta.29",
     "lucide-static": "^1.14.0",
-    "reka-ui": "^2.9.7",
+    "reka-ui": "^2.9.9",
     "vue": "^3.5.13"
   },
   "devDependencies": {
