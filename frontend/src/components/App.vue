@@ -15,8 +15,10 @@ import {
   cloneNativeRow,
   cloneNativeSectionLabel,
   findNativeRow,
+  createSectionLabel,
   findNativeSectionLabel,
   findSidebarEl,
+  isModernSidebar,
   isSidebarCollapsed,
   lucideIconInner,
   setLabelCollapsed,
@@ -325,6 +327,8 @@ function injectCustomSidebarBtns() {
       let headerBtn
       if (nativeLabel) {
         headerBtn = cloneNativeSectionLabel(nativeLabel, { label: item.label })
+      } else if (isModernSidebar(document)) {
+        headerBtn = createSectionLabel(item.label)
       } else {
         headerBtn = document.createElement('button')
         headerBtn.className = callLogsBtn.className

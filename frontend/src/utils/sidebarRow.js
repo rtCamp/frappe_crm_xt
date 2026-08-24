@@ -173,9 +173,38 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
   return row
 }
 
+export function isModernSidebar(doc = document) {
+  return !!doc.querySelector('[data-slot="sidebar"]')
+}
+
+// crm only renders a SidebarLabel for its Public/Pinned Views sections, both of
+// which are conditional on the async views store — so on a modern host there may
+// be no template to clone, permanently for a user with neither. Building the same
+// markup keeps the header identical either way instead of dropping to the legacy
+// icon row whenever the clone source happens to be missing.
+export function createSectionLabel(label, doc = document) {
+  const header = doc.createElement('div')
+  header.setAttribute('data-slot', 'sidebar-label')
+  header.className = 'relative flex h-7 items-center pl-2'
+  header.innerHTML = `
+    <h3 class="text-base text-ink-gray-5 transition-all duration-300 ease-in-out w-auto opacity-100">
+      <span class="flex items-center gap-1.5">
+        <span class="lucide-chevron-right -ml-0.5 size-4 shrink-0 text-ink-gray-9 transition-transform duration-300 ease-in-out"></span>
+        <span class="truncate"></span>
+      </span>
+    </h3>
+  `
+  header.querySelector('span.truncate').textContent = label
+  return finishSectionLabel(header, label)
+}
+
 export function cloneNativeSectionLabel(template, { label }) {
   const header = template.cloneNode(true)
   header.removeAttribute('id')
+  return finishSectionLabel(header, label)
+}
+
+function finishSectionLabel(header, label) {
   header.classList.add('crm-xt', 'cursor-pointer', 'select-none')
   header.setAttribute('aria-label', label)
   header.setAttribute('aria-expanded', 'false')
