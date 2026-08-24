@@ -22,6 +22,15 @@ export function findSidebarEl(doc = document) {
   )
 }
 
+function selfAndDescendants(root, selector) {
+  const found = Array.from(root.querySelectorAll(selector))
+  return root.matches?.(selector) ? [root, ...found] : found
+}
+
+function interactiveEl(root) {
+  return root.matches?.('a, button') ? root : root.querySelector('a, button')
+}
+
 function isOurs(el) {
   return el.classList.contains('crm-xt') || !!el.closest('.crm-xt')
 }
@@ -109,7 +118,7 @@ function normaliseToExpanded(root, labelWrapper) {
     labelWrapper.classList.add('w-auto', 'opacity-100')
     if (animatesMargin) labelWrapper.classList.add('ml-2')
   }
-  const clickable = root.querySelector('a, button')
+  const clickable = interactiveEl(root)
   if (clickable?.classList.contains('justify-center')) {
     clickable.classList.remove('justify-center')
     clickable.classList.add('pl-2')
@@ -127,14 +136,13 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
   row.removeAttribute('accesskey')
   row.setAttribute('data-state', 'inactive')
   row.classList.remove('bg-surface-elevation-3', 'shadow-sm', 'text-ink-gray-8')
-  row
-    .querySelectorAll('[aria-current]')
-    .forEach((el) => el.removeAttribute('aria-current'))
-  row.querySelectorAll('a').forEach((a) => {
+  selfAndDescendants(row, '[aria-current]').forEach((el) =>
+    el.removeAttribute('aria-current'),
+  )
+  selfAndDescendants(row, 'a').forEach((a) => {
     a.removeAttribute('href')
     a.removeAttribute('target')
     a.setAttribute('role', 'button')
-    a.setAttribute('tabindex', '0')
   })
   row
     .querySelectorAll('[aria-label]')
@@ -148,7 +156,7 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
   }
   if (icon) swapRowIcon(row, icon)
   row.setAttribute('aria-label', label)
-  const clickableEl = row.querySelector('a, button')
+  const clickableEl = interactiveEl(row)
   if (clickableEl) clickableEl.setAttribute('data-xt-link', '')
   const iconHolder = row.querySelector('span.grid')
   if (iconHolder) iconHolder.setAttribute('data-xt-icon', '')
@@ -158,16 +166,6 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
   }
   if (onClick) {
     row.addEventListener('click', (event) => {
-      event.preventDefault()
-      onClick()
-    })
-    row.addEventListener('keydown', (event) => {
-      if (
-        event.key !== 'Enter' &&
-        event.key !== ' ' &&
-        event.key !== 'Spacebar'
-      )
-        return
       event.preventDefault()
       onClick()
     })
