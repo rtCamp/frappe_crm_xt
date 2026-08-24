@@ -126,7 +126,10 @@ function normaliseToExpanded(root, labelWrapper) {
   root.querySelector('span.grid')?.classList.remove('size-7')
 }
 
-export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
+export function cloneNativeRow(
+  template,
+  { label, icon, onClick, suffix, href },
+) {
   const row = template.cloneNode(true)
   row.removeAttribute('id')
   row.classList.add('crm-xt')
@@ -140,9 +143,14 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
     el.removeAttribute('aria-current'),
   )
   selfAndDescendants(row, 'a').forEach((a) => {
-    a.removeAttribute('href')
     a.removeAttribute('target')
-    a.setAttribute('role', 'button')
+    if (href) {
+      a.setAttribute('href', href)
+      a.removeAttribute('role')
+    } else {
+      a.removeAttribute('href')
+      a.setAttribute('role', 'button')
+    }
   })
   row
     .querySelectorAll('[aria-label]')
@@ -260,6 +268,24 @@ function tagCollapsibleLabel(el) {
     'data-xt-label',
     el.classList.contains('ml-2') ? 'margin' : '',
   )
+}
+
+const ACTIVE_CLASSES = [
+  'bg-surface-elevation-3',
+  'text-ink-gray-8',
+  'shadow-sm',
+]
+
+const INACTIVE_CLASSES = ['text-ink-gray-6', 'hover:bg-surface-gray-2']
+
+export function setRowActive(row, active) {
+  row.setAttribute('data-state', active ? 'active' : 'inactive')
+  ACTIVE_CLASSES.forEach((c) => row.classList.toggle(c, active))
+  INACTIVE_CLASSES.forEach((c) => row.classList.toggle(c, !active))
+  const link = interactiveEl(row)
+  if (!link) return
+  if (active) link.setAttribute('aria-current', 'page')
+  else link.removeAttribute('aria-current')
 }
 
 export function setLabelCollapsed(el, collapsed) {

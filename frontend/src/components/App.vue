@@ -20,6 +20,7 @@ import {
   findSidebarEl,
   isModernSidebar,
   isSidebarCollapsed,
+  setRowActive,
   lucideIconInner,
   setLabelCollapsed,
 } from '../utils/sidebarRow.js'
@@ -260,12 +261,19 @@ function _teardownCollapseObserver() {
 }
 
 // ── Build a sidebar nav button (shared by top-level and group children) ──────
+function _sidebarItemHref(item) {
+  if (item.type === 'list_view' && item.doctype)
+    return `/crm/xt/list/${encodeURIComponent(item.doctype)}`
+  return item.url || item.route || ''
+}
+
 function _sidebarItemAction(item) {
   return () => {
     if (item.type === 'list_view' && item.doctype) {
-      const path = `/crm/xt/list/${encodeURIComponent(item.doctype)}`
+      const path = _sidebarItemHref(item)
       window.history.pushState({}, '', path)
       window.dispatchEvent(new PopStateEvent('popstate'))
+      _syncActiveRow()
     } else {
       const url = item.url || item.route || ''
       if (url.startsWith('http')) window.open(url, '_blank')
@@ -277,10 +285,24 @@ function _sidebarItemAction(item) {
 function _makeSidebarBtn(item) {
   const isRoute = item.type === 'route'
   const icon = item.icon || (isRoute ? 'external-link' : 'list')
-  return _cloneNativeRow(_findNativeRow(), {
+  const href = _sidebarItemHref(item)
+  const row = _cloneNativeRow(_findNativeRow(), {
     label: item.label,
     icon,
+    href: href.startsWith('http') ? undefined : href,
     onClick: _sidebarItemAction(item),
+  })
+  if (item.type === 'list_view' && href) row.setAttribute('data-xt-href', href)
+  return row
+}
+
+// crm highlights the row whose route is current; our clones are inert DOM, so the
+// same state has to be driven from the location.
+function _syncActiveRow() {
+  const here = decodeURIComponent(window.location.pathname)
+  document.querySelectorAll('[data-xt-href]').forEach((row) => {
+    const target = decodeURIComponent(row.getAttribute('data-xt-href'))
+    setRowActive(row, target === here)
   })
 }
 
@@ -410,6 +432,7 @@ function injectCustomSidebarBtns() {
   // Wire up collapse sync after all elements are in the DOM
   _setupCollapseObserver()
   _syncCollapse()
+  _syncActiveRow()
 }
 
 // ── Sidebar Search button injection (Notifications container) ────────────────
@@ -1015,6 +1038,7 @@ onMounted(() => {
     reinjectTimer = setTimeout(() => {
       injectSidebarBtn()
       injectCustomSidebarBtns()
+      _syncActiveRow()
       _tryInjectEventsTab()
       // Only inject follow button if on a detail page
       if (_getCurrentDocInfo()) {
@@ -1035,6 +1059,7 @@ onMounted(() => {
         : 'crm-xt-sb-sep-0'
       if (!document.getElementById(firstId)) injectCustomSidebarBtns()
     }
+    _syncActiveRow()
     // Try to inject events tab whenever DOM changes (tab switches, navigation)
     _tryInjectEventsTab()
     // Try to inject follow button whenever DOM changes (only on detail pages)

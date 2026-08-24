@@ -49,6 +49,12 @@
 :where(.bg-surface-base) {
   background-color: var(--surface-base, var(--surface-white, oklch(1 0 0)));
 }
+:where(.bg-surface-elevation-3) {
+  background-color: var(
+    --surface-elevation-3,
+    var(--surface-selected, oklch(1 0 0))
+  );
+}
 :where(.bg-surface-elevation-1) {
   background-color: var(
     --surface-elevation-1,
