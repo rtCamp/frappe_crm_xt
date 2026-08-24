@@ -72,6 +72,4 @@ class TestDealEvents(IntegrationTestCase):
 		from frappe_crm_xt.doc_events.deal import DEAL_TO_PROJECT_FIELD_MAP
 
 		self.assertIn("custom_expected_start_date", DEAL_TO_PROJECT_FIELD_MAP)
-		self.assertEqual(
-			DEAL_TO_PROJECT_FIELD_MAP["custom_expected_start_date"], "expected_start_date"
-		)
+		self.assertEqual(DEAL_TO_PROJECT_FIELD_MAP["custom_expected_start_date"], "expected_start_date")
