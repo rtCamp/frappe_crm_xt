@@ -66,3 +66,12 @@ class TestDealEvents(IntegrationTestCase):
 			pluck="name",
 		)
 		self.assertEqual(tasks, [])
+
+	def test_deal_to_project_field_map_expected_start_date(self):
+		"""DEAL_TO_PROJECT_FIELD_MAP maps custom_expected_start_date to expected_start_date"""
+		from frappe_crm_xt.doc_events.deal import DEAL_TO_PROJECT_FIELD_MAP
+
+		self.assertIn("custom_expected_start_date", DEAL_TO_PROJECT_FIELD_MAP)
+		self.assertEqual(
+			DEAL_TO_PROJECT_FIELD_MAP["custom_expected_start_date"], "expected_start_date"
+		)
