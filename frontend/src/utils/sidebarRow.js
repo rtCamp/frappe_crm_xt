@@ -134,6 +134,7 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
     a.removeAttribute('href')
     a.removeAttribute('target')
     a.setAttribute('role', 'button')
+    a.setAttribute('tabindex', '0')
   })
   row
     .querySelectorAll('[aria-label]')
@@ -157,6 +158,16 @@ export function cloneNativeRow(template, { label, icon, onClick, suffix }) {
   }
   if (onClick) {
     row.addEventListener('click', (event) => {
+      event.preventDefault()
+      onClick()
+    })
+    row.addEventListener('keydown', (event) => {
+      if (
+        event.key !== 'Enter' &&
+        event.key !== ' ' &&
+        event.key !== 'Spacebar'
+      )
+        return
       event.preventDefault()
       onClick()
     })

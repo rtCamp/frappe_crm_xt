@@ -27,8 +27,5 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^6.4.3",
     "vue-eslint-parser": "^10.4.0"
-  },
-  "resolutions": {
-    "echarts": "6.1.0"
   }
 }
