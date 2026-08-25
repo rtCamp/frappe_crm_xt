@@ -1,14 +1,3 @@
-"""Doc-event handlers for CRM Deal — auto-create checklist tasks.
-
-When a deal's `status` or `sales_stage` changes (or on insert), create a
-CRM Task containing the checklist items defined on the corresponding
-`CRM Deal Status` or `Sales Stage` row. Mirrors rtCamp/next_crm's
-behaviour for Opportunity, retargeted at CRM Deal — both the status
-and the stage checklists live in `tabCRM Deal Status Checklist` (see
-the `migrate_opportunity_status_checklist` patch + the Sales Stage
-custom_checklist options override in setup/custom_fields.json).
-"""
-
 from __future__ import annotations
 
 import frappe
@@ -18,6 +7,7 @@ from frappe.utils import flt, get_link_to_form
 from frappe_crm_xt.frappe_crm_xt.doctype.crm_stage_change_log.crm_stage_change_log import (
 	add_stage_change_log,
 )
+from frappe_crm_xt.utils.gmail_thread import link_gmail_threads
 
 
 def validate(doc, method=None):
@@ -51,6 +41,16 @@ def before_save(doc, method=None):
 def after_insert(doc, method=None):
 	create_checklist(doc, field="status", value=doc.status)
 	create_checklist(doc, field="sales_stage", value=doc.sales_stage)
+	move_lead_emails(doc)
+
+
+def move_lead_emails(doc):
+	"""Carry the source lead's email threads over to the deal it converted into."""
+	if not doc.get("lead"):
+		return
+	if "frappe_gmail_thread" not in frappe.get_installed_apps():
+		return
+	link_gmail_threads("CRM Lead", doc.lead, doc)
 
 
 # ─── internal ────────────────────────────────────────────────────────────────
@@ -146,6 +146,7 @@ DEAL_TO_PROJECT_FIELD_MAP: dict[str, str] = {
 	"custom_deal_type": "custom_deal_type",
 	"custom_restricted_under_nda": "custom_restricted_under_nda",
 	"custom_description": "notes",
+	"custom_expected_start_date": "expected_start_date",
 }
 
 REQUIRED_DEAL_FIELDS_FOR_PROJECT: tuple[str, ...] = (
