@@ -28,8 +28,7 @@ def execute():
 	for deal in deals:
 		if not get_thread_count(deal.lead):
 			continue
-		link_gmail_threads("CRM Lead", deal.lead, frappe.get_doc("CRM Deal", deal.name))
-		frappe.db.commit()
+		link_gmail_threads("CRM Lead", deal.lead, {"doctype": "CRM Deal", "name": deal.name})
 
 
 def get_thread_count(lead):

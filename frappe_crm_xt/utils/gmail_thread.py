@@ -10,9 +10,14 @@ def get_linked_gmail_thread_list(doctype, docname):
 
 
 def link_gmail_threads(doctype, docname, doc):
-	"""Move the Gmail Threads on (doctype, docname) onto `doc`."""
+	"""Move the Gmail Threads on (doctype, docname) onto `doc`.
+
+	`doc` only has to carry `doctype` and `name`. Threads are written by the mail
+	sync, so the converting user usually cannot save them: ignore_permissions
+	matches how doc_events/gmail_thread.py saves its parents.
+	"""
 	for gmail_thread in get_linked_gmail_thread_list(doctype, docname):
 		gmail_thread_doc = frappe.get_doc("Gmail Thread", gmail_thread)
 		gmail_thread_doc.reference_doctype = doc.doctype
 		gmail_thread_doc.reference_name = doc.name
-		gmail_thread_doc.save()
+		gmail_thread_doc.save(ignore_permissions=True)
