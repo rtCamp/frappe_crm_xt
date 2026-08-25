@@ -146,6 +146,7 @@ DEAL_TO_PROJECT_FIELD_MAP: dict[str, str] = {
 	"custom_deal_type": "custom_deal_type",
 	"custom_restricted_under_nda": "custom_restricted_under_nda",
 	"custom_description": "notes",
+	"custom_expected_start_date": "expected_start_date",
 }
 
 REQUIRED_DEAL_FIELDS_FOR_PROJECT: tuple[str, ...] = (
