@@ -283,8 +283,7 @@
       "fieldtype": "Link",
       "label": "Project Manager",
       "options": "User",
-      "insert_after": "custom_project_type",
-      "link_filters": "[[\"User\",\"user_type\",\"=\",\"System User\"],[\"User\",\"name\",\"like\",\"%@rtcamp.com\"]]"
+      "insert_after": "custom_project_type"
     },
     {
       "fieldname": "custom_deal_type",
@@ -453,7 +452,6 @@
       "fieldtype": "Link",
       "label": "Google Calendar",
       "options": "Google Calendar",
-      "link_filters": "[[\"Google Calendar\",\"custom_is_google_calendar_authorized\",\"=\",1],[\"Google Calendar\",\"push_to_google_calendar\",\"=\",1]]",
       "insert_after": "custom_event_participants",
       "depends_on": "eval:doc.custom_sync_with_calendar",
       "description": "The connected Google Calendar to push this event to. The calendar must be authorized with Push enabled."

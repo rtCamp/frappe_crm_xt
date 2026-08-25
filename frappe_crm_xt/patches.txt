@@ -8,3 +8,4 @@ frappe_crm_xt.patches.v1_0.add_crm_deal_link_to_project
 frappe_crm_xt.patches.v1_0.reset_fcrm_note_modified_to_creation
 frappe_crm_xt.patches.v1_0.setup_global_search_for_crm_doctypes #rerun to add CRM Organization
 frappe_crm_xt.patches.v1_0.create_crm_slack_notifications
+frappe_crm_xt.patches.v1_0.relink_gmail_threads_to_converted_deals
