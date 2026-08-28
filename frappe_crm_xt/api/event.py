@@ -43,6 +43,8 @@ def search_emails(txt: str = ""):
 @frappe.whitelist()
 def get_doc_events(doctype: str, docname: str | int):
 	"""Fetch events linked to a document with their participants and notifications."""
+	frappe.has_permission(doctype, "read", doc=docname, throw=True)
+ 
 	event = frappe.qb.DocType("Event")
 	event_participant = frappe.qb.DocType("Event Participants")
 
@@ -79,7 +81,8 @@ def get_doc_events(doctype: str, docname: str | int):
 		return []
 
 	event_names = [e.name for e in events]
-
+ 
+	# TODO: NEED TO CHECK HOW IT WORKS
 	participants = frappe.get_all(
 		"Event Participants",
 		filters={"parent": ["in", event_names], "parenttype": "Event"},

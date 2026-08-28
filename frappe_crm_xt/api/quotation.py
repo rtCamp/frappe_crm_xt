@@ -6,6 +6,8 @@ import frappe
 @frappe.whitelist()
 def update_missing_values(source_name: str) -> dict:
 	"""Return items + currency for the CRM Deal → Quotation auto-fill (public/js/quotation_auto_items.js)."""
+	frappe.has_permission("CRM Deal", "read", source_name, throw=True)
+
 	deal = frappe.get_cached_doc("CRM Deal", source_name)
 
 	candidate_codes = {row.product_code for row in deal.products if row.product_code}
