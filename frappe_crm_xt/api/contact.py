@@ -25,9 +25,8 @@ def get_contact_by_email(email: str) -> dict | None:
 		return None
 
 	contact_name = frappe.get_value("Contact", {"email_id": email}, "name")
-	if not contact_name:
+	if not contact_name or not frappe.has_permission("Contact", "read", contact_name):
 		return None
-	frappe.has_permission("Contact", "read", contact_name, throw=True)
 
 	# Single query — `address` is a Link to the Address doctype
 	contact = frappe.get_value(
