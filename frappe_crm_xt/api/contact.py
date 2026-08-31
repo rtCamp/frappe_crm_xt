@@ -31,7 +31,7 @@ def get_contact_by_email(email: str) -> dict | None:
 		["name", "full_name", "designation", "email_id", "address", "mobile_no"],
 		as_dict=True,
 	)
-	if not contact:
+	if not contact or not frappe.has_permission("Contact", "read", contact.name):
 		return None
 
 	contact_name = contact.name
