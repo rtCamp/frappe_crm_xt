@@ -8,24 +8,6 @@
  "docstatus": 0,
  "doctype": "Report",
  "doctype_to_sync": [],
- "filters": [
-  {
-   "fieldname": "year",
-   "fieldtype": "Link",
-   "label": "Fiscal Year",
-   "mandatory": 0,
-   "options": "Fiscal Year",
-   "wildcard_filter": 0
-  },
-  {
-   "fieldname": "month",
-   "fieldtype": "Select",
-   "label": "Month",
-   "mandatory": 0,
-   "options": "\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12",
-   "wildcard_filter": 0
-  }
- ],
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": null,

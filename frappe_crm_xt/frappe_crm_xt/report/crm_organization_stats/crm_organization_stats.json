@@ -8,15 +8,6 @@
  "docstatus": 0,
  "doctype": "Report",
  "doctype_to_sync": [],
- "filters": [
-  {
-   "fieldname": "org_type",
-   "fieldtype": "Data",
-   "label": "Organization Type",
-   "mandatory": 0,
-   "wildcard_filter": 0
-  }
- ],
  "idx": 0,
  "is_standard": "Yes",
  "letter_head": null,
