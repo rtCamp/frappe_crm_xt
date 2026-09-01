@@ -307,11 +307,17 @@
       "insert_after": "custom_complexity_level"
     },
     {
+      "fieldname": "custom_expected_start_date",
+      "fieldtype": "Date",
+      "label": "Expected Start Date",
+      "insert_after": "custom_column_break_rrheo"
+    },
+    {
       "fieldname": "custom_duration",
       "fieldtype": "Select",
       "label": "Duration",
       "options": "\nShort-term (< 3 months)\nMedium-term (3-12 months)\nLong-term (> 1 year)",
-      "insert_after": "custom_column_break_rrheo",
+      "insert_after": "custom_expected_start_date",
       "default": ""
     },
     {
