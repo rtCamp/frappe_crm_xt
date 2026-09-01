@@ -19,12 +19,6 @@ def is_document_followed(doctype: str, doc_name: str):
 @frappe.whitelist()
 def update_follow(doctype: str, doc_name: str, following: bool):
 	"""Toggle follow status"""
-	from frappe.desk.form.document_follow import _follow_document, _unfollow_document
+	from frappe.desk.form.document_follow import update_follow as _update_follow
 
-	user = frappe.session.user
-	if following:
-		_follow_document(doctype, doc_name, user)
-	else:
-		_unfollow_document(doctype, doc_name, user)
-
-	return 1
+	return _update_follow(doctype, doc_name, following)
