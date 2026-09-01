@@ -3,6 +3,7 @@
 
 from frappe import _, get_meta, parse_json, qb
 from frappe.utils import add_days, getdate
+from frappe.utils import today as get_today
 
 
 def execute(filters=None):
@@ -12,21 +13,21 @@ def execute(filters=None):
 
 
 def get_data(filters=None):
-	today = getdate()
-	weekday = today.weekday()
+	filters = filters or {}
+	to_date = getdate(filters.get("to_date") or get_today())
+	from_date = getdate(filters.get("from_date") or add_days(to_date, -30))
 	meta = get_meta("CRM Deal")
-	last_monday = add_days(today, -(weekday + 7))
-	last_sunday = add_days(today, -(weekday + 1))
 	Deal = qb.DocType("CRM Deal")
 	Version = qb.DocType("Version")
 	query = (
 		qb.from_(Version)
-		.select("*", Deal.title)
+		.select(Version.docname, Version.owner, Version.creation, Version.data, Deal.title)
 		.left_join(Deal)
 		.on(Version.docname == Deal.name)
 		.where(
 			(Version.ref_doctype == "CRM Deal")
-			& (Version.creation[last_monday:last_sunday])
+			& (Version.creation >= from_date)
+			& (Version.creation < add_days(to_date, 1))
 			& (Version.data.isnotnull())
 		)
 	)
