@@ -5,10 +5,10 @@ Contact-lookup endpoints used by the Gmail Add-on.
   get_linked_leads(contact)     → CRM Leads linked to a contact
   get_linked_deals(contact)     → CRM Deals linked to a contact
 
-All three use frappe.get_list() so user-level permissions are respected.
-Fields (full_name, designation, email_id, address, mobile_no) are fetched
-directly from the Contact doctype in a single get_value() call — no child
-table or Dynamic Link traversal needed.
+get_contact_by_email and get_crm_summary_by_email gate their Contact read
+with an explicit frappe.has_permission() check before returning any PII —
+frappe.get_value() itself does not enforce permissions. get_linked_leads and
+get_linked_deals use frappe.get_list(), which does.
 """
 
 from __future__ import annotations
@@ -24,10 +24,14 @@ def get_contact_by_email(email: str) -> dict | None:
 	if not email:
 		return None
 
+	contact_name = frappe.get_value("Contact", {"email_id": email}, "name")
+	if not contact_name or not frappe.has_permission("Contact", "read", contact_name):
+		return None
+
 	# Single query — `address` is a Link to the Address doctype
 	contact = frappe.get_value(
 		"Contact",
-		{"email_id": email},
+		contact_name,
 		["name", "full_name", "designation", "email_id", "address", "mobile_no"],
 		as_dict=True,
 	)
@@ -176,12 +180,15 @@ def get_crm_summary_by_email(email: str) -> dict:
 	email = email.strip()
 
 	# ── Path A: Contact exists ─────────────────────────────────────────────────
-	contact_row = frappe.get_value(
-		"Contact",
-		{"email_id": email},
-		["name", "full_name", "designation", "email_id", "address", "mobile_no"],
-		as_dict=True,
-	)
+	contact_name = frappe.get_value("Contact", {"email_id": email}, "name")
+	contact_row = None
+	if contact_name and frappe.has_permission("Contact", "read", contact_name):
+		contact_row = frappe.get_value(
+			"Contact",
+			contact_name,
+			["name", "full_name", "designation", "email_id", "address", "mobile_no"],
+			as_dict=True,
+		)
 
 	if contact_row:
 		contact_name = contact_row.name
