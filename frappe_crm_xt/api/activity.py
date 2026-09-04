@@ -233,8 +233,11 @@ def get_latest_activity(name: str) -> dict | None:
 		return None
 
 	doctype = _resolve_reference_doctype(name)
+
 	if not doctype:
 		return None
+
+	frappe.has_permission(doctype, "read", doc=name, throw=True)
 
 	# Cheap pre-flight: query the most-recent single row from each source
 	# (4 indexed lookups), pick the winner, then fully hydrate ONLY that one.
