@@ -215,7 +215,7 @@ crm_sidebar = [
 				"type": "list_view",
 				"doctype": "CRM Lead",
 				"icon": "users",
-				"fields": ["name", "lead_name", "organization", "status", "creation"],
+				"fields": ["name", "title", "organization", "status", "creation"],
 				"default_filters": {"converted": ["=", "1"]},
 				"row_url": "/crm/leads/{name}",
 			},
