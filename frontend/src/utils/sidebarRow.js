@@ -147,9 +147,11 @@ export function cloneNativeRow(
     if (href) {
       a.setAttribute('href', href)
       a.removeAttribute('role')
+      a.removeAttribute('tabindex')
     } else {
       a.removeAttribute('href')
       a.setAttribute('role', 'button')
+      a.setAttribute('tabindex', '0')
     }
   })
   row

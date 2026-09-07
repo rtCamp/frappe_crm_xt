@@ -211,9 +211,6 @@
 :where(.text-ink-blue-8) {
   color: var(--ink-blue-8, var(--ink-blue-4, oklch(0.561 0.168 252.355)));
 }
-:where(.text-ink-gray-700) {
-  color: var(--ink-gray-7, oklch(0.341 0 0));
-}
 :where(.text-ink-green-5) {
   color: var(--ink-green-5, var(--ink-green-2, oklch(0.816 0.12 155.416)));
 }
