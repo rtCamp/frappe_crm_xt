@@ -7,6 +7,232 @@
  * inside their .vue components.
  */
 
+.group:hover :where(.group-hover\:enabled\:bg-surface-gray-9:enabled) {
+  background-color: var(
+    --surface-gray-9,
+    var(--surface-gray-6, oklch(0.341 0 0))
+  );
+}
+:where(.active\:bg-surface-gray-8:active) {
+  background-color: var(
+    --surface-gray-8,
+    var(--surface-gray-5, oklch(0.439 0 0))
+  );
+}
+:where(.active\:bg-surface-red-9:active) {
+  background-color: var(
+    --surface-red-9,
+    var(--surface-red-6, oklch(0.438 0.153 26.273))
+  );
+}
+:where(.active\:border-outline-gray-6:active) {
+  border-color: var(--outline-gray-6, var(--outline-gray-5, oklch(0.439 0 0)));
+}
+:where(.active\:border-outline-red-3:active) {
+  border-color: var(
+    --outline-red-3,
+    var(--outline-red-2, oklch(0.867 0.068 18.55))
+  );
+}
+:where(.before\:border-outline-elevation-2)::before {
+  border-color: var(
+    --outline-elevation-2,
+    var(--outline-gray-modals, oklch(0.946 0 0))
+  );
+}
+:where(.bg-surface-alpha-gray-2) {
+  background-color: var(
+    --surface-alpha-gray-2,
+    var(--surface-gray-2, oklch(0 0 0/0.043))
+  );
+}
+:where(.bg-surface-base) {
+  background-color: var(--surface-base, var(--surface-white, oklch(1 0 0)));
+}
+:where(.bg-surface-elevation-3) {
+  background-color: var(
+    --surface-elevation-3,
+    var(--surface-selected, oklch(1 0 0))
+  );
+}
+:where(.bg-surface-elevation-1) {
+  background-color: var(
+    --surface-elevation-1,
+    var(--surface-cards, oklch(1 0 0))
+  );
+}
+:where(.bg-surface-elevation-2) {
+  background-color: var(
+    --surface-elevation-2,
+    var(--surface-modal, oklch(1 0 0))
+  );
+}
+:where(.bg-surface-gray-10) {
+  background-color: var(
+    --surface-gray-10,
+    var(--surface-gray-7, oklch(0.205 0 0))
+  );
+}
+:where(.bg-surface-gray-8) {
+  background-color: var(
+    --surface-gray-8,
+    var(--surface-gray-5, oklch(0.439 0 0))
+  );
+}
+:where(.bg-surface-gray-9) {
+  background-color: var(
+    --surface-gray-9,
+    var(--surface-gray-6, oklch(0.341 0 0))
+  );
+}
+:where(.bg-surface-red-3) {
+  background-color: var(--surface-red-3, oklch(0.915 0.044 17.978));
+}
+:where(.bg-surface-red-7) {
+  background-color: var(
+    --surface-red-7,
+    var(--surface-red-5, oklch(0.556 0.198 26.552))
+  );
+}
+:where(.bg-surface-sidebar) {
+  background-color: var(
+    --surface-sidebar,
+    var(--surface-menu-bar, oklch(0.979 0 0))
+  );
+}
+:where(.bg-surface-violet-2) {
+  background-color: var(
+    --surface-violet-2,
+    var(--surface-violet-1, oklch(0.943 0.031 297.722))
+  );
+}
+:where(.border-outline-elevation-2) {
+  border-color: var(
+    --outline-elevation-2,
+    var(--outline-gray-modals, oklch(0.946 0 0))
+  );
+}
+:where(.border-outline-green-3) {
+  border-color: var(
+    --outline-green-3,
+    var(--outline-green-2, oklch(0.872 0.084 155.952))
+  );
+}
+:where(.border-ink-gray-3) {
+  border-color: var(--ink-gray-3, oklch(0.83 0 0));
+}
+:where(.divide-ink-gray-6) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--ink-gray-6, oklch(0.439 0 0));
+}
+:where(.divide-outline-elevation-2) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(
+    --outline-elevation-2,
+    var(--outline-gray-modals, oklch(0.946 0 0))
+  );
+}
+:where(.divide-outline-gray-2) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--outline-gray-2, oklch(0.913 0 0));
+}
+:where(.enabled\:hover\:bg-surface-gray-9:enabled:hover) {
+  background-color: var(
+    --surface-gray-9,
+    var(--surface-gray-6, oklch(0.341 0 0))
+  );
+}
+:where(.fill-surface-elevation-2) {
+  fill: var(--surface-elevation-2, var(--surface-modal, oklch(1 0 0)));
+}
+:where(.fill-surface-gray-10) {
+  fill: var(--surface-gray-10, var(--surface-gray-7, oklch(0.205 0 0)));
+}
+:where(.focus-within\:bg-surface-gray-3:focus-within) {
+  background-color: var(--surface-gray-3, oklch(0.946 0 0));
+}
+:where(.focus\:bg-surface-base:focus) {
+  background-color: var(--surface-base, var(--surface-white, oklch(1 0 0)));
+}
+:where(.focus\:bg-surface-gray-2:focus) {
+  background-color: var(
+    --surface-gray-2,
+    var(--surface-alpha-gray-2, oklch(0.964 0 0))
+  );
+}
+:where(.focus\:border-outline-gray-8:focus) {
+  border-color: var(--outline-gray-8, var(--outline-gray-5, oklch(0.205 0 0)));
+}
+:where(.hover\:bg-surface-gray-9:hover) {
+  background-color: var(
+    --surface-gray-9,
+    var(--surface-gray-6, oklch(0.341 0 0))
+  );
+}
+:where(.hover\:bg-surface-red-8:hover) {
+  background-color: var(
+    --surface-red-8,
+    var(--surface-red-6, oklch(0.497 0.185 27.335))
+  );
+}
+:where(.hover\:bg-surface-sidebar:hover) {
+  background-color: var(
+    --surface-sidebar,
+    var(--surface-menu-bar, oklch(0.979 0 0))
+  );
+}
+:where(.hover\:border-outline-elevation-2:hover) {
+  border-color: var(
+    --outline-elevation-2,
+    var(--outline-gray-modals, oklch(0.946 0 0))
+  );
+}
+:where(.hover\:border-outline-gray-7:hover) {
+  border-color: var(--outline-gray-7, var(--outline-gray-5, oklch(0.341 0 0)));
+}
+:where(.hover\:border-outline-red-3:hover) {
+  border-color: var(
+    --outline-red-3,
+    var(--outline-red-2, oklch(0.867 0.068 18.55))
+  );
+}
+:where(.hover\:text-ink-base:hover) {
+  color: var(--ink-base, var(--ink-white, oklch(1 0 0)));
+}
+:where(.text-ink-amber-6) {
+  color: var(--ink-amber-6, var(--ink-amber-3, oklch(0.723 0.152 71.82)));
+}
+:where(.text-ink-amber-8) {
+  color: var(--ink-amber-8, var(--ink-amber-3, oklch(0.612 0.136 63.758)));
+}
+:where(.text-ink-base) {
+  color: var(--ink-base, var(--ink-white, oklch(1 0 0)));
+}
+:where(.text-ink-blue-6) {
+  color: var(--ink-blue-6, var(--ink-blue-3, oklch(0.641 0.186 251.565)));
+}
+:where(.text-ink-blue-8) {
+  color: var(--ink-blue-8, var(--ink-blue-4, oklch(0.561 0.168 252.355)));
+}
+:where(.text-ink-green-5) {
+  color: var(--ink-green-5, var(--ink-green-2, oklch(0.816 0.12 155.416)));
+}
+:where(.text-ink-green-6) {
+  color: var(--ink-green-6, var(--ink-green-3, oklch(0.67 0.124 159.024)));
+}
+:where(.text-ink-green-8) {
+  color: var(--ink-green-8, var(--ink-green-3, oklch(0.53 0.122 156.15)));
+}
+:where(.text-ink-red-5) {
+  color: var(--ink-red-5, var(--ink-red-2, oklch(0.772 0.118 19.495)));
+}
+:where(.text-ink-red-6) {
+  color: var(--ink-red-6, var(--ink-red-3, oklch(0.595 0.208 26.283)));
+}
+:where(.text-ink-red-8) {
+  color: var(--ink-red-8, var(--ink-red-4, oklch(0.497 0.185 27.335)));
+}
+:where(.text-ink-violet-8) {
+  color: var(--ink-violet-8, var(--ink-violet-1, oklch(0.438 0.155 286.38)));
+}
+
 /* Dialog fade transition */
 .crm-xt-fade-enter-active,
 .crm-xt-fade-leave-active {
@@ -24,6 +250,43 @@
 }
 .dark\:bg-black-overlay-700 {
   background-color: #000000b8;
+}
+
+:where(.text-xs-medium) {
+  font-size: 12px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+:where(.text-base-medium) {
+  font-size: 14px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+}
+:where(.text-lg-medium) {
+  font-size: 16px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: 0.015em;
+}
+:where(.text-2xl-medium) {
+  font-size: 18px;
+  line-height: 1.15;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+:where(.text-2xl-semibold) {
+  font-size: 18px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+:where(.text-3xl-semibold) {
+  font-size: 20px;
+  line-height: 1.15;
+  font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 /* Mark/highlight in search excerpts. */

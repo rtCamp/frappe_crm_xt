@@ -308,7 +308,6 @@ crm_sidebar = [
     {
         "label": "Procurement",
         "type": "group",
-        "icon": "package",
         "items": [
             {
                 "label": "Suppliers",
@@ -335,7 +334,7 @@ crm_sidebar = [
 | `type` | `str` | ✅ | `"list_view"`, `"route"`, `"separator"`, or `"group"` |
 | `doctype` | `str` | `list_view` only | Frappe DocType to display |
 | `url` | `str` | `route` only | Destination URL |
-| `icon` | `str` | — | [Lucide](https://lucide.dev/icons/) icon name (default: `"list"`) |
+| `icon` | `str` | — | [Lucide](https://lucide.dev/icons/) icon name (default: `"list"`). Not supported on `group` — FCRM section headers are chevron + text only |
 | `default_filters` | `dict` | — | Pre-applied filters; users can see and clear them |
 | `hidden_filters` | `dict` | — | Always-applied filters; never shown in the UI |
 | `fields` | `list[str]` | — | Column order override; title and Modified are always included |

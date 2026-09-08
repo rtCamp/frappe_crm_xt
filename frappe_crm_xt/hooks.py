@@ -105,6 +105,9 @@ scheduler_events = {
 #       Destination URL, e.g. "/app/purchase-order" or "https://example.com"
 #
 #   icon           (str, optional)  Lucide icon name (default: "list")
+#       Not supported on type == "group": FCRM section headers are chevron +
+#       text only (frappe-ui SidebarLabel has no icon slot), so a group icon
+#       would be the one header in the sidebar that looks different.
 #       Any of the 1600+ Lucide icon names work — see https://lucide.dev/icons/
 #       Common examples: users, user, briefcase, file-text, package,
 #         shopping-cart, tag, inbox, phone, calendar, square-check,
@@ -174,7 +177,6 @@ scheduler_events = {
 #     {
 #         "label": "Procurement",     # ── collapsible group ───────────────────
 #         "type": "group",
-#         "icon": "package",
 #         "items": [
 #             {
 #                 "label": "Suppliers",
@@ -198,7 +200,6 @@ crm_sidebar = [
 	{
 		"label": "List Views",
 		"type": "group",
-		"icon": "layout-grid",
 		"items": [
 			{
 				"label": "Reports",
@@ -214,7 +215,7 @@ crm_sidebar = [
 				"type": "list_view",
 				"doctype": "CRM Lead",
 				"icon": "users",
-				"fields": ["name", "lead_name", "organization", "status", "creation"],
+				"fields": ["name", "title", "organization", "status", "creation"],
 				"default_filters": {"converted": ["=", "1"]},
 				"row_url": "/crm/leads/{name}",
 			},

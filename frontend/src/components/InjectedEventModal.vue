@@ -11,18 +11,18 @@
         max-width: 36rem;
         overflow: hidden;
         border-radius: 0.75rem;
-        background: var(--surface-modal, #ffffff);
+        background: var(--surface-elevation-2, #ffffff);
         text-align: start;
         box-shadow:
           0 20px 25px -5px rgba(0, 0, 0, 0.1),
           0 8px 10px -6px rgba(0, 0, 0, 0.1);
       "
     >
-      <div class="bg-surface-modal px-4 pb-6 pt-5 sm:px-6">
+      <div class="bg-surface-elevation-2 px-4 pb-6 pt-5 sm:px-6">
         <!-- Header -->
         <div class="mb-6 flex items-center justify-between">
           <div class="flex items-center space-x-2">
-            <h3 class="text-2xl font-semibold leading-6 text-ink-gray-9">
+            <h3 class="text-3xl-semibold leading-6 text-ink-gray-9">
               {{
                 mode === 'edit'
                   ? __('Edit an Event')
@@ -193,7 +193,7 @@
             </div>
             <div class="w-9/12">
               <TextEditor
-                editor-class="!prose-sm overflow-auto min-h-[80px] max-h-80 py-1.5 px-2 rounded border border-outline-gray-2 placeholder-ink-gray-4 hover:border-outline-gray-3 hover:shadow-sm focus:bg-surface-white focus:border-outline-gray-4 focus:shadow-sm focus:ring-0 focus-visible:ring-2 focus-visible:ring-outline-gray-3 text-ink-gray-8 transition-colors"
+                editor-class="!prose-sm overflow-auto min-h-[80px] max-h-80 py-1.5 px-2 rounded border border-outline-gray-2 placeholder-ink-gray-4 hover:border-outline-gray-3 hover:shadow-sm focus:bg-surface-base focus:border-outline-gray-4 focus:shadow-sm focus:ring-0 focus-visible:ring-2 focus-visible:ring-outline-gray-3 text-ink-gray-8 transition-colors"
                 :bubbleMenu="true"
                 :content="_event.description"
                 :placeholder="__('Add Description.')"
@@ -252,7 +252,7 @@
         @click.self="cancelDelete"
       >
         <div
-          class="my-8 inline-block w-full transform overflow-hidden rounded-xl bg-surface-modal text-left align-middle shadow-xl focus-visible:outline-none max-w-lg"
+          class="my-8 inline-block w-full transform overflow-hidden rounded-xl bg-surface-elevation-2 text-left align-middle shadow-xl focus-visible:outline-none max-w-lg"
           role="dialog"
           aria-label="Delete Event"
           data-state="open"
@@ -260,14 +260,12 @@
           @click.stop
         >
           <!-- Header -->
-          <div class="bg-surface-modal px-4 pb-6 pt-5 sm:px-6">
+          <div class="bg-surface-elevation-2 px-4 pb-6 pt-5 sm:px-6">
             <div class="flex">
               <div class="w-full flex-1">
                 <div class="mb-6 flex items-center justify-between">
                   <div class="flex items-center space-x-2">
-                    <h3
-                      class="text-2xl font-semibold leading-6 text-ink-gray-9"
-                    >
+                    <h3 class="text-3xl-semibold leading-6 text-ink-gray-9">
                       {{ __('Delete') }}
                     </h3>
                   </div>
