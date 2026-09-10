@@ -1,16 +1,13 @@
 """Migrate custom_service_type from a single-value field to Table MultiSelect.
 
-Service Type moves from a single Link (CRM Deal, Project) / free-text Data
-(CRM Lead) field to a Table MultiSelect (`CRM Service Type` child rows), so a
-record can carry more than one Service Type. This patch runs in
-[post_model_sync] — after the new `CRM Service Type` child table has been
-created by sync_all(), but before the `frappe_crm_xt.setup.install`
-after_migrate hook rewrites the custom field definitions and drops the old
-columns — so it's the last point the old single value can still be read.
-
-CRM Lead's old value was free text, matched case-insensitively against
-existing Service Type.title; unmatched values are logged for manual review
-rather than guessed at or silently dropped.
+Service Type moves from a single Link field on CRM Deal and Project to a
+Table MultiSelect (`CRM Service Type` child rows), so a record can carry more
+than one Service Type. CRM Lead's free-text custom_service_type field is out
+of scope and is left untouched. This patch runs in [post_model_sync] — after
+the new `CRM Service Type` child table has been created by sync_all(), but
+before the `frappe_crm_xt.setup.install` after_migrate hook rewrites the
+custom field definitions and drops the old columns — so it's the last point
+the old single value can still be read.
 
 Custom Field disallows a Link/Data field turning into a Table MultiSelect in
 place (see CustomizeForm.ALLOWED_FIELDTYPE_CHANGE) -- deleting the old field
