@@ -17,14 +17,14 @@
         @mousedown.self="close"
       >
         <div
-          class="my-8 inline-block w-full transform overflow-hidden rounded-xl bg-surface-modal text-left align-middle shadow-xl focus-visible:outline-none max-w-xl"
+          class="my-8 inline-block w-full transform overflow-hidden rounded-xl bg-surface-elevation-2 text-left align-middle shadow-xl focus-visible:outline-none max-w-xl"
           role="dialog"
           aria-label="CRM Search"
           style="pointer-events: auto"
         >
           <!-- ── Input ── -->
           <div class="flex items-center">
-            <div class="relative flex items-center ml-4 pr-4 py-3 w-full">
+            <div class="relative flex items-center mx-4 py-3 flex-1">
               <div
                 class="absolute inset-y-0 left-0 flex items-center text-ink-gray-8 pl-3"
               >
@@ -43,12 +43,14 @@
                 </svg>
               </div>
               <input
+                id="crm-xt-search-input"
                 ref="inputRef"
                 v-model="query"
                 type="text"
+                name="crm-xt-search"
                 placeholder="CRM Search"
                 autocomplete="off"
-                class="text-base rounded h-7 py-1.5 pl-8 pr-2 border border-outline-gray-2 bg-surface-white placeholder-ink-gray-4 hover:border-outline-gray-3 hover:shadow-sm focus:bg-surface-white focus:border-outline-gray-4 focus:shadow-sm focus:ring-0 focus-visible:ring-2 focus-visible:ring-outline-gray-3 text-ink-gray-8 transition-colors w-full"
+                class="text-base rounded h-7 py-1.5 pl-8 pr-2 border border-outline-gray-2 bg-surface-base placeholder-ink-gray-4 hover:border-outline-gray-3 hover:shadow-sm focus:bg-surface-base focus:border-outline-gray-4 focus:shadow-sm focus:ring-0 focus-visible:ring-2 focus-visible:ring-outline-gray-3 text-ink-gray-8 transition-colors w-full"
                 @keydown="handleKeyDown"
                 @input="onInput"
               />

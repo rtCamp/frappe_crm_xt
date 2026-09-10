@@ -7,11 +7,23 @@
 </template>
 
 <script setup>
-import { ref, onMounted, h, createApp } from 'vue'
+import { ref, onMounted, onUnmounted, h, createApp } from 'vue'
 import SearchDialog from './SearchDialog.vue'
 import ExtListView from './ExtListView.vue'
 import InjectedEventsTab from './InjectedEventsTab.vue'
-import { getLucideIcon } from '../lucideIcons.js'
+import {
+  cloneNativeRow,
+  cloneNativeSectionLabel,
+  findNativeRow,
+  createSectionLabel,
+  findNativeSectionLabel,
+  findSidebarEl,
+  isModernSidebar,
+  isSidebarCollapsed,
+  setRowActive,
+  lucideIconInner,
+  setLabelCollapsed,
+} from '../utils/sidebarRow.js'
 
 const showSearch = ref(false)
 const sidebarItems = ref([])
@@ -20,12 +32,6 @@ const sidebarItems = ref([])
 function onNavigate(route) {
   showSearch.value = false
   const path = route.path || ''
-  // The CRM SPA is mounted under /crm/* and owns those routes. Anything else
-  // (e.g. /app/lead/<name> for ERP Lead, or any Frappe Desk doctype URL) lives
-  // outside the SPA — we must do a real page load. history.pushState only
-  // updates the URL while leaving the SPA mounted, and the SPA router then
-  // can't resolve the external path, so navigation looks broken (e.g. ERP
-  // Lead search results were ending up at /crm/desk/Lead).
   if (!path.startsWith('/crm/')) {
     window.location.href = path
     return
@@ -88,21 +94,10 @@ function findItemForDoctype(items, doctype) {
   return null
 }
 
-// ── Shim component injected into FCRM's router ──────────────────────────────
-// Problem: our bundle ships its own Vue copy.  If we register ExtListView
-// directly, FCRM's renderer runs the component but the reactive refs it
-// creates belong to our Vue instance — FCRM's renderer never subscribed to
-// them so updates are invisible and the view stays blank.
-//
-// Solution: register a thin "shim" component (plain options-API object)
-// that FCRM's Vue renders as a bare div.  In mounted() we create our own
-// Vue app (our Vue instance) and mount ExtListView inside that div.
-// Vue 3 VNodes are interoperable (they're plain objects keyed on
-// __v_isVNode), so our h() output renders fine inside FCRM's Vue renderer.
 const _extShim = {
   name: 'CrmXtListView',
   render() {
-    return h('div', { style: 'height:100%;overflow:hidden;' })
+    return h('div', { class: 'flex-1 min-h-0 overflow-hidden' })
   },
   mounted() {
     this._mountApp(this.$route?.params?.doctype || '')
@@ -171,49 +166,20 @@ function injectFCRMRoute() {
   }
 }
 
-// ── Lucide icon renderer ─────────────────────────────────────────────────────
-// getLucideIcon(name) returns a complete <svg>…</svg> string from lucide-static.
-// We strip the outer <svg> tag and re-wrap with our own so we can control
-// class, size, and stroke-width to match FCRM's sidebar icon style.
-const _svgInnerCache = {}
-function lucideIconInner(name) {
-  if (_svgInnerCache[name]) return _svgInnerCache[name]
-  const raw = getLucideIcon(name)
-  // Extract everything between the first > and last </svg>
-  const inner = raw
-    .replace(/^[\s\S]*?<svg[^>]*>/, '')
-    .replace(/<\/svg>\s*$/, '')
-  _svgInnerCache[name] = inner
-  return inner
-}
+const _findNativeRow = () => findNativeRow(document)
+const _cloneNativeRow = cloneNativeRow
 
-// ── Sidebar collapse sync ────────────────────────────────────────────────────
-// Walk up from the Call Logs button to find the sidebar root div that switches
-// between w-12 (collapsed) and w-[220px] (expanded).
 let _sidebarEl = null
 
 function _findSidebarEl() {
+  if (_sidebarEl && !_sidebarEl.isConnected) _sidebarEl = null
   if (_sidebarEl) return _sidebarEl
-  const span = Array.from(document.querySelectorAll('span')).find(
-    (s) => s.textContent.trim() === 'Call Logs',
-  )
-  if (!span) return null
-  let el = span.parentElement
-  while (el) {
-    if (
-      el.classList.contains('transition-all') &&
-      el.classList.contains('duration-300')
-    ) {
-      _sidebarEl = el
-      return el
-    }
-    el = el.parentElement
-  }
-  return null
+  _sidebarEl = findSidebarEl(document)
+  return _sidebarEl
 }
 
 function _isSidebarCollapsed() {
-  return _findSidebarEl()?.classList.contains('w-12') ?? false
+  return isSidebarCollapsed(_findSidebarEl())
 }
 
 // Apply or remove collapsed styles to all our custom injected elements.
@@ -231,15 +197,16 @@ function _syncCollapse() {
     }
   })
 
-  // Label spans
-  document.querySelectorAll('[data-xt-label]').forEach((s) => {
-    if (collapsed) {
-      s.classList.remove('ml-2', 'w-auto', 'opacity-100')
-      s.classList.add('ml-0', 'w-0', 'overflow-hidden', 'opacity-0')
-    } else {
-      s.classList.remove('ml-0', 'w-0', 'overflow-hidden', 'opacity-0')
-      s.classList.add('ml-2', 'w-auto', 'opacity-100')
-    }
+  document.querySelectorAll('[data-xt-label]').forEach((el) => {
+    setLabelCollapsed(el, collapsed)
+  })
+
+  document.querySelectorAll('[data-xt-link]').forEach((el) => {
+    el.classList.toggle('pl-2', !collapsed)
+    el.classList.toggle('justify-center', collapsed)
+  })
+  document.querySelectorAll('[data-xt-icon]').forEach((el) => {
+    el.classList.toggle('size-7', collapsed)
   })
 
   // Group chevrons and ⌘K badge — hide in collapsed mode
@@ -252,66 +219,98 @@ function _syncCollapse() {
     el.style.display = collapsed ? 'none' : ''
   })
 
-  // Group children — force-close when sidebar collapses
+  document.querySelectorAll('[data-xt-divider]').forEach((el) => {
+    el.style.display = collapsed ? 'flex' : 'none'
+  })
+
   document.querySelectorAll('[data-xt-children]').forEach((el) => {
-    if (collapsed) el.style.display = 'none'
+    if (collapsed) {
+      el.style.display = 'flex'
+      return
+    }
+    const header = el.parentElement?.querySelector('[aria-expanded]')
+    el.style.display =
+      header?.getAttribute('aria-expanded') === 'true' ? 'flex' : 'none'
   })
 }
+
+let _collapseObserver = null
+let _collapseObserverTarget = null
 
 function _setupCollapseObserver() {
   const sidebar = _findSidebarEl()
   if (!sidebar) return
-  new MutationObserver(_syncCollapse).observe(sidebar, {
+  if (_collapseObserverTarget === sidebar) {
+    _syncCollapse()
+    return
+  }
+  _collapseObserver?.disconnect()
+  _collapseObserver = new MutationObserver(_syncCollapse)
+  _collapseObserver.observe(sidebar, {
     attributes: true,
-    attributeFilter: ['class'],
+    attributeFilter: ['class', 'style'],
   })
+  _collapseObserverTarget = sidebar
   _syncCollapse()
 }
 
+function _teardownCollapseObserver() {
+  _collapseObserver?.disconnect()
+  _collapseObserver = null
+  _collapseObserverTarget = null
+}
+
 // ── Build a sidebar nav button (shared by top-level and group children) ──────
-function _makeSidebarBtn(item, callLogsBtn) {
-  const btn = document.createElement('button')
-  btn.className = callLogsBtn.className
-  btn.setAttribute('aria-label', item.label)
-  const isRoute = item.type === 'route'
-  const icon = item.icon || (isRoute ? 'external-link' : 'list')
-  btn.innerHTML = `
-    <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
-      <div class="flex items-center truncate">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
-          stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-          class="flex items-center size-4 text-ink-gray-8">
-          ${lucideIconInner(icon)}
-        </svg>
-        <span data-xt-label
-          class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
-        >${item.label}</span>
-      </div>
-    </div>
-  `
-  btn.addEventListener('click', () => {
+function _sidebarItemHref(item) {
+  if (item.type === 'list_view' && item.doctype)
+    return `/crm/xt/list/${encodeURIComponent(item.doctype)}`
+  return item.url || item.route || ''
+}
+
+function _sidebarItemAction(item) {
+  return () => {
     if (item.type === 'list_view' && item.doctype) {
-      const path = `/crm/xt/list/${encodeURIComponent(item.doctype)}`
+      const path = _sidebarItemHref(item)
       window.history.pushState({}, '', path)
       window.dispatchEvent(new PopStateEvent('popstate'))
+      _syncActiveRow()
     } else {
       const url = item.url || item.route || ''
       if (url.startsWith('http')) window.open(url, '_blank')
       else window.location.href = url
     }
+  }
+}
+
+function _makeSidebarBtn(item) {
+  const isRoute = item.type === 'route'
+  const icon = item.icon || (isRoute ? 'external-link' : 'list')
+  const href = _sidebarItemHref(item)
+  const row = _cloneNativeRow(_findNativeRow(), {
+    label: item.label,
+    icon,
+    href: href.startsWith('http') ? undefined : href,
+    onClick: _sidebarItemAction(item),
   })
-  return btn
+  if (item.type === 'list_view' && href) row.setAttribute('data-xt-href', href)
+  return row
+}
+
+// crm highlights the row whose route is current; our clones are inert DOM, so the
+// same state has to be driven from the location.
+function _syncActiveRow() {
+  const here = decodeURIComponent(window.location.pathname)
+  document.querySelectorAll('[data-xt-href]').forEach((row) => {
+    const target = decodeURIComponent(row.getAttribute('data-xt-href'))
+    setRowActive(row, target === here)
+  })
 }
 
 // ── Inject custom sidebar buttons below "Call Logs" ──────────────────────────
 function injectCustomSidebarBtns() {
   if (!sidebarItems.value.length) return
 
-  // Find "Call Logs" as the anchor
-  const callLogsSpan = Array.from(document.querySelectorAll('span')).find(
-    (s) => s.textContent.trim() === 'Call Logs' && s.closest('button'),
-  )
-  const callLogsBtn = callLogsSpan?.closest('button')
+  const callLogsBtn = _findNativeRow()
   if (!callLogsBtn) return
 
   let anchor = callLogsBtn
@@ -343,15 +342,20 @@ function injectCustomSidebarBtns() {
     if (item.type === 'group') {
       const wrapper = document.createElement('div')
       wrapper.id = id
-      wrapper.className = 'flex flex-col'
+      wrapper.classList.add('crm-xt')
 
-      // Header button
       const icon = item.icon || 'folder'
-      const headerBtn = document.createElement('button')
-      headerBtn.className = callLogsBtn.className
-      headerBtn.setAttribute('aria-label', item.label)
-      headerBtn.setAttribute('aria-expanded', 'false')
-      headerBtn.innerHTML = `
+      const nativeLabel = findNativeSectionLabel(document)
+      let headerBtn
+      if (nativeLabel) {
+        headerBtn = cloneNativeSectionLabel(nativeLabel, { label: item.label })
+      } else if (isModernSidebar(document)) {
+        headerBtn = createSectionLabel(item.label)
+      } else {
+        headerBtn = document.createElement('button')
+        headerBtn.className = callLogsBtn.className
+        headerBtn.classList.add('crm-xt')
+        headerBtn.innerHTML = `
         <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
           <div class="flex items-center truncate">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor"
@@ -359,7 +363,7 @@ function injectCustomSidebarBtns() {
               class="flex items-center size-4 text-ink-gray-8">
               ${lucideIconInner(icon)}
             </svg>
-            <span data-xt-label
+            <span data-xt-label="margin"
               class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
             >${item.label}</span>
           </div>
@@ -370,11 +374,13 @@ function injectCustomSidebarBtns() {
           </svg>
         </div>
       `
+      }
+      headerBtn.setAttribute('aria-label', item.label)
+      headerBtn.setAttribute('aria-expanded', 'false')
 
-      // Children container (hidden by default)
-      const childrenEl = document.createElement('div')
+      const childrenEl = document.createElement('nav')
       childrenEl.setAttribute('data-xt-children', '')
-      childrenEl.className = 'flex-col pl-2'
+      childrenEl.className = 'flex flex-col gap-1'
       childrenEl.style.display = 'none'
 
       // Build child items
@@ -386,7 +392,7 @@ function injectCustomSidebarBtns() {
           childrenEl.appendChild(hr)
           return
         }
-        const childBtn = _makeSidebarBtn(child, callLogsBtn)
+        const childBtn = _makeSidebarBtn(child)
         childrenEl.appendChild(childBtn)
       })
 
@@ -396,13 +402,17 @@ function injectCustomSidebarBtns() {
         const expanded = headerBtn.getAttribute('aria-expanded') === 'true'
         headerBtn.setAttribute('aria-expanded', String(!expanded))
         const chevron = headerBtn.querySelector('.crm-xt-chevron')
+        const openRotation = chevron?.classList.contains('lucide-chevron-right')
+          ? 'rotate(90deg)'
+          : 'rotate(180deg)'
         if (!expanded) {
           childrenEl.style.display = 'flex'
-          if (chevron) chevron.style.transform = 'rotate(180deg)'
+          if (chevron) chevron.style.transform = openRotation
         } else {
           childrenEl.style.display = 'none'
           if (chevron) chevron.style.transform = ''
         }
+        _syncCollapse()
       })
 
       wrapper.appendChild(headerBtn)
@@ -413,7 +423,7 @@ function injectCustomSidebarBtns() {
     }
 
     // ── list_view / route ────────────────────────────────────────────────────
-    const btn = _makeSidebarBtn(item, callLogsBtn)
+    const btn = _makeSidebarBtn(item)
     btn.id = id
     anchor.insertAdjacentElement('afterend', btn)
     anchor = btn
@@ -422,6 +432,7 @@ function injectCustomSidebarBtns() {
   // Wire up collapse sync after all elements are in the DOM
   _setupCollapseObserver()
   _syncCollapse()
+  _syncActiveRow()
 }
 
 // ── Sidebar Search button injection (Notifications container) ────────────────
@@ -441,10 +452,33 @@ function injectSidebarBtn() {
   )
   const modKey = isMac ? '⌘' : 'Ctrl'
 
+  const kbdSuffix = `
+    <span data-xt-hide-collapsed class="ml-auto mr-2 flex items-center gap-1">
+      <kbd class="text-[0.65rem] text-ink-gray-5">${modKey}</kbd>
+      <kbd class="text-xs text-ink-gray-5">K</kbd>
+    </span>`
+
+  const template = _findNativeRow()
+  if (template) {
+    const row = _cloneNativeRow(template, {
+      label: 'Search',
+      icon: 'search',
+      suffix: kbdSuffix,
+      onClick: () => {
+        showSearch.value = true
+      },
+    })
+    row.id = 'crm-xt-search-btn'
+    container.insertBefore(row, notifBtn.nextSibling)
+    _syncCollapse()
+    return
+  }
+
   const btn = document.createElement('button')
   btn.id = 'crm-xt-search-btn'
   btn.className =
     'flex h-7.5 cursor-pointer items-center rounded text-ink-gray-8 duration-300 ease-in-out focus:outline-none focus:transition-none focus-visible:rounded focus-visible:ring-2 focus-visible:ring-outline-gray-3 hover:bg-surface-gray-2 relative mx-2 my-[1.5px]'
+  btn.classList.add('crm-xt')
   btn.setAttribute('aria-label', 'Search')
   btn.innerHTML = `
     <div data-xt-inner class="flex w-full items-center justify-between duration-300 ease-in-out px-2 py-[7px]">
@@ -454,7 +488,7 @@ function injectSidebarBtn() {
           class="flex items-center size-4 text-ink-gray-8">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
-        <span data-xt-label
+        <span data-xt-label="margin"
           class="flex-1 flex-shrink-0 truncate text-sm duration-300 ease-in-out ml-2 w-auto opacity-100"
         >Search</span>
       </div>
@@ -578,7 +612,7 @@ function _showEventsOverlay(doctype, docname) {
   overlay.setAttribute('data-xt-events-overlay', '')
   overlay.style.cssText =
     'position:absolute;inset:0;z-index:19;overflow:hidden;' +
-    'background:var(--surface-white,#ffffff);'
+    'background:var(--surface-base,#ffffff);'
   panel.appendChild(overlay)
   _xtEventsEl = overlay
 
@@ -677,7 +711,7 @@ function _showNotification(message, type = 'info') {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: var(--surface-gray-6, #1f2937);
+    background: var(--surface-gray-9, #1f2937);
     color: white;
     padding: 8px 16px;
     border-radius: 6px;
@@ -726,7 +760,6 @@ window.$toast = {
 }
 
 // ── Follow button injection ──────────────────────────────────────────────────
-let _followBtn = null
 let _followState = {}
 
 async function _loadFollowState(doctype, docname) {
@@ -845,17 +878,11 @@ function _updateFollowBtnIcon(btn, isFollowing) {
 
 function _tryInjectFollowBtn() {
   const docInfo = _getCurrentDocInfo()
-  if (!docInfo) {
-    _followBtn = null
-    return
-  }
+  if (!docInfo) return
 
   // Re-use existing button if it still exists in DOM
   let existing = document.querySelector('[data-xt-follow-btn]')
-  if (existing && existing.parentElement) {
-    _followBtn = existing
-    return
-  }
+  if (existing && existing.parentElement) return
 
   // Find the icon row by looking for a container with exactly 4 small icon buttons
   // (email, link, paperclip, delete) which is the standard FCRM lead/deal icon row
@@ -924,13 +951,12 @@ function _tryInjectFollowBtn() {
 
   // Append to icon row
   iconRow.appendChild(btn)
-  _followBtn = btn
 }
 
 // ── Tab Change Detection ────────────────────────────────────────────────────
 // Re-inject follow button when tabs are switched (Activity, Todos, Attachments, etc.)
 function setupTabObserver() {
-  const observer = new MutationObserver((mutations) => {
+  const observer = new MutationObserver(() => {
     // Check if follow button exists
     const existing = document.querySelector('[data-xt-follow-btn]')
 
@@ -948,20 +974,20 @@ function setupTabObserver() {
     attributeOldValue: false,
     characterData: false,
   })
+
+  return observer
 }
 
 // ── Mount ───────────────────────────────────────────────────────────────────
 onMounted(() => {
   // Only set up follow button injection on detail pages
-  let isOnDetailPage = !!_getCurrentDocInfo()
-  let tabObserverId = null
+  const isOnDetailPage = !!_getCurrentDocInfo()
   let pollInterval = null
+  let tabObserver = null
 
   function setupFollowButtonHandlers() {
     // Setup tab observer to re-inject button on tab changes
-    if (!tabObserverId) {
-      setupTabObserver()
-    }
+    tabObserver = setupTabObserver()
 
     // Polling mechanism to ensure button always exists (fallback)
     // Only run this on detail pages
@@ -978,25 +1004,19 @@ onMounted(() => {
     }
   }
 
-  function cleanupFollowButtonHandlers() {
-    if (pollInterval) {
-      clearInterval(pollInterval)
-      pollInterval = null
-    }
-  }
-
   // Only initialize if on a detail page
   if (isOnDetailPage) {
     setupFollowButtonHandlers()
   }
 
   // Keyboard shortcut
-  document.addEventListener('keydown', (e) => {
+  const onKeydown = (e) => {
     if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
       e.preventDefault()
       showSearch.value = !showSearch.value
     }
-  })
+  }
+  document.addEventListener('keydown', onKeydown)
 
   // Global API
   window.crmXt = {
@@ -1012,17 +1032,21 @@ onMounted(() => {
   loadSidebarItems() // fetches items → injects custom buttons + FCRM route
 
   // Re-inject on navigation (FCRM rebuilds sidebar on route changes)
-  window.addEventListener('popstate', () =>
-    setTimeout(() => {
+  let reinjectTimer = null
+  const onPopstate = () => {
+    clearTimeout(reinjectTimer)
+    reinjectTimer = setTimeout(() => {
       injectSidebarBtn()
       injectCustomSidebarBtns()
+      _syncActiveRow()
       _tryInjectEventsTab()
       // Only inject follow button if on a detail page
       if (_getCurrentDocInfo()) {
         _tryInjectFollowBtn()
       }
-    }, 250),
-  )
+    }, 250)
+  }
+  window.addEventListener('popstate', onPopstate)
 
   // MutationObserver: re-inject if FCRM Vue router rebuilds the sidebar
   const obs = new MutationObserver(() => {
@@ -1035,6 +1059,7 @@ onMounted(() => {
         : 'crm-xt-sb-sep-0'
       if (!document.getElementById(firstId)) injectCustomSidebarBtns()
     }
+    _syncActiveRow()
     // Try to inject events tab whenever DOM changes (tab switches, navigation)
     _tryInjectEventsTab()
     // Try to inject follow button whenever DOM changes (only on detail pages)
@@ -1043,5 +1068,16 @@ onMounted(() => {
     }
   })
   obs.observe(document.body, { childList: true, subtree: true })
+
+  onUnmounted(() => {
+    obs.disconnect()
+    tabObserver?.disconnect()
+    _teardownCollapseObserver()
+    clearInterval(pollInterval)
+    clearTimeout(reinjectTimer)
+    document.removeEventListener('keydown', onKeydown)
+    window.removeEventListener('popstate', onPopstate)
+    if (window.crmXt) delete window.crmXt
+  })
 })
 </script>

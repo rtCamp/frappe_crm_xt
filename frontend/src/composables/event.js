@@ -16,7 +16,7 @@ export function normalizeParticipants(list = []) {
   return out
 }
 
-export function formatDuration(mins) {
+function formatDuration(mins) {
   if (mins < 60) return __('{0} mins', [mins])
   let hours = mins / 60
   if (hours % 1 !== 0 && hours % 1 !== 0.5) {
